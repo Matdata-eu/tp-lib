@@ -1,50 +1,235 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+SYNC IMPACT REPORT
+==================
+Version Change: 1.0.1 → 1.1.0
+Amendment Type: MINOR - Material expansion of guidance and context
+Modified Principles:
+  - Principle I: Library-First Architecture → removed "minimal dependencies" constraint, embraced quality external dependencies
+  - All Rationales: Updated to reflect train positioning post-processing purpose (GNSS, punctual registrations, odometry, topology)
+  - Context clarification: Business-critical (not safety-critical) with potential to inspire safety systems
+Templates Status:
+  ✅ plan-template.md - no changes needed
+  ✅ spec-template.md - no changes needed
+  ✅ tasks-template.md - no changes needed
+  ✅ checklist-template.md - no changes needed
+  ⚠ commands/*.md - directory not present, will need creation when commands are added
+Follow-up TODOs: None
+-->
+
+# TP-Lib Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Library-First Architecture
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+This project develops **ONE** unified library for train positioning data post-processing with sensor fusion. The library MUST be:
+- Built on quality external dependencies rather than reinventing solutions (prefer established libraries for geospatial operations, data processing, numerical computation)
+- Independently testable without requiring application context
+- Documented with comprehensive API contracts and usage examples
+- Designed for reusability across different contexts and environments
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+**ALL** features are implemented as modules within this single library, maintaining clear internal boundaries and cohesion.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: Leveraging proven external libraries (e.g., for CRS transformations, geometric operations, data fusion algorithms) accelerates development and improves reliability. A unified library provides consistent APIs for fusing GNSS, punctual train registrations, odometry, and topology-based positioning into accurate train location estimates.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### II. CLI Interface Mandatory
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+**ALL** library functionality MUST be exposed through a command-line interface. CLI implementations MUST:
+- Accept input via stdin, command-line arguments, or file paths
+- Emit results to stdout in machine-readable formats (JSON primary, human-readable optional)
+- Write errors and diagnostics exclusively to stderr
+- Return appropriate exit codes (0 = success, non-zero = failure)
+- Support --help and --version flags
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+**Rationale**: CLI interfaces enable batch processing of positioning data, integration with ETL pipelines, and automation of post-processing workflows. They provide a universal contract for infrastructure managers' business processes.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### III. High Performance
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Performance MUST be a first-class design concern, not an afterthought. All implementations MUST:
+- Minimize memory allocations and copies
+- Use appropriate data structures for access patterns
+- Avoid unnecessary computational complexity
+- Profile critical paths and optimize hot spots
+- Document performance characteristics (time/space complexity)
+- Establish performance benchmarks for regression detection
+
+**Rationale**: Post-processing large volumes of positioning data from multiple sources (GNSS tracks, registration events, odometer readings) requires efficient algorithms and data structures. While not real-time safety-critical, performance directly impacts business process turnaround times for infrastructure managers analyzing train movements.
+
+### IV. Test-Driven Development (NON-NEGOTIABLE)
+
+**MANDATORY TDD workflow**: Tests written → User/stakeholder approval → Tests FAIL → Implementation → Tests PASS.
+
+**ALL** code MUST follow the Red-Green-Refactor cycle:
+1. **Red**: Write a failing test that defines desired behavior
+2. **Green**: Write minimal code to make the test pass
+3. **Refactor**: Improve code quality while keeping tests green
+
+**NO** implementation code may be written without a corresponding failing test first. Test-first is non-negotiable for:
+- New features (unit + integration tests)
+- Bug fixes (regression tests)
+- Refactoring (behavior preservation tests)
+
+**Rationale**: TDD ensures specification-driven development, prevents regression, and provides living documentation. For positioning algorithms that fuse multiple sensor sources, tests define expected behavior for edge cases (sparse data, conflicting measurements, topology constraints). This rigor is essential for business-critical processes and provides a foundation if patterns are adapted for safety-critical systems.
+
+### V. Full Test Coverage
+
+**100%** test coverage is the target. Every code path MUST be exercised by tests:
+- **Unit tests**: All functions, methods, branches, and edge cases
+- **Integration tests**: Component interactions and API contracts
+- **Contract tests**: Interface stability and backward compatibility
+- **Property-based tests**: Where applicable for complex logic
+- **Performance tests**: Benchmarks for critical operations
+
+Coverage reports MUST be generated and reviewed. Any uncovered code MUST be either:
+- Tested immediately, or
+- Justified in writing with explicit approval and tracked as technical debt
+
+**Rationale**: Comprehensive testing provides safety for refactoring, confidence in deployments, and documentation of expected behavior. For business-critical positioning post-processing, coverage gaps risk incorrect location estimates that impact operational decisions. High coverage also demonstrates development discipline valuable if these patterns inspire safety-critical implementations.
+
+### VI. Time with Timezone Awareness
+
+**ALL** temporal data MUST include timezone information. Implementations MUST:
+- Store times with explicit timezone (prefer UTC internally)
+- Parse input times with timezone validation
+- Convert between timezones accurately considering DST and historical changes
+- Never assume local timezone or use naive datetime objects
+- Document timezone expectations in APIs and data schemas
+
+**Rationale**: Train positioning data from GNSS, registration systems, and odometers arrives with timestamps that may span timezone boundaries. Accurate temporal correlation is essential for sensor fusion—timezone-naive handling causes misalignment between data sources, leading to incorrect position estimates and faulty business intelligence.
+
+### VII. Positions with Coordinate Reference System
+
+**ALL** spatial data MUST specify its Coordinate Reference System (CRS). Implementations MUST:
+- Store positions with explicit CRS identifier (e.g., EPSG codes)
+- Validate CRS compatibility before coordinate operations
+- Transform between CRS when required with documented accuracy
+- Never assume a default CRS (WGS84, local grid, etc.)
+- Document CRS requirements in APIs and data schemas
+
+**Rationale**: Train positioning sources use different coordinate systems: GNSS provides WGS84, infrastructure databases use local/national grids, topology networks have their own reference frames. Fusing these sources without explicit CRS handling produces incorrect positions, undermining business processes that depend on accurate location data. While not safety-critical, this library's rigor can inform future safety system development.
+
+### VIII. Thorough Error Handling
+
+**EVERY** failure mode MUST be anticipated and handled explicitly. Error handling MUST:
+- Use typed errors/exceptions with specific error codes
+- Provide actionable error messages with context
+- Distinguish between recoverable and non-recoverable errors
+- Log errors with sufficient diagnostic information
+- Never silently swallow errors or use bare except/catch blocks
+- Validate all external inputs and fail fast on invalid data
+- Document expected error conditions in API contracts
+
+**Rationale**: Positioning data post-processing encounters numerous error conditions: missing GNSS signals, conflicting sensor readings, invalid odometer data, topology mismatches. Explicit error handling ensures graceful degradation and clear diagnostics for infrastructure managers troubleshooting data quality issues. While this library supports business processes (not safety operations), robust error patterns provide valuable reference for safety-critical development.
+
+### IX. Data Provenance and Audit Trail
+
+**ALL** data transformations and state changes MUST be traceable. Implementations MUST:
+- Record data source and lineage for all derived data
+- Log all modifications with timestamp, actor, and reason
+- Maintain immutable audit logs that cannot be altered retroactively
+- Version data with change history
+- Enable reconstruction of system state at any point in time
+- Document data flows and transformation logic
+
+**Rationale**: Infrastructure managers need to trace positioning results back to source data: which GNSS measurements, registration events, and odometer readings contributed to each position estimate? Data provenance enables quality assurance, algorithm validation, and troubleshooting when fused positions differ from expectations. Audit trails support regulatory reporting and provide accountability for business-critical location data.
+
+### X. Integration Flexibility
+
+The library MUST support diverse integration patterns. Implementations MUST:
+- Provide library API as primary interface with clear entry points
+- Expose CLI for command-line automation and toolchain integration
+- Use standard data formats (JSON, CSV, binary formats) for interoperability
+- Support both synchronous and asynchronous operations where applicable
+- Enable embedding in other languages via FFI or language-specific bindings
+- Document integration examples for common use cases
+- Maintain stable interfaces with semantic versioning
+
+**Rationale**: Infrastructure managers operate diverse IT environments: data warehouses, ETL pipelines, analysis notebooks, legacy positioning systems. The library must integrate via native APIs, command-line batch processing, and language bindings to support varied post-processing workflows and enable gradual adoption alongside existing tools.
+
+## Licensing and Legal Compliance
+
+### Apache License 2.0 Absolute Compatibility
+
+**ALL** code, dependencies, and incorporated materials MUST be fully compatible with Apache License 2.0.
+
+**PROHIBITED** licenses and materials:
+- GPL, LGPL, AGPL (any version) - incompatible copyleft terms
+- Creative Commons Non-Commercial (CC BY-NC) - conflicts with commercial use
+- Any license restricting commercial use, modification, or distribution
+- Proprietary or closed-source components
+- Code without explicit license (legally ambiguous)
+
+**PERMITTED** licenses:
+- Apache 2.0, MIT, BSD (2-clause, 3-clause)
+- ISC, Unlicense, Public Domain (CC0)
+- LGPL ONLY via dynamic linking with clear separation
+
+**MANDATORY** compliance checks:
+- Every dependency MUST have documented license review
+- License scanning tools MUST run in CI/CD pipeline
+- New dependencies require explicit license approval
+- NOTICE file MUST be maintained with all third-party attributions
+
+**Rationale**: Apache 2.0 enables commercial use, modification, and distribution while providing patent protection. Incompatible licenses create legal liability and restrict project adoption.
+
+## Quality Standards
+
+### Code Quality Gates
+
+**ALL** contributions MUST pass:
+- Linter checks with zero errors (warnings documented and justified)
+- Type checking (where language supports static typing)
+- Test suite execution (all tests green)
+- Coverage threshold (minimum 90%, target 100%)
+- Performance benchmarks (no regressions without justification)
+- Security scanning (no high/critical vulnerabilities)
+
+### Documentation Requirements
+
+**EVERY** public interface MUST include:
+- Purpose and usage examples
+- Parameter descriptions and types
+- Return value specifications
+- Error conditions and handling
+- Performance characteristics where relevant
+
+### Review Process
+
+**ALL** changes MUST receive peer review verifying:
+- Constitution compliance (explicit confirmation)
+- Test coverage and TDD adherence
+- Error handling completeness
+- Documentation accuracy
+- Performance impact assessment
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### Authority and Precedence
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+This Constitution supersedes all other development practices, style guides, or conventions. In any conflict, Constitutional principles take precedence.
+
+### Amendment Process
+
+Constitution amendments require:
+1. Written proposal with rationale and impact analysis
+2. Review period (minimum 7 days for community feedback)
+3. Approval from project maintainers
+4. Migration plan for affected code
+5. Version bump according to semantic rules
+
+### Version Semantics
+
+Constitution versions follow MAJOR.MINOR.PATCH:
+- **MAJOR**: Breaking changes to core principles or removal of guarantees
+- **MINOR**: New principles, sections, or material expansions
+- **PATCH**: Clarifications, wording improvements, non-semantic fixes
+
+### Compliance Verification
+
+All pull requests and reviews MUST explicitly verify Constitutional compliance. Complexity that violates principles MUST be justified in writing with explicit approval.
+
+### Living Document
+
+This Constitution is maintained as a living document in `.specify/memory/constitution.md`. Runtime development guidance and tactical practices should reference but not duplicate Constitutional principles.
+
+**Version**: 1.1.0 | **Ratified**: 2025-12-09 | **Last Amended**: 2025-12-09
