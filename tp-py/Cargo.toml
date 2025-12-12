@@ -1,0 +1,15 @@
+[package]
+name = "tp-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "tp_lib"
+crate-type = ["cdylib"]
+
+[dependencies]
+tp-core = { path = "../tp-core" }
+pyo3.workspace = true

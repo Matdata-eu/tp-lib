@@ -1,0 +1,16 @@
+[package]
+name = "tp-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "tp-cli"
+path = "src/main.rs"
+
+[dependencies]
+tp-core = { path = "../tp-core" }
+clap.workspace = true
+thiserror.workspace = true

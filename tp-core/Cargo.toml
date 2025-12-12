@@ -1,0 +1,36 @@
+[package]
+name = "tp-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+geo.workspace = true
+proj = { workspace = true, optional = true }
+rstar.workspace = true
+geojson.workspace = true
+arrow.workspace = true
+polars.workspace = true
+csv.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+[features]
+default = []
+crs-transform = ["proj"]
+
+[dev-dependencies]
+criterion.workspace = true
+quickcheck.workspace = true
+
+[[bench]]
+name = "projection_bench"
+harness = false
+
+[[bench]]
+name = "naive_baseline_bench"
+harness = false
