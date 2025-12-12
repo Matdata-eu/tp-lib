@@ -53,7 +53,7 @@
 ### Basic Environment Validation Test (FIRST TEST - CRITICAL) 🎯
 
 - [X] T017 Create tp-core/tests/unit/projection_basic_test.rs with test_project_point_on_linestring() using hardcoded Point(50.0, 4.0) and LineString[(50.0, 4.0), (51.0, 4.0)] to verify geo crate works without file I/O
-- [ ] T018 Run `cargo test projection_basic_test` to validate environment setup, ensure test passes before proceeding to implementation
+- [X] T018 Run `cargo test projection_basic_test` to validate environment setup, ensure test passes before proceeding to implementation
 
 ### Core Data Models (Foundation)
 
@@ -86,30 +86,30 @@
 
 ### Geometric Projection (US1 Core Logic)
 
-- [ ] T026 [P] [US1] Implement project_point_onto_linestring() in tp-core/src/projection/geom.rs using geo::algorithm::ClosestPoint to find nearest point on LineString
-- [ ] T027 [P] [US1] Implement calculate_measure_along_linestring() in tp-core/src/projection/geom.rs to compute distance from linestring start to projected point in meters
-- [ ] T028 [US1] Implement project_gnss_position() in tp-core/src/projection/geom.rs combining T026 + T027, returning ProjectedPosition with projection_distance_meters
+- [X] T026 [P] [US1] Implement project_point_onto_linestring() in tp-core/src/projection/geom.rs using geo::algorithm::ClosestPoint to find nearest point on LineString
+- [X] T027 [P] [US1] Implement calculate_measure_along_linestring() in tp-core/src/projection/geom.rs to compute distance from linestring start to projected point in meters
+- [X] T028 [US1] Implement project_gnss_position() in tp-core/src/projection/geom.rs combining T026 + T027, returning ProjectedPosition with projection_distance_meters
 
 ### Spatial Indexing (US1 Performance)
 
-- [ ] T029 [P] [US1] Create NetworkIndex struct in tp-core/src/projection/spatial.rs wrapping rstar::RTree<NetelementIndexEntry>
-- [ ] T030 [US1] Implement build_spatial_index() in tp-core/src/projection/spatial.rs to populate RTree from Vec<Netelement> using bounding boxes
-- [ ] T031 [US1] Implement find_nearest_netelement() in tp-core/src/projection/spatial.rs using RTree::nearest_neighbor() for O(log n) queries
+- [X] T029 [P] [US1] Create NetworkIndex struct in tp-core/src/projection/spatial.rs wrapping rstar::RTree<NetelementIndexEntry>
+- [X] T030 [US1] Implement build_spatial_index() in tp-core/src/projection/spatial.rs to populate RTree from Vec<Netelement> using bounding boxes
+- [X] T031 [US1] Implement find_nearest_netelement() in tp-core/src/projection/spatial.rs using RTree::nearest_neighbor() for O(log n) queries
 
 ### Input Parsing (US1 Data Loading)
 
-- [ ] T032 [P] [US1] Implement parse_gnss_csv() in tp-core/src/io/csv.rs using csv crate with configurable column names (lat_col, lon_col, time_col), returning Vec<GnssPosition>
-- [ ] T033 [P] [US1] Implement parse_network_geojson() in tp-core/src/io/geojson.rs using geojson crate, extracting Features with LineString geometry into Vec<Netelement>
-- [ ] T034 [US1] Add CRS extraction logic to parse_network_geojson() in tp-core/src/io/geojson.rs validating WGS84 per RFC 7946
-- [ ] T035 [US1] Add validation to parse_gnss_csv() in tp-core/src/io/csv.rs: fail-fast for missing columns, invalid coordinates, missing timezone in timestamps
+- [X] T032 [P] [US1] Implement parse_gnss_csv() in tp-core/src/io/csv.rs using csv crate with configurable column names (lat_col, lon_col, time_col), returning Vec<GnssPosition>
+- [X] T033 [P] [US1] Implement parse_network_geojson() in tp-core/src/io/geojson.rs using geojson crate, extracting Features with LineString geometry into Vec<Netelement>
+- [X] T034 [US1] Add CRS extraction logic to parse_network_geojson() in tp-core/src/io/geojson.rs validating WGS84 per RFC 7946
+- [X] T035 [US1] Add validation to parse_gnss_csv() in tp-core/src/io/csv.rs: fail-fast for missing columns, invalid coordinates, missing timezone in timestamps
 
 ### Main Processing Pipeline (US1 Orchestration)
 
-- [ ] T036 [US1] Create RailwayNetwork struct in tp-core/src/lib.rs wrapping Vec<Netelement> and NetworkIndex with methods: new(), find_nearest(), get_by_id()
-- [ ] T037 [US1] Implement project_gnss() function in tp-core/src/lib.rs: accept &[GnssPosition], &RailwayNetwork, ProjectionConfig → Result<Vec<ProjectedPosition>>
-- [ ] T038 [US1] Add CRS transformation logic to project_gnss() in tp-core/src/lib.rs: if GNSS CRS ≠ Network CRS, use CrsTransformer to convert coordinates before projection
-- [ ] T039 [US1] Add temporal ordering preservation in project_gnss() in tp-core/src/lib.rs ensuring output Vec maintains input timestamp order
-- [ ] T040 [US1] Add diagnostic warning emission in project_gnss() in tp-core/src/lib.rs: if projection_distance_meters > threshold (default 50m), log to stderr
+- [X] T036 [US1] Create RailwayNetwork struct in tp-core/src/lib.rs wrapping Vec<Netelement> and NetworkIndex with methods: new(), find_nearest(), get_by_id()
+- [X] T037 [US1] Implement project_gnss() function in tp-core/src/lib.rs: accept &[GnssPosition], &RailwayNetwork, ProjectionConfig → Result<Vec<ProjectedPosition>>
+- [X] T038 [US1] Add CRS transformation logic to project_gnss() in tp-core/src/lib.rs: if GNSS CRS ≠ Network CRS, use CrsTransformer to convert coordinates before projection
+- [X] T039 [US1] Add temporal ordering preservation in project_gnss() in tp-core/src/lib.rs ensuring output Vec maintains input timestamp order
+- [X] T040 [US1] Add diagnostic warning emission in project_gnss() in tp-core/src/lib.rs: if projection_distance_meters > threshold (default 50m), log to stderr
 
 ### Output Formatting (US1 Results)
 

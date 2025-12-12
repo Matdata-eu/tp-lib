@@ -17,6 +17,9 @@ pub enum ProjectionError {
     #[error("Missing timezone information: {0}")]
     MissingTimezone(String),
 
+    #[error("Invalid timestamp: {0}")]
+    InvalidTimestamp(String),
+
     #[error("Empty railway network")]
     EmptyNetwork,
 
