@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Python bindings for tp-core GNSS projection library"
+readme = "../README.md"
+keywords = ["gnss", "gps", "railway", "python", "pyo3"]
+categories = ["api-bindings"]
 
 [lib]
 name = "tp_lib"

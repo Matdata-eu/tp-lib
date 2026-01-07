@@ -1,0 +1,53 @@
+{
+    "type": "FeatureCollection",
+    "crs": {
+        "type": "name",
+        "properties": {
+            "name": "EPSG:4326"
+        }
+    },
+    "features": [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        4.3510,
+                        50.8500
+                    ],
+                    [
+                        4.3530,
+                        50.8510
+                    ]
+                ]
+            },
+            "properties": {
+                "netelement_id": "NE001",
+                "track_name": "Track 1",
+                "line_name": "Brussels-Antwerp"
+            }
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        4.3515,
+                        50.8505
+                    ],
+                    [
+                        4.3525,
+                        50.8512
+                    ]
+                ]
+            },
+            "properties": {
+                "netelement_id": "NE002",
+                "track_name": "Track 2",
+                "line_name": "Brussels-Antwerp"
+            }
+        }
+    ]
+}

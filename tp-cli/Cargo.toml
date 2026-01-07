@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Command-line interface for GNSS track axis projection"
+readme = "README.md"
+keywords = ["gnss", "gps", "railway", "cli"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "tp-cli"
@@ -14,3 +18,10 @@ path = "src/main.rs"
 tp-core = { path = "../tp-core" }
 clap.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile = "3.8"

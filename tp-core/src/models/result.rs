@@ -5,6 +5,45 @@ use serde::{Deserialize, Serialize};
 use crate::models::GnssPosition;
 
 /// Represents a GNSS position projected onto a railway netelement
+///
+/// A `ProjectedPosition` is the result of projecting a GNSS measurement onto the
+/// nearest railway track segment. It preserves the original GNSS data and adds:
+///
+/// - Projected coordinates on the track centerline
+/// - Measure (distance along track from netelement start)
+/// - Projection distance (perpendicular distance from original to projected point)
+/// - Netelement assignment
+///
+/// # Use Cases
+///
+/// - Calculate train progress along tracks
+/// - Analyze position accuracy and quality
+/// - Detect track deviations or sensor errors
+/// - Generate linear referencing for asset management
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use tp_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork};
+/// use tp_core::{project_gnss, ProjectionConfig};
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // Load and project data
+/// let netelements = parse_network_geojson("network.geojson")?;
+/// let network = RailwayNetwork::new(netelements)?;
+/// let positions = parse_gnss_csv("gnss.csv", "EPSG:4326", "latitude", "longitude", "timestamp")?;
+/// 
+/// let config = ProjectionConfig::default();
+/// let projected = project_gnss(&positions, &network, &config)?;
+///
+/// // Analyze results
+/// for pos in projected {
+///     println!("Track position: {}m on {}", pos.measure_meters, pos.netelement_id);
+///     println!("Projection accuracy: {:.2}m", pos.projection_distance_meters);
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectedPosition {
     /// Original GNSS measurement (preserved)

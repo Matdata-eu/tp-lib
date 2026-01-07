@@ -1,0 +1,56 @@
+{
+    "type": "FeatureCollection",
+    "crs": {
+        "type": "name",
+        "properties": {
+            "name": "EPSG:4326"
+        }
+    },
+    "features": [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    4.3517,
+                    50.8503
+                ]
+            },
+            "properties": {
+                "timestamp": "2024-01-15T10:30:00+01:00",
+                "train_id": "IC1234",
+                "speed_kmh": 120
+            }
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    4.3520,
+                    50.8505
+                ]
+            },
+            "properties": {
+                "timestamp": "2024-01-15T10:30:05+01:00",
+                "train_id": "IC1234",
+                "speed_kmh": 122
+            }
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    4.3523,
+                    50.8508
+                ]
+            },
+            "properties": {
+                "timestamp": "2024-01-15T10:30:10+01:00",
+                "train_id": "IC1234",
+                "speed_kmh": 118
+            }
+        }
+    ]
+}

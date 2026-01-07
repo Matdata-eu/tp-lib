@@ -1,12 +1,11 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: 1.0.1 → 1.1.0
-Amendment Type: MINOR - Material expansion of guidance and context
+Version Change: 1.1.0 → 1.2.0
+Amendment Type: MINOR - Added new principle for module organization
 Modified Principles:
-  - Principle I: Library-First Architecture → removed "minimal dependencies" constraint, embraced quality external dependencies
-  - All Rationales: Updated to reflect train positioning post-processing purpose (GNSS, punctual registrations, odometry, topology)
-  - Context clarification: Business-critical (not safety-critical) with potential to inspire safety systems
+  - NEW Principle XI: Modern Module Organization (Rust) → mandates Rust 1.30+ naming convention (directory.rs, not directory/mod.rs)
+  - Context: Enforces modern Rust ecosystem standards for module file naming
 Templates Status:
   ✅ plan-template.md - no changes needed
   ✅ spec-template.md - no changes needed
@@ -23,6 +22,7 @@ Follow-up TODOs: None
 ### I. Library-First Architecture
 
 This project develops **ONE** unified library for train positioning data post-processing with sensor fusion. The library MUST be:
+
 - Built on quality external dependencies rather than reinventing solutions (prefer established libraries for geospatial operations, data processing, numerical computation)
 - Independently testable without requiring application context
 - Documented with comprehensive API contracts and usage examples
@@ -35,6 +35,7 @@ This project develops **ONE** unified library for train positioning data post-pr
 ### II. CLI Interface Mandatory
 
 **ALL** library functionality MUST be exposed through a command-line interface. CLI implementations MUST:
+
 - Accept input via stdin, command-line arguments, or file paths
 - Emit results to stdout in machine-readable formats (JSON primary, human-readable optional)
 - Write errors and diagnostics exclusively to stderr
@@ -46,6 +47,7 @@ This project develops **ONE** unified library for train positioning data post-pr
 ### III. High Performance
 
 Performance MUST be a first-class design concern, not an afterthought. All implementations MUST:
+
 - Minimize memory allocations and copies
 - Use appropriate data structures for access patterns
 - Avoid unnecessary computational complexity
@@ -60,11 +62,13 @@ Performance MUST be a first-class design concern, not an afterthought. All imple
 **MANDATORY TDD workflow**: Tests written → User/stakeholder approval → Tests FAIL → Implementation → Tests PASS.
 
 **ALL** code MUST follow the Red-Green-Refactor cycle:
+
 1. **Red**: Write a failing test that defines desired behavior
 2. **Green**: Write minimal code to make the test pass
 3. **Refactor**: Improve code quality while keeping tests green
 
 **NO** implementation code may be written without a corresponding failing test first. Test-first is non-negotiable for:
+
 - New features (unit + integration tests)
 - Bug fixes (regression tests)
 - Refactoring (behavior preservation tests)
@@ -74,6 +78,7 @@ Performance MUST be a first-class design concern, not an afterthought. All imple
 ### V. Full Test Coverage
 
 **100%** test coverage is the target. Every code path MUST be exercised by tests:
+
 - **Unit tests**: All functions, methods, branches, and edge cases
 - **Integration tests**: Component interactions and API contracts
 - **Contract tests**: Interface stability and backward compatibility
@@ -81,6 +86,7 @@ Performance MUST be a first-class design concern, not an afterthought. All imple
 - **Performance tests**: Benchmarks for critical operations
 
 Coverage reports MUST be generated and reviewed. Any uncovered code MUST be either:
+
 - Tested immediately, or
 - Justified in writing with explicit approval and tracked as technical debt
 
@@ -89,6 +95,7 @@ Coverage reports MUST be generated and reviewed. Any uncovered code MUST be eith
 ### VI. Time with Timezone Awareness
 
 **ALL** temporal data MUST include timezone information. Implementations MUST:
+
 - Store times with explicit timezone (prefer UTC internally)
 - Parse input times with timezone validation
 - Convert between timezones accurately considering DST and historical changes
@@ -100,6 +107,7 @@ Coverage reports MUST be generated and reviewed. Any uncovered code MUST be eith
 ### VII. Positions with Coordinate Reference System
 
 **ALL** spatial data MUST specify its Coordinate Reference System (CRS). Implementations MUST:
+
 - Store positions with explicit CRS identifier (e.g., EPSG codes)
 - Validate CRS compatibility before coordinate operations
 - Transform between CRS when required with documented accuracy
@@ -111,6 +119,7 @@ Coverage reports MUST be generated and reviewed. Any uncovered code MUST be eith
 ### VIII. Thorough Error Handling
 
 **EVERY** failure mode MUST be anticipated and handled explicitly. Error handling MUST:
+
 - Use typed errors/exceptions with specific error codes
 - Provide actionable error messages with context
 - Distinguish between recoverable and non-recoverable errors
@@ -124,6 +133,7 @@ Coverage reports MUST be generated and reviewed. Any uncovered code MUST be eith
 ### IX. Data Provenance and Audit Trail
 
 **ALL** data transformations and state changes MUST be traceable. Implementations MUST:
+
 - Record data source and lineage for all derived data
 - Log all modifications with timestamp, actor, and reason
 - Maintain immutable audit logs that cannot be altered retroactively
@@ -136,6 +146,7 @@ Coverage reports MUST be generated and reviewed. Any uncovered code MUST be eith
 ### X. Integration Flexibility
 
 The library MUST support diverse integration patterns. Implementations MUST:
+
 - Provide library API as primary interface with clear entry points
 - Expose CLI for command-line automation and toolchain integration
 - Use standard data formats (JSON, CSV, binary formats) for interoperability
@@ -146,6 +157,37 @@ The library MUST support diverse integration patterns. Implementations MUST:
 
 **Rationale**: Infrastructure managers operate diverse IT environments: data warehouses, ETL pipelines, analysis notebooks, legacy positioning systems. The library must integrate via native APIs, command-line batch processing, and language bindings to support varied post-processing workflows and enable gradual adoption alongside existing tools.
 
+### XI. Modern Module Organization (Rust)
+
+**ALL** Rust module definitions MUST use the modern naming convention (Rust 1.30+):
+
+- Use `directory_name.rs` files to declare modules with submodules
+- Place submodule files inside `directory_name/` subdirectory
+- Use `#[path = "directory_name/submodule.rs"]` attributes when needed
+- NEVER use `directory_name/mod.rs` pattern (deprecated pre-1.30 convention)
+
+**Structure example**:
+
+```
+src/
+  lib.rs
+  models.rs              # Module declaration with re-exports
+  models/                # Submodules directory
+    gnss.rs
+    netelement.rs
+    result.rs
+```
+
+In `models.rs`:
+
+```rust
+pub mod gnss;
+pub mod netelement;
+pub mod result;
+```
+
+**Rationale**: The `mod.rs` pattern was deprecated in Rust 1.30 in favor of cleaner directory-level module files. The modern convention improves code navigation, reduces confusion with multiple files named `mod.rs`, and follows current Rust ecosystem best practices. Consistent adherence ensures maintainability and aligns with community standards.
+
 ## Licensing and Legal Compliance
 
 ### Apache License 2.0 Absolute Compatibility
@@ -153,6 +195,7 @@ The library MUST support diverse integration patterns. Implementations MUST:
 **ALL** code, dependencies, and incorporated materials MUST be fully compatible with Apache License 2.0.
 
 **PROHIBITED** licenses and materials:
+
 - GPL, LGPL, AGPL (any version) - incompatible copyleft terms
 - Creative Commons Non-Commercial (CC BY-NC) - conflicts with commercial use
 - Any license restricting commercial use, modification, or distribution
@@ -160,11 +203,13 @@ The library MUST support diverse integration patterns. Implementations MUST:
 - Code without explicit license (legally ambiguous)
 
 **PERMITTED** licenses:
+
 - Apache 2.0, MIT, BSD (2-clause, 3-clause)
 - ISC, Unlicense, Public Domain (CC0)
 - LGPL ONLY via dynamic linking with clear separation
 
 **MANDATORY** compliance checks:
+
 - Every dependency MUST have documented license review
 - License scanning tools MUST run in CI/CD pipeline
 - New dependencies require explicit license approval
@@ -177,6 +222,7 @@ The library MUST support diverse integration patterns. Implementations MUST:
 ### Code Quality Gates
 
 **ALL** contributions MUST pass:
+
 - Linter checks with zero errors (warnings documented and justified)
 - Type checking (where language supports static typing)
 - Test suite execution (all tests green)
@@ -187,6 +233,7 @@ The library MUST support diverse integration patterns. Implementations MUST:
 ### Documentation Requirements
 
 **EVERY** public interface MUST include:
+
 - Purpose and usage examples
 - Parameter descriptions and types
 - Return value specifications
@@ -196,6 +243,7 @@ The library MUST support diverse integration patterns. Implementations MUST:
 ### Review Process
 
 **ALL** changes MUST receive peer review verifying:
+
 - Constitution compliance (explicit confirmation)
 - Test coverage and TDD adherence
 - Error handling completeness
@@ -211,6 +259,7 @@ This Constitution supersedes all other development practices, style guides, or c
 ### Amendment Process
 
 Constitution amendments require:
+
 1. Written proposal with rationale and impact analysis
 2. Review period (minimum 7 days for community feedback)
 3. Approval from project maintainers
@@ -220,6 +269,7 @@ Constitution amendments require:
 ### Version Semantics
 
 Constitution versions follow MAJOR.MINOR.PATCH:
+
 - **MAJOR**: Breaking changes to core principles or removal of guarantees
 - **MINOR**: New principles, sections, or material expansions
 - **PATCH**: Clarifications, wording improvements, non-semantic fixes
@@ -232,4 +282,4 @@ All pull requests and reviews MUST explicitly verify Constitutional compliance. 
 
 This Constitution is maintained as a living document in `.specify/memory/constitution.md`. Runtime development guidance and tactical practices should reference but not duplicate Constitutional principles.
 
-**Version**: 1.1.0 | **Ratified**: 2025-12-09 | **Last Amended**: 2025-12-09
+**Version**: 1.2.0 | **Ratified**: 2025-12-09 | **Last Amended**: 2025-01-20

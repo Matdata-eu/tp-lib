@@ -10,7 +10,7 @@ pub fn parse_rfc3339_with_timezone(s: &str) -> Result<DateTime<FixedOffset>, Pro
 }
 
 /// Validate that timezone information is present
-pub fn validate_timezone_present(dt: &DateTime<FixedOffset>) -> Result<(), ProjectionError> {
+pub fn validate_timezone_present(_dt: &DateTime<FixedOffset>) -> Result<(), ProjectionError> {
     // DateTime<FixedOffset> always has timezone, this is a type-level guarantee
     // This function exists for API consistency
     Ok(())
