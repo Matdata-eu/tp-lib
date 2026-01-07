@@ -1,0 +1,88 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Build documentation
+        run: cargo doc --workspace --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: "--enable-index-page -Zunstable-options"
+      
+      - name: Create index.html redirect
+        run: |
+          cat > target/doc/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="utf-8">
+              <meta http-equiv="refresh" content="0; url=tp_core/index.html">
+              <title>TP-Lib Documentation</title>
+          </head>
+          <body>
+              <h1>TP-Lib Documentation</h1>
+              <p>Redirecting to <a href="tp_core/index.html">tp_core documentation</a>...</p>
+              <ul>
+                  <li><a href="tp_core/index.html">tp-core: Core library for geospatial transformations</a></li>
+                  <li><a href="tp_cli/index.html">tp-cli: Command-line interface</a></li>
+                  <li><a href="tp_py/index.html">tp-py: Python bindings</a></li>
+              </ul>
+          </body>
+          </html>
+          EOF
+      
+      - name: Add .nojekyll file
+        run: touch target/doc/.nojekyll
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

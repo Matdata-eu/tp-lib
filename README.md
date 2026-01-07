@@ -1,5 +1,11 @@
 # TP-Lib: Train Positioning Library
 
+[![CI](https://github.com/matdata-eu/tp-lib/actions/workflows/ci.yml/badge.svg)](https://github.com/matdata-eu/tp-lib/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/tp-core.svg)](https://crates.io/crates/tp-core)
+[![PyPI](https://img.shields.io/pypi/v/tp-lib.svg)](https://pypi.org/project/tp-lib/)
+[![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://matdata-eu.github.io/tp-lib/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 **Status**: ✅ Production Ready - All 66 Tasks Complete
 
 Train positioning library for processing GNSS data by projecting positions onto railway track netelements (track axis centerlines). Developed for Infrabel infrastructure management.
@@ -339,7 +345,15 @@ let lambert_point = transformer.transform(wgs84_point)?;
 
 ### API Documentation
 
-Generate and view the API documentation:
+**Online:** https://matdata-eu.github.io/tp-lib/
+
+The documentation is automatically built and deployed on every push to `main`. It includes:
+
+- **tp-core**: Core library API with examples
+- **tp-cli**: Command-line interface documentation
+- **tp-py**: Python bindings API reference
+
+**Build locally:**
 
 ```bash
 # Generate documentation for all workspace crates
@@ -353,12 +367,6 @@ open target/doc/index.html  # macOS
 xdg-open target/doc/index.html  # Linux
 ```
 
-The documentation includes:
-
-- **tp-core**: Core library API with examples
-- **tp-cli**: Command-line interface documentation
-- **tp-lib**: Python bindings API reference
-
 ### Specification Documents
 
 - [Feature Specification](specs/001-gnss-projection/spec.md)
@@ -367,6 +375,22 @@ The documentation includes:
 - [CLI Contract](specs/001-gnss-projection/contracts/cli.md)
 - [API Contracts](specs/001-gnss-projection/contracts/)
 - [Tasks](specs/001-gnss-projection/tasks.md)
+
+### CI/CD & Workflows
+
+This project uses automated workflows for continuous integration and deployment:
+
+- 🔄 **Continuous Integration**: Automated testing, linting, and security checks on every push
+- 📦 **crates.io Publishing**: Automatic release to Rust package registry
+- 🐍 **PyPI Publishing**: Automatic release to Python package index
+- 📚 **Documentation Deployment**: Auto-deployed to GitHub Pages
+
+See **[CI/CD Workflows Documentation](docs/WORKFLOWS.md)** for details on:
+- Build and test automation
+- Release process and version management
+- Security and license validation
+- Publishing to crates.io and PyPI
+- Documentation deployment
 
 ### Constitution Compliance
 

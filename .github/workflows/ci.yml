@@ -96,3 +96,17 @@ jobs:
       
       - name: Run clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  deny:
+    name: License & Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      
+      - name: Run cargo deny
+        run: cargo deny check
