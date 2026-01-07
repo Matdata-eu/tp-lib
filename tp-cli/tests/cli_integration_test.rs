@@ -44,7 +44,7 @@ fn test_valid_input_produces_csv_output() {
 }"#
     ).unwrap();
     
-    let mut cmd = Command::cargo_bin("tp-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
         .arg("--crs")
@@ -77,7 +77,7 @@ fn test_missing_network_file_produces_error() {
          2025-12-09T14:30:00+01:00,50.8503,4.3517\n"
     ).unwrap();
     
-    let mut cmd = Command::cargo_bin("tp-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
         .arg("--crs")
@@ -95,7 +95,7 @@ fn test_missing_network_file_produces_error() {
 
 #[test]
 fn test_missing_file_produces_exit_code_3() {
-    let mut cmd = Command::cargo_bin("tp-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg("nonexistent_file.csv")
         .arg("--crs")
@@ -144,7 +144,7 @@ fn test_output_count_matches_input_count() {
 }"#
     ).unwrap();
     
-    let mut cmd = Command::cargo_bin("tp-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
         .arg("--crs")
@@ -191,7 +191,7 @@ fn test_geojson_output_format() {
 }"#
     ).unwrap();
     
-    let mut cmd = Command::cargo_bin("tp-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
         .arg("--crs")
@@ -210,7 +210,7 @@ fn test_geojson_output_format() {
 
 #[test]
 fn test_help_flag_displays_usage() {
-    let mut cmd = Command::cargo_bin("tp-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--help");
     
     cmd.assert()
@@ -249,7 +249,7 @@ fn test_custom_column_names() {
 }"#
     ).unwrap();
     
-    let mut cmd = Command::cargo_bin("tp-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
         .arg("--crs")

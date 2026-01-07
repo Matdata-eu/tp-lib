@@ -11,7 +11,9 @@ use proj::Proj;
 /// This transformer is feature-gated behind `crs-transform` to avoid requiring
 /// PROJ system dependencies by default. Enable with `--features crs-transform`.
 pub struct CrsTransformer {
+    #[cfg(feature = "crs-transform")]
     source_crs: String,
+    #[cfg(feature = "crs-transform")]
     target_crs: String,
     #[cfg(feature = "crs-transform")]
     proj: Proj,
@@ -37,10 +39,9 @@ impl CrsTransformer {
 
         #[cfg(not(feature = "crs-transform"))]
         {
-            Ok(Self {
-                source_crs,
-                target_crs,
-            })
+            // Prevent unused variable warnings when feature is disabled
+            let _ = (source_crs, target_crs);
+            Ok(Self {})
         }
     }
 
@@ -49,7 +50,10 @@ impl CrsTransformer {
         #[cfg(feature = "crs-transform")]
         {
             let (x, y) = self.proj.convert((point.x(), point.y())).map_err(|e| {
-                ProjectionError::TransformFailed(format!("PROJ transformation failed: {}", e))
+                ProjectionError::TransformFailed(format!(
+                    "PROJ transformation failed ({} -> {}): {}",
+                    self.source_crs, self.target_crs, e
+                ))
             })?;
             Ok(Point::new(x, y))
         }
