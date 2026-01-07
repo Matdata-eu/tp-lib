@@ -22,10 +22,10 @@ impl CrsTransformer {
     pub fn new(source_crs: String, target_crs: String) -> Result<Self, ProjectionError> {
         #[cfg(feature = "crs-transform")]
         {
-            let proj = Proj::new_known_crs(&source_crs, &target_crs, None).ok_or_else(|| {
+            let proj = Proj::new_known_crs(&source_crs, &target_crs, None).map_err(|e| {
                 ProjectionError::InvalidCrs(format!(
-                    "Failed to create PROJ transformation from {} to {}",
-                    source_crs, target_crs
+                    "Failed to create PROJ transformation from {} to {}: {}",
+                    source_crs, target_crs, e
                 ))
             })?;
             Ok(Self {
