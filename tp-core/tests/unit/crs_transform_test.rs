@@ -1,7 +1,6 @@
-//! Unit tests for CRS transformation functionality
+//! Unit tests for CRS transformation functionality using proj4rs
 //!
-//! Note: These tests require the `crs-transform` feature to be enabled.
-//! Without it, CrsTransformer uses identity transformation.
+//! Tests Belgian Lambert 72 and Lambert 2008 transformations.
 
 use geo::Point;
 use tp_core::crs::CrsTransformer;
@@ -23,7 +22,6 @@ fn test_identity_transform() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_wgs84_to_belgian_lambert_72() {
     // Transform from WGS84 to Belgian Lambert 72 (EPSG:31370)
     let transformer = CrsTransformer::new("EPSG:4326".to_string(), "EPSG:31370".to_string())
@@ -52,7 +50,6 @@ fn test_wgs84_to_belgian_lambert_72() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_wgs84_to_belgian_lambert_2008() {
     // Transform from WGS84 to Belgian Lambert 2008 (EPSG:3812)
     let transformer = CrsTransformer::new("EPSG:4326".to_string(), "EPSG:3812".to_string())
@@ -81,7 +78,6 @@ fn test_wgs84_to_belgian_lambert_2008() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_belgian_lambert_72_to_wgs84() {
     // Transform from Belgian Lambert 72 to WGS84
     let transformer = CrsTransformer::new("EPSG:31370".to_string(), "EPSG:4326".to_string())
@@ -108,7 +104,6 @@ fn test_belgian_lambert_72_to_wgs84() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_belgian_lambert_2008_to_wgs84() {
     // Transform from Belgian Lambert 2008 to WGS84
     let transformer = CrsTransformer::new("EPSG:3812".to_string(), "EPSG:4326".to_string())
@@ -135,7 +130,6 @@ fn test_belgian_lambert_2008_to_wgs84() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_round_trip_transformation() {
     // WGS84 -> Lambert 72 -> WGS84 should be close to identity
     let to_lambert = CrsTransformer::new("EPSG:4326".to_string(), "EPSG:31370".to_string())
@@ -168,7 +162,6 @@ fn test_round_trip_transformation() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_invalid_source_crs() {
     // Invalid CRS should return error
     let result = CrsTransformer::new("INVALID:9999".to_string(), "EPSG:4326".to_string());
@@ -176,7 +169,6 @@ fn test_invalid_source_crs() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_invalid_target_crs() {
     // Invalid target CRS should return error
     let result = CrsTransformer::new("EPSG:4326".to_string(), "INVALID:9999".to_string());
@@ -184,7 +176,6 @@ fn test_invalid_target_crs() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_transform_multiple_points() {
     // Test transforming multiple points along Brussels-Antwerp railway line
     let transformer = CrsTransformer::new("EPSG:4326".to_string(), "EPSG:31370".to_string())
@@ -218,7 +209,6 @@ fn test_transform_multiple_points() {
 }
 
 #[test]
-#[cfg(feature = "crs-transform")]
 fn test_transform_preserves_point_ordering() {
     // Verify that relative positions are preserved after transformation
     let transformer = CrsTransformer::new("EPSG:4326".to_string(), "EPSG:31370".to_string())

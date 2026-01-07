@@ -6,7 +6,7 @@ use tempfile::TempDir;
 #[test]
 fn test_valid_input_produces_csv_output() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create test GNSS CSV
     let gnss_csv = temp_dir.path().join("gnss.csv");
     fs::write(
@@ -14,9 +14,10 @@ fn test_valid_input_produces_csv_output() {
         "timestamp,latitude,longitude,altitude,hdop\n\
          2025-12-09T14:30:00+01:00,50.8503,4.3517,100.0,2.0\n\
          2025-12-09T14:30:01+01:00,50.8504,4.3518,100.5,2.1\n\
-         2025-12-09T14:30:02+01:00,50.8505,4.3519,101.0,2.0\n"
-    ).unwrap();
-    
+         2025-12-09T14:30:02+01:00,50.8505,4.3519,101.0,2.0\n",
+    )
+    .unwrap();
+
     // Create test network GeoJSON
     let network_geojson = temp_dir.path().join("network.geojson");
     fs::write(
@@ -41,9 +42,10 @@ fn test_valid_input_produces_csv_output() {
       }
     }
   ]
-}"#
-    ).unwrap();
-    
+}"#,
+    )
+    .unwrap();
+
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
@@ -53,7 +55,7 @@ fn test_valid_input_produces_csv_output() {
         .arg(&network_geojson)
         .arg("--output-format")
         .arg("csv");
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("original_lat"))
@@ -69,14 +71,15 @@ fn test_valid_input_produces_csv_output() {
 #[test]
 fn test_missing_network_file_produces_error() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let gnss_csv = temp_dir.path().join("gnss.csv");
     fs::write(
         &gnss_csv,
         "timestamp,latitude,longitude\n\
-         2025-12-09T14:30:00+01:00,50.8503,4.3517\n"
-    ).unwrap();
-    
+         2025-12-09T14:30:00+01:00,50.8503,4.3517\n",
+    )
+    .unwrap();
+
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
@@ -86,7 +89,7 @@ fn test_missing_network_file_produces_error() {
         .arg("nonexistent_network.geojson")
         .arg("--output-format")
         .arg("csv");
-    
+
     cmd.assert()
         .failure()
         .code(3)
@@ -104,7 +107,7 @@ fn test_missing_file_produces_exit_code_3() {
         .arg("nonexistent_network.geojson")
         .arg("--output-format")
         .arg("csv");
-    
+
     cmd.assert()
         .failure()
         .code(3)
@@ -114,7 +117,7 @@ fn test_missing_file_produces_exit_code_3() {
 #[test]
 fn test_output_count_matches_input_count() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let gnss_csv = temp_dir.path().join("gnss.csv");
     fs::write(
         &gnss_csv,
@@ -123,9 +126,10 @@ fn test_output_count_matches_input_count() {
          2025-12-09T14:30:01+01:00,50.8504,4.3518\n\
          2025-12-09T14:30:02+01:00,50.8505,4.3519\n\
          2025-12-09T14:30:03+01:00,50.8506,4.3520\n\
-         2025-12-09T14:30:04+01:00,50.8507,4.3521\n"
-    ).unwrap();
-    
+         2025-12-09T14:30:04+01:00,50.8507,4.3521\n",
+    )
+    .unwrap();
+
     let network_geojson = temp_dir.path().join("network.geojson");
     fs::write(
         &network_geojson,
@@ -141,9 +145,10 @@ fn test_output_count_matches_input_count() {
       }
     }
   ]
-}"#
-    ).unwrap();
-    
+}"#,
+    )
+    .unwrap();
+
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
@@ -153,26 +158,31 @@ fn test_output_count_matches_input_count() {
         .arg(&network_geojson)
         .arg("--output-format")
         .arg("csv");
-    
+
     let output = cmd.assert().success();
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
-    
+
     // Count lines (1 header + 5 data rows = 6 total)
     let line_count = stdout.lines().count();
-    assert_eq!(line_count, 6, "Expected 6 lines (1 header + 5 data rows), got {}", line_count);
+    assert_eq!(
+        line_count, 6,
+        "Expected 6 lines (1 header + 5 data rows), got {}",
+        line_count
+    );
 }
 
 #[test]
 fn test_geojson_output_format() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let gnss_csv = temp_dir.path().join("gnss.csv");
     fs::write(
         &gnss_csv,
         "timestamp,latitude,longitude\n\
-         2025-12-09T14:30:00+01:00,50.8503,4.3517\n"
-    ).unwrap();
-    
+         2025-12-09T14:30:00+01:00,50.8503,4.3517\n",
+    )
+    .unwrap();
+
     let network_geojson = temp_dir.path().join("network.geojson");
     fs::write(
         &network_geojson,
@@ -188,9 +198,10 @@ fn test_geojson_output_format() {
       }
     }
   ]
-}"#
-    ).unwrap();
-    
+}"#,
+    )
+    .unwrap();
+
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
@@ -200,7 +211,7 @@ fn test_geojson_output_format() {
         .arg(&network_geojson)
         .arg("--output-format")
         .arg("json");
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("FeatureCollection"))
@@ -212,7 +223,7 @@ fn test_geojson_output_format() {
 fn test_help_flag_displays_usage() {
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--help");
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("--gnss-file"))
@@ -223,14 +234,15 @@ fn test_help_flag_displays_usage() {
 #[test]
 fn test_custom_column_names() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     let gnss_csv = temp_dir.path().join("gnss.csv");
     fs::write(
         &gnss_csv,
         "time,lat,lon\n\
-         2025-12-09T14:30:00+01:00,50.8503,4.3517\n"
-    ).unwrap();
-    
+         2025-12-09T14:30:00+01:00,50.8503,4.3517\n",
+    )
+    .unwrap();
+
     let network_geojson = temp_dir.path().join("network.geojson");
     fs::write(
         &network_geojson,
@@ -246,9 +258,10 @@ fn test_custom_column_names() {
       }
     }
   ]
-}"#
-    ).unwrap();
-    
+}"#,
+    )
+    .unwrap();
+
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("--gnss-file")
         .arg(&gnss_csv)
@@ -264,7 +277,7 @@ fn test_custom_column_names() {
         .arg(&network_geojson)
         .arg("--output-format")
         .arg("csv");
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("50.8503"));

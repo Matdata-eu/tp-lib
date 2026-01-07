@@ -16,7 +16,8 @@ repository = "https://github.com/infrabel/tp-lib"
 [workspace.dependencies]
 # Geospatial
 geo = "0.28"
-proj = "0.27"
+proj4rs = "0.1.9"
+crs-definitions = "0.3.1"
 rstar = "0.12"
 geojson = "0.24"
 

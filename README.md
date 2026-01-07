@@ -40,7 +40,6 @@ tp-lib/                    # Rust workspace root
 
 - Rust 1.91.1+ (install from [rustup.rs](https://rustup.rs/))
 - Python 3.12+ (for Python bindings)
-- C compiler (gcc/clang) for native dependencies (proj, rstar)
 
 ### Build from Source
 
@@ -63,10 +62,10 @@ cargo bench --workspace
 
 #### Production Deployment
 
-Use Docker to run the CLI without installing Rust or system dependencies:
+Use Docker to run the CLI without installing Rust:
 
 ```bash
-# Build production image (includes PROJ for CRS transformations)
+# Build production image
 docker build -t tp-lib:latest .
 
 # Run with mounted data directory
@@ -93,10 +92,10 @@ docker build -f Dockerfile.test -t tp-lib-test .
 docker run --rm tp-lib-test
 
 # Run specific tests
-docker-compose run --rm test cargo test --all-features test_identity_transform
+docker-compose run --rm test cargo test test_identity_transform
 
 # Run only CRS transformation tests
-docker-compose run --rm test cargo test --features crs-transform crs_transform
+docker-compose run --rm test cargo test crs_transform
 
 # Interactive shell for debugging
 docker run --rm -it tp-lib-test bash
@@ -104,9 +103,9 @@ docker run --rm -it tp-lib-test bash
 
 **Why Docker for tests?**
 
-- **Complete test coverage**: Includes CRS transformation tests that require PROJ system library
-- **Consistent environment**: Same PROJ version (9.6.1) across all machines
-- **No local dependencies**: No need to install PROJ, CMake, pkg-config on your machine
+- **Complete test coverage**: Runs all tests including CRS transformation tests
+- **Consistent environment**: Same Rust version across all machines
+- **No local setup needed**: No need to install Rust toolchain locally
 - **CI/CD ready**: Use `Dockerfile.test` in GitHub Actions or other CI systems
 
 ### Usage Examples
@@ -258,18 +257,7 @@ latitude,longitude,timestamp,altitude,hdop
 
 ### Troubleshooting
 
-**"Missing field `transform_crs`" error:**
-
-Update `ProjectionConfig` initialization to include the new field:
-
-```rust
-let config = ProjectionConfig {
-    projection_distance_warning_threshold: 50.0,
-    transform_crs: true,  // Add this line
-};
-```
-
-**"Large projection distance" warnings:**
+**"Large projection distance" warnings:****
 
 Indicates GNSS position is far from nearest track (> threshold). Possible causes:
 
@@ -293,62 +281,59 @@ Or install Python 3.12+ and ensure it's in your PATH.
 
 ### Known Issues
 
-1. **Windows Build Dependencies**: Requires MSVC toolchain or mingw-w64 for native dependencies
-2. **CRS Transform Feature**: See detailed explanation below
-3. **Python Bindings**: Requires Python 3.12+ installed (excluded from tp-py crate builds by default)
+1. **Windows Build Dependencies**: Requires MSVC toolchain or mingw-w64 for some native dependencies
+2. **Python Bindings**: Requires Python 3.12+ installed (excluded from tp-py crate builds by default)
 
-### CRS Transform Feature and PROJ Limitations
+## CRS Transformations
 
-The `crs-transform` feature enables coordinate reference system transformations using the PROJ library.
+TP-Lib uses **proj4rs**, a pure Rust implementation of PROJ.4, for coordinate reference system transformations. This eliminates system dependencies and enables cross-platform compatibility.
 
-**Why is it optional?**
+**Key Features:**
 
-- **System dependencies**: PROJ requires external C library, CMake, and pkg-config
-- **Build complexity**: Not all contributors have PROJ installed locally
-- **Most use cases work without it**: Single-CRS workflows (e.g., EPSG:31370 for Infrabel) don't need transformations
+- **Pure Rust**: No external C libraries required (libproj, sqlite3, etc.)
+- **Zero system dependencies**: Works on Windows, Linux, macOS without installation
+- **EPSG support**: Uses `crs-definitions` crate for EPSG code lookup
+- **WASM compatible**: Can be used in browser environments
+- **Always enabled**: CRS transformations are available by default
 
-**Runtime dependency:**
+**Supported Transformations:**
 
-The `crs-transform` feature requires the PROJ shared library at **both build time and runtime**:
+TP-Lib has been tested with Belgian railway coordinate systems:
 
-- **Linux**: `libproj.so.25` (or similar version)
-- **Windows**: `proj_9_6.dll`
-- **macOS**: `libproj.dylib`
+- EPSG:4326 (WGS84) ↔ EPSG:31370 (Belgian Lambert 72)
+- EPSG:4326 (WGS84) ↔ EPSG:3812 (Belgian Lambert 2008)
+- Any EPSG codes supported by [crs-definitions](https://docs.rs/crs-definitions/)
 
-A compiled binary with `crs-transform` enabled will **not run** on machines without PROJ installed.
+**Usage:**
 
-**How to enable:**
+```rust
+use tp_core::crs::CrsTransformer;
+use geo::Point;
 
-```bash
-# Build with CRS transform support (requires PROJ 9.6.x installed)
-cargo build --features crs-transform
+// Create transformer (EPSG codes or PROJ strings)
+let transformer = CrsTransformer::new(
+    "EPSG:4326".to_string(),
+    "EPSG:31370".to_string()
+)?;
 
-# Run tests with CRS transform
-cargo test --features crs-transform crs_transform
+// Transform point (automatic degree/radian conversion)
+let wgs84_point = Point::new(4.3517, 50.8503);
+let lambert_point = transformer.transform(wgs84_point)?;
 ```
 
-**Recommended approach:**
+**Technical Details:**
 
-1. **Development without PROJ**: Build and test without `crs-transform` for single-CRS workflows
-2. **Production with Docker**: Use the provided `Dockerfile` which includes PROJ 9.6.1
-3. **Full test suite**: Use `Dockerfile.test` to run all tests including CRS transformation tests
+- proj4rs automatically handles radian/degree conversions for geographic CRS
+- EPSG codes are resolved to PROJ strings using the crs-definitions crate
+- Custom PROJ strings can be used directly instead of EPSG codes
+- Transformation accuracy matches PROJ for standard 2D transformations
 
-**Installing PROJ locally:**
+**Limitations:**
 
-```bash
-# Ubuntu/Debian
-sudo apt-get install libproj-dev proj-bin
-
-# macOS (Homebrew)
-brew install proj
-
-# Windows - build from source or use Docker
-# See: https://proj.org/en/stable/install.html
-```
-
-**Docker advantage:**
-
-The production `Dockerfile` compiles PROJ 9.6.1 from source and creates a self-contained runtime image. This eliminates version conflicts and ensures consistent behavior across environments.
+- proj4rs implements PROJ.4 API (2D transformations only)
+- No 3D/4D or orthometric transformations
+- Grid shift support is experimental
+- For complex geodetic requirements, consider using [PROJ](https://proj.org/) directly
 
 ## Documentation
 

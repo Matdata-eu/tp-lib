@@ -63,7 +63,7 @@ use projection::spatial::{find_nearest_netelement, NetworkIndex};
 /// # Fields
 ///
 /// * `projection_distance_warning_threshold` - Distance in meters above which warnings are emitted
-/// * `transform_crs` - Enable CRS transformation (requires `crs-transform` feature)
+/// * `transform_crs` - Enable CRS transformation
 ///
 /// # Examples
 ///

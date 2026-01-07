@@ -31,7 +31,7 @@ services:
     #       cpus: '2'
     #       memory: 2G
 
-  # Test service - runs all tests including crs-transform
+  # Test service - runs all tests
   test:
     build:
       context: .

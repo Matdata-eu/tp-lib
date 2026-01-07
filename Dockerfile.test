@@ -1,34 +1,7 @@
 # ============================================================================
-# Test Dockerfile - Runs all tests including crs-transform feature tests
+# Test Dockerfile - Runs all tests including CRS transformation tests
 # ============================================================================
 FROM rust:1.91-bookworm
-
-# Install system dependencies for building and testing
-RUN apt-get update && apt-get install -y \
-    cmake \
-    pkg-config \
-    libsqlite3-dev \
-    sqlite3 \
-    libtiff-dev \
-    libcurl4-openssl-dev \
-    libclang-dev \
-    clang \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install PROJ from source (version 9.6.1 for compatibility)
-RUN cd /tmp && \
-    wget https://download.osgeo.org/proj/proj-9.6.1.tar.gz && \
-    tar xzf proj-9.6.1.tar.gz && \
-    cd proj-9.6.1 && \
-    mkdir build && cd build && \
-    cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_SHARED_LIBS=ON \
-    -DCMAKE_INSTALL_PREFIX=/usr/local && \
-    make -j$(nproc) && \
-    make install && \
-    ldconfig && \
-    cd / && rm -rf /tmp/proj-9.6.1*
 
 # Set working directory
 WORKDIR /workspace
@@ -36,13 +9,8 @@ WORKDIR /workspace
 # Copy workspace files
 COPY . .
 
-# Set environment for PROJ
-ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-ENV LIBCLANG_PATH=/usr/lib/llvm-14/lib
-
-# Default command: Run all tests with all features enabled
-CMD ["cargo", "test", "--all-features", "--workspace", "--exclude", "tp-py", "--", "--nocapture"]
+# Default command: Run all tests
+CMD ["cargo", "test", "--workspace", "--exclude", "tp-py", "--", "--nocapture"]
 
 # ============================================================================
 # Usage instructions:
@@ -54,17 +22,19 @@ CMD ["cargo", "test", "--all-features", "--workspace", "--exclude", "tp-py", "--
 #    docker run --rm tp-lib-test
 #
 # 3. Run specific test:
-#    docker run --rm tp-lib-test cargo test --all-features test_name
+#    docker run --rm tp-lib-test cargo test test_name
 #
 # 4. Run with verbose output:
-#    docker run --rm tp-lib-test cargo test --all-features -- --nocapture --test-threads=1
+#    docker run --rm tp-lib-test cargo test -- --nocapture --test-threads=1
 #
-# 5. Run only crs-transform tests:
-#    docker run --rm tp-lib-test cargo test --features crs-transform crs_transform
+# 5. Run only CRS transformation tests:
+#    docker run --rm tp-lib-test cargo test crs_transform
 #
 # 6. Interactive shell for debugging:
 #    docker run --rm -it tp-lib-test bash
 #
 # 7. Using docker-compose:
+#    docker-compose run --rm test
+# ============================================================================
 #    docker-compose run --rm test
 # ============================================================================

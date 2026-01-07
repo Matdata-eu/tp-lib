@@ -13,7 +13,8 @@ categories = ["science::geo", "algorithms"]
 
 [dependencies]
 geo.workspace = true
-proj = { workspace = true, optional = true }
+proj4rs.workspace = true
+crs-definitions.workspace = true
 rstar.workspace = true
 geojson.workspace = true
 arrow.workspace = true
@@ -27,7 +28,6 @@ tracing.workspace = true
 
 [features]
 default = []
-crs-transform = ["proj"]
 
 [dev-dependencies]
 criterion.workspace = true
