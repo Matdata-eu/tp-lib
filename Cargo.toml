@@ -7,11 +7,16 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
-authors = ["TP-Lib Contributors"]
+
+description = "A library to help post process GNSS coordinates onto a railway network."
+authors = ["Mathias Vanden Auweele <mathias@matdata.eu>"]
 license = "Apache-2.0"
-repository = "https://github.com/infrabel/tp-lib"
+homepage = "https://github.com/Matdata-eu/tp-lib"
+repository = "https://github.com/Matdata-eu/tp-lib"
+categories = ["command-line-utilities", "science::geo"]
+readme = "README.md"
 
 [workspace.dependencies]
 # Geospatial
