@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  tp-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tp-lib:latest
+    container_name: tp-cli
+    volumes:
+      # Mount local data directory for input/output files
+      - ./data:/data:rw
+      # Example: Mount specific files
+      # - ./examples/gnss.csv:/data/input/gnss.csv:ro
+      # - ./examples/network.geojson:/data/input/network.geojson:ro
+    command: >
+      --gnss-file /data/gnss.csv
+      --crs EPSG:4326
+      --network-file /data/network.geojson
+      --output-format csv
+    # Redirect output to file
+    # stdin_open: true
+    # tty: true
+    environment:
+      # Enable debug logging
+      - RUST_LOG=info
+    # Optional: Resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 2G
+
+  # Test service - runs all tests including crs-transform
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: tp-lib-test:latest
+    container_name: tp-lib-test
+    volumes:
+      # Mount source for live testing during development
+      - ./tp-core:/workspace/tp-core:ro
+      - ./tp-cli:/workspace/tp-cli:ro
+      - ./tp-py:/workspace/tp-py:ro
+      - ./Cargo.toml:/workspace/Cargo.toml:ro
+      - ./Cargo.lock:/workspace/Cargo.lock:ro
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+    command: cargo test --all-features --workspace --exclude tp-py -- --nocapture
+    # Override for specific tests:
+    # command: cargo test --all-features crs_transform -- --nocapture

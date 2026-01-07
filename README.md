@@ -59,6 +59,56 @@ cargo test --workspace
 cargo bench --workspace
 ```
 
+### Docker Usage
+
+#### Production Deployment
+
+Use Docker to run the CLI without installing Rust or system dependencies:
+
+```bash
+# Build production image (includes PROJ for CRS transformations)
+docker build -t tp-lib:latest .
+
+# Run with mounted data directory
+docker run --rm -v $(pwd)/data:/data tp-lib:latest \
+  --gnss-file /data/gnss.csv \
+  --crs EPSG:4326 \
+  --network-file /data/network.geojson \
+  --output-format csv > output.csv
+
+# Or use docker-compose
+docker-compose up tp-cli
+```
+
+#### Running Tests in Docker
+
+Run the complete test suite including CRS transformation tests:
+
+```bash
+# Using docker-compose (recommended)
+docker-compose run --rm test
+
+# Or build and run test image directly
+docker build -f Dockerfile.test -t tp-lib-test .
+docker run --rm tp-lib-test
+
+# Run specific tests
+docker-compose run --rm test cargo test --all-features test_identity_transform
+
+# Run only CRS transformation tests
+docker-compose run --rm test cargo test --features crs-transform crs_transform
+
+# Interactive shell for debugging
+docker run --rm -it tp-lib-test bash
+```
+
+**Why Docker for tests?**
+
+- **Complete test coverage**: Includes CRS transformation tests that require PROJ system library
+- **Consistent environment**: Same PROJ version (9.6.1) across all machines
+- **No local dependencies**: No need to install PROJ, CMake, pkg-config on your machine
+- **CI/CD ready**: Use `Dockerfile.test` in GitHub Actions or other CI systems
+
 ### Usage Examples
 
 ```bash
@@ -244,8 +294,61 @@ Or install Python 3.12+ and ensure it's in your PATH.
 ### Known Issues
 
 1. **Windows Build Dependencies**: Requires MSVC toolchain or mingw-w64 for native dependencies
-2. **CRS Transform Feature**: Optional feature (enable with `--features crs-transform`), requires PROJ system library
+2. **CRS Transform Feature**: See detailed explanation below
 3. **Python Bindings**: Requires Python 3.12+ installed (excluded from tp-py crate builds by default)
+
+### CRS Transform Feature and PROJ Limitations
+
+The `crs-transform` feature enables coordinate reference system transformations using the PROJ library.
+
+**Why is it optional?**
+
+- **System dependencies**: PROJ requires external C library, CMake, and pkg-config
+- **Build complexity**: Not all contributors have PROJ installed locally
+- **Most use cases work without it**: Single-CRS workflows (e.g., EPSG:31370 for Infrabel) don't need transformations
+
+**Runtime dependency:**
+
+The `crs-transform` feature requires the PROJ shared library at **both build time and runtime**:
+
+- **Linux**: `libproj.so.25` (or similar version)
+- **Windows**: `proj_9_6.dll`
+- **macOS**: `libproj.dylib`
+
+A compiled binary with `crs-transform` enabled will **not run** on machines without PROJ installed.
+
+**How to enable:**
+
+```bash
+# Build with CRS transform support (requires PROJ 9.6.x installed)
+cargo build --features crs-transform
+
+# Run tests with CRS transform
+cargo test --features crs-transform crs_transform
+```
+
+**Recommended approach:**
+
+1. **Development without PROJ**: Build and test without `crs-transform` for single-CRS workflows
+2. **Production with Docker**: Use the provided `Dockerfile` which includes PROJ 9.6.1
+3. **Full test suite**: Use `Dockerfile.test` to run all tests including CRS transformation tests
+
+**Installing PROJ locally:**
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install libproj-dev proj-bin
+
+# macOS (Homebrew)
+brew install proj
+
+# Windows - build from source or use Docker
+# See: https://proj.org/en/stable/install.html
+```
+
+**Docker advantage:**
+
+The production `Dockerfile` compiles PROJ 9.6.1 from source and creates a self-contained runtime image. This eliminates version conflicts and ensures consistent behavior across environments.
 
 ## Documentation
 
