@@ -3,7 +3,7 @@
 use crate::models::Netelement;
 use crate::errors::ProjectionError;
 use geo::Point;
-use rstar::{RTree, RTreeObject, AABB};
+use rstar::{RTree, RTreeObject, AABB, PointDistance};
 
 /// Wrapper for netelement entries in the R-tree with bounding box
 #[derive(Debug, Clone)]
@@ -22,6 +22,13 @@ impl RTreeObject for NetelementIndexEntry {
     }
 }
 
+impl PointDistance for NetelementIndexEntry {
+    fn distance_2(&self, point: &[f64; 2]) -> f64 {
+        // Calculate squared distance from point to bounding box
+        self.bbox.distance_2(point)
+    }
+}
+
 /// Spatial index for netelements using R-tree
 pub struct NetworkIndex {
     tree: RTree<NetelementIndexEntry>,
@@ -37,13 +44,15 @@ impl NetworkIndex {
         
         // Build R-tree entries with bounding boxes
         let mut entries = Vec::new();
+
+        // Loop over all netelements
         for (index, netelement) in netelements.iter().enumerate() {
             let coords = &netelement.geometry.0;
             if coords.is_empty() {
                 continue; // Skip empty geometries
             }
             
-            // Calculate bounding box
+            // Calculate bounding box of netelement
             let mut min_x = f64::MAX;
             let mut max_x = f64::MIN;
             let mut min_y = f64::MAX;
@@ -83,44 +92,16 @@ pub fn find_nearest_netelement(
         return Err(ProjectionError::EmptyNetwork);
     }
     
-    // Use R-tree to find candidates near the point
-    // We use locate_in_envelope_intersecting to find entries whose bbox contains or is near the point
     let query_point = [point.x(), point.y()];
     
-    // Find the nearest entry by checking distance to all candidates
-    // For MVP, we'll use a simple linear search over candidates near the point
-    let mut best_index = 0;
-    let mut best_distance = f64::MAX;
+    // Use R-tree's nearest_neighbor to efficiently find the closest netelement
+    // This uses the distance to the bounding box envelope as approximation
+    let nearest_entry = index.tree.nearest_neighbor(&query_point)
+        .ok_or_else(|| ProjectionError::InvalidGeometry(
+            "Could not find nearest netelement".to_string()
+        ))?;
     
-    // Get entries that intersect with a small envelope around the point
-    let epsilon = 0.01; // ~1km search radius
-    let search_envelope = AABB::from_corners(
-        [query_point[0] - epsilon, query_point[1] - epsilon],
-        [query_point[0] + epsilon, query_point[1] + epsilon],
-    );
-    
-    // Check all entries in the search envelope
-    for entry in index.tree.locate_in_envelope_intersecting(&search_envelope) {
-        // Calculate center of bounding box as proxy for distance
-        let bbox_center_x = (entry.bbox.lower()[0] + entry.bbox.upper()[0]) / 2.0;
-        let bbox_center_y = (entry.bbox.lower()[1] + entry.bbox.upper()[1]) / 2.0;
-        
-        let dx = bbox_center_x - query_point[0];
-        let dy = bbox_center_y - query_point[1];
-        let distance = (dx * dx + dy * dy).sqrt();
-        
-        if distance < best_distance {
-            best_distance = distance;
-            best_index = entry.index;
-        }
-    }
-    
-    // If no entries found in envelope, fall back to first netelement
-    if best_distance == f64::MAX {
-        best_index = 0;
-    }
-    
-    Ok(best_index)
+    Ok(nearest_entry.index)
 }
 
 #[cfg(test)]
