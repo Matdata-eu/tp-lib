@@ -63,7 +63,6 @@ use projection::spatial::{find_nearest_netelement, NetworkIndex};
 /// # Fields
 ///
 /// * `projection_distance_warning_threshold` - Distance in meters above which warnings are emitted
-/// * `transform_crs` - Enable CRS transformation
 ///
 /// # Examples
 ///
@@ -76,7 +75,6 @@ use projection::spatial::{find_nearest_netelement, NetworkIndex};
 /// // Custom configuration with higher threshold
 /// let config = ProjectionConfig {
 ///     projection_distance_warning_threshold: 100.0,
-///     transform_crs: false,
 ///     suppress_warnings: false,
 /// };
 /// ```
@@ -84,8 +82,6 @@ use projection::spatial::{find_nearest_netelement, NetworkIndex};
 pub struct ProjectionConfig {
     /// Threshold distance in meters for emitting warnings about large projection distances
     pub projection_distance_warning_threshold: f64,
-    /// Whether to enable CRS transformation (requires proj feature)
-    pub transform_crs: bool,
     /// Whether to suppress console warnings (useful for benchmarking)
     pub suppress_warnings: bool,
 }
@@ -94,7 +90,6 @@ impl Default for ProjectionConfig {
     fn default() -> Self {
         Self {
             projection_distance_warning_threshold: 50.0,
-            transform_crs: true,
             suppress_warnings: false,
         }
     }
@@ -247,7 +242,6 @@ impl RailwayNetwork {
 /// // Project with custom warning threshold
 /// let config = ProjectionConfig {
 ///     projection_distance_warning_threshold: 100.0,
-///     transform_crs: true,
 ///     suppress_warnings: false,
 /// };
 /// let projected = project_gnss(&positions, &network, &config)?;

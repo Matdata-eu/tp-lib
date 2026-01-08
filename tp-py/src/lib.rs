@@ -71,10 +71,6 @@ pub struct ProjectionConfig {
     #[pyo3(get, set)]
     pub projection_distance_warning_threshold: f64,
 
-    /// Enable CRS transformation
-    #[pyo3(get, set)]
-    pub transform_crs: bool,
-
     /// Suppress warning messages during projection
     #[pyo3(get, set)]
     pub suppress_warnings: bool,
@@ -83,24 +79,21 @@ pub struct ProjectionConfig {
 #[pymethods]
 impl ProjectionConfig {
     #[new]
-    #[pyo3(signature = (projection_distance_warning_threshold=50.0, transform_crs=true, suppress_warnings=false))]
+    #[pyo3(signature = (projection_distance_warning_threshold=50.0, suppress_warnings=false))]
     fn new(
         projection_distance_warning_threshold: f64,
-        transform_crs: bool,
         suppress_warnings: bool,
     ) -> Self {
         Self {
             projection_distance_warning_threshold,
-            transform_crs,
             suppress_warnings,
         }
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "ProjectionConfig(projection_distance_warning_threshold={}, transform_crs={}, suppress_warnings={})",
+            "ProjectionConfig(projection_distance_warning_threshold={}, suppress_warnings={})",
             self.projection_distance_warning_threshold,
-            self.transform_crs,
             self.suppress_warnings
         )
     }
@@ -110,7 +103,6 @@ impl From<ProjectionConfig> for CoreProjectionConfig {
     fn from(py_config: ProjectionConfig) -> Self {
         CoreProjectionConfig {
             projection_distance_warning_threshold: py_config.projection_distance_warning_threshold,
-            transform_crs: py_config.transform_crs,
             suppress_warnings: py_config.suppress_warnings,
         }
     }
@@ -263,7 +255,7 @@ fn project_gnss(
 ) -> PyResult<Vec<ProjectedPosition>> {
     // Convert Python config to Rust config
     let core_config: CoreProjectionConfig = config
-        .unwrap_or_else(|| ProjectionConfig::new(50.0, true, false))
+        .unwrap_or_else(|| ProjectionConfig::new(50.0, false))
         .into();
 
     // Parse GNSS positions from CSV
@@ -277,7 +269,7 @@ fn project_gnss(
     // Build spatial index
     let network = RailwayNetwork::new(netelements).map_err(convert_error)?;
 
-    // Project positions (CRS transformation happens inside project_gnss if transform_crs=true)
+    // Project positions
     let results =
         core_project_gnss(&gnss_positions, &network, &core_config).map_err(convert_error)?;
 

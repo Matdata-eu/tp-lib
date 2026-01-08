@@ -92,17 +92,14 @@ fn test_projection_config_contract() {
     // Default values
     let config = ProjectionConfig::default();
     assert_eq!(config.projection_distance_warning_threshold, 50.0);
-    assert!(config.transform_crs);
     assert!(!config.suppress_warnings);
 
     // Custom values
     let custom = ProjectionConfig {
         projection_distance_warning_threshold: 100.0,
-        transform_crs: false,
         suppress_warnings: true,
     };
     assert_eq!(custom.projection_distance_warning_threshold, 100.0);
-    assert!(!custom.transform_crs);
     assert!(custom.suppress_warnings);
 }
 

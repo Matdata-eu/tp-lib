@@ -182,16 +182,12 @@ impl RailwayNetwork {
 pub struct ProjectionConfig {
     /// Distance threshold for diagnostic warnings (meters)
     pub warning_threshold: f64,
-    
-    /// Enable CRS transformation
-    pub transform_crs: bool,
 }
 
 impl Default for ProjectionConfig {
     fn default() -> Self {
         Self {
             warning_threshold: 50.0,
-            transform_crs: true,
         }
     }
 }
@@ -493,7 +489,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Project
     let config = ProjectionConfig {
         warning_threshold: 50.0,
-        transform_crs: true,
     };
     let results = project_gnss(&gnss_positions, &network, config)?;
     

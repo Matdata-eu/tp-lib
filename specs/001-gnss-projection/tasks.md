@@ -131,7 +131,7 @@
 
 ### Configuration (US1 Tunables)
 
-- [x] T049 [US1] Create ProjectionConfig struct in tp-core/src/lib.rs with fields: warning_threshold: f64, transform_crs: bool, implementing Default trait (threshold=50.0, transform=true)
+- [x] T049 [US1] Create ProjectionConfig struct in tp-core/src/lib.rs with fields: warning_threshold: f64, implementing Default trait (threshold=50.0, transform=true)
 
 **Checkpoint**: User Story 1 complete - MVP functional with independent testability
 

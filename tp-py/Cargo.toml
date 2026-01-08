@@ -12,7 +12,7 @@ categories = ["api-bindings"]
 
 [lib]
 name = "tp_lib"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 tp-lib-core = { version = "0.0.1", path = "../tp-core" }

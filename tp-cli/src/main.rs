@@ -198,7 +198,6 @@ fn run_pipeline(args: Args) -> Result<(), PipelineError> {
     // Project GNSS positions onto network
     let config = ProjectionConfig {
         projection_distance_warning_threshold: args.warning_threshold,
-        transform_crs: true,
         suppress_warnings: false,
     };
     tracing::debug!(
