@@ -119,20 +119,20 @@ docker run --rm -it tp-lib-test bash
 ```bash
 # CLI usage - CSV input/output
 tp-cli --gnss-file train_positions.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file railway_network.geojson \
        --output-format csv > projected.csv
 
 # GeoJSON output with custom warning threshold
 tp-cli --gnss-file positions.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file network.geojson \
        --output-format json \
        --warning-threshold 100.0 > projected.geojson
 
 # Custom CSV column names
 tp-cli --gnss-file data.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file network.geojson \
        --lat-col lat --lon-col lon --time-col timestamp
 ```
@@ -233,7 +233,7 @@ latitude,longitude,timestamp,altitude,hdop
 ```
 
 - RFC3339 timestamps with timezone (+HH:MM format required)
-- CRS must be specified via `--gnss-crs` flag
+- CRS must be specified via `--crs` flag
 - Column names configurable with `--lat-col`, `--lon-col`, `--time-col`
 
 **Railway Network GeoJSON:**

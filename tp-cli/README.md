@@ -8,7 +8,7 @@
 
 ```bash
 # Build release binary
-cargo build --release --package tp-cli --no-default-features
+cargo build --release --package tp-lib-cli --no-default-features
 
 # Binary located at: target/release/tp-cli.exe (Windows) or target/release/tp-cli (Unix)
 ```
@@ -30,7 +30,7 @@ export PATH="$PATH:$(pwd)/target/release"
 ```bash
 # Project CSV GNSS data onto railway network
 tp-cli --gnss-file positions.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file network.geojson
 
 # Output defaults to CSV format on stdout
@@ -40,7 +40,7 @@ tp-cli --gnss-file positions.csv \
 
 ```bash
 tp-cli --gnss-file positions.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file network.geojson \
        --output-format json > projected.geojson
 ```
@@ -50,7 +50,7 @@ tp-cli --gnss-file positions.csv \
 ```bash
 # Warn only for projection distances > 100 meters
 tp-cli --gnss-file positions.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file network.geojson \
        --warning-threshold 100.0
 ```
@@ -59,7 +59,7 @@ tp-cli --gnss-file positions.csv \
 
 ```bash
 tp-cli --gnss-file data.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file network.geojson \
        --lat-col lat \
        --lon-col lon \
@@ -101,8 +101,7 @@ Path to railway network GeoJSON file.
     {
       "type": "Feature",
       "properties": {
-        "id": "NE001",
-        "crs": "EPSG:4326"
+        "id": "NE001"
       },
       "geometry": {
         "type": "LineString",
@@ -120,18 +119,17 @@ Path to railway network GeoJSON file.
 
 - LineString geometries (track centerlines)
 - `id` property (unique identifier per netelement)
-- `crs` property (EPSG code, e.g., "EPSG:4326")
 
 ### Optional Arguments
 
-#### `--gnss-crs <CRS>`
+#### `--crs <CRS>`
 
 Coordinate Reference System of GNSS data (e.g., `EPSG:4326`).
 
 **Rules:**
 
 - **Required** for CSV input
-- **Not allowed** for GeoJSON input (CRS read from GeoJSON file)
+- **Not allowed** for GeoJSON input (CRS is `EPSG:4326` by default with GeoJSON)
 
 **Common CRS codes:**
 
@@ -186,7 +184,7 @@ Warnings are printed to stderr when a GNSS position projects more than this dist
 
 ```bash
 # Warn only for distances > 100m
-tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson -w 100.0
+tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson -w 100.0
 ```
 
 #### `--lat-col <COLUMN>`
@@ -205,7 +203,7 @@ Timestamp column name in CSV input. Default: `timestamp`.
 
 ```bash
 tp-cli --gnss-file data.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file network.geojson \
        --lat-col lat --lon-col lon --time-col ts
 ```
@@ -226,10 +224,10 @@ tp-cli --gnss-file data.csv \
 
 ```bash
 # Redirect output to file, view warnings in terminal
-tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson > output.csv
+tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson > output.csv
 
 # Redirect both output and errors
-tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson > output.csv 2> errors.log
+tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson > output.csv 2> errors.log
 ```
 
 ## Examples
@@ -238,7 +236,7 @@ tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson 
 
 ```bash
 tp-cli --gnss-file train_journey.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file infrabel_network.geojson \
        > projected_positions.csv
 ```
@@ -263,7 +261,7 @@ original_lat,original_lon,original_time,projected_lat,projected_lon,netelement_i
 
 ```bash
 tp-cli --gnss-file positions.csv \
-       --gnss-crs EPSG:31370 \
+       --crs EPSG:31370 \
        --network-file network.geojson \
        --output-format json \
        --warning-threshold 75.0 \
@@ -275,7 +273,7 @@ tp-cli --gnss-file positions.csv \
 ```bash
 # Input CSV has columns: lat, lon, time
 tp-cli --gnss-file gps_data.csv \
-       --gnss-crs EPSG:4326 \
+       --crs EPSG:4326 \
        --network-file tracks.geojson \
        --lat-col lat \
        --lon-col lon \
@@ -287,7 +285,7 @@ tp-cli --gnss-file gps_data.csv \
 
 ```bash
 # Project positions and filter for low projection distances
-tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson | \
+tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson | \
   awk -F',' 'NR==1 || $8 < 30' > high_quality_positions.csv
 ```
 
@@ -295,23 +293,23 @@ tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson 
 
 ### Error: "CRS is required for CSV GNSS input"
 
-**Problem:** Forgot to specify `--gnss-crs` for CSV input.
+**Problem:** Forgot to specify `--crs` for CSV input.
 
 **Solution:**
 
 ```bash
-# Add --gnss-crs flag
-tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson
+# Add --crs flag
+tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson
 ```
 
 ### Error: "CRS should not be specified for GeoJSON GNSS input"
 
-**Problem:** Provided `--gnss-crs` with GeoJSON input (CRS read from file).
+**Problem:** Provided `--crs` with GeoJSON input (CRS read from file).
 
 **Solution:**
 
 ```bash
-# Remove --gnss-crs flag
+# Remove --crs flag
 tp-cli --gnss-file data.geojson --network-file network.geojson
 ```
 
@@ -386,7 +384,7 @@ tp-cli --gnss-file data.geojson --network-file network.geojson
 for file in data/*.csv; do
   echo "Processing $file..."
   tp-cli --gnss-file "$file" \
-         --gnss-crs EPSG:4326 \
+         --crs EPSG:4326 \
          --network-file network.geojson \
          > "output/$(basename $file .csv)_projected.csv"
 done
@@ -396,7 +394,7 @@ done
 
 ```bash
 # Convert output GeoJSON to Shapefile with ogr2ogr
-tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson -o json | \
+tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson -o json | \
   ogr2ogr -f "ESRI Shapefile" output.shp /vsistdin/ -lco ENCODING=UTF-8
 ```
 
@@ -404,7 +402,7 @@ tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson 
 
 ```bash
 # Extract only high-quality projections (< 20m distance)
-tp-cli --gnss-file data.csv --gnss-crs EPSG:4326 --network-file network.geojson | \
+tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson | \
   awk -F',' 'NR==1 || ($8+0) < 20' > high_quality.csv
 ```
 

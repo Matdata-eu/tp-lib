@@ -33,7 +33,7 @@ COPY tp-cli/ tp-cli/
 COPY tp-py/ tp-py/
 
 # Build the actual application
-RUN cargo build --release -p tp-cli && \
+RUN cargo build --release -p tp-lib-cli && \
     strip /build/target/release/tp-cli
 
 # ============================================================================

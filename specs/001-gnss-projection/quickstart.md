@@ -36,7 +36,7 @@ git clone https://github.com/infrabel/tp-lib.git
 cd tp-lib
 
 # Build Rust CLI
-cargo build --release --bin tp-cli
+cargo build --release --bin tp-lib-cli
 ./target/release/tp-cli --version
 
 # Build Python bindings
@@ -56,7 +56,7 @@ Project GNSS positions from a CSV file onto a GeoJSON railway network:
 ```bash
 tp-cli project-gnss \
   --gnss-file train_journey.csv \
-  --gnss-crs EPSG:31370 \
+  --crs EPSG:31370 \
   --network-file belgium_network.geojson \
   > projected_output.csv
 ```
@@ -110,7 +110,7 @@ original_lat,original_lon,original_time,projected_lat,projected_lon,netelement_i
 ### Required Parameters
 
 - `--gnss-file <path>`: Path to GNSS positions file (CSV or GeoJSON)
-- `--gnss-crs <epsg>`: Coordinate Reference System for GNSS data (e.g., EPSG:31370)
+- `--crs <epsg>`: Coordinate Reference System for GNSS data (e.g., EPSG:31370)
 - `--network-file <path>`: Path to railway network file (GeoJSON)
 
 ### Optional Parameters
@@ -127,7 +127,7 @@ original_lat,original_lon,original_time,projected_lat,projected_lon,netelement_i
 ```bash
 tp-cli project-gnss \
   --gnss-file journey.csv \
-  --gnss-crs EPSG:31370 \
+  --crs EPSG:31370 \
   --lat-col "lat" \
   --lon-col "lon" \
   --time-col "time_utc" \
@@ -139,7 +139,7 @@ tp-cli project-gnss \
 ```bash
 tp-cli project-gnss \
   --gnss-file journey.csv \
-  --gnss-crs EPSG:4326 \
+  --crs EPSG:4326 \
   --network-file network.geojson \
   --output-format json \
   > output.json
@@ -149,7 +149,7 @@ tp-cli project-gnss \
 ```bash
 tp-cli project-gnss \
   --gnss-file journey.csv \
-  --gnss-crs EPSG:31370 \
+  --crs EPSG:31370 \
   --network-file network.geojson \
   --warning-threshold 10.0 \
   > output.csv 2> warnings.log
@@ -287,7 +287,7 @@ Belgian railways use **Lambert 2008** (EPSG:3812) for local coordinates.
 ```bash
 tp-cli project-gnss \
   --gnss-file belgian_train.csv \
-  --gnss-crs EPSG:3812 \
+  --crs EPSG:3812 \
   --network-file belgium_network.geojson \
   > output.csv
 ```
@@ -299,7 +299,7 @@ Modern GNSS devices output **WGS84** (EPSG:4326).
 ```bash
 tp-cli project-gnss \
   --gnss-file gps_track.csv \
-  --gnss-crs EPSG:4326 \
+  --crs EPSG:4326 \
   --network-file network.geojson \
   > output.csv
 ```
@@ -312,7 +312,7 @@ For large datasets, monitor warnings and performance:
 # Redirect warnings to log file
 tp-cli project-gnss \
   --gnss-file large_journey.csv \
-  --gnss-crs EPSG:31370 \
+  --crs EPSG:31370 \
   --network-file network.geojson \
   --warning-threshold 50.0 \
   > output.csv 2> warnings.log
@@ -408,13 +408,13 @@ timestamp
 
 ### 1. Always Specify GNSS CRS
 
-GeoJSON mandates WGS84, but CSV files often use local CRS. **Always** use `--gnss-crs`:
+GeoJSON mandates WGS84, but CSV files often use local CRS. **Always** use `--crs`:
 
 ```bash
 # ✅ Good: Explicit CRS
-tp-cli project-gnss --gnss-file data.csv --gnss-crs EPSG:31370 --network-file network.geojson
+tp-cli project-gnss --gnss-file data.csv --crs EPSG:31370 --network-file network.geojson
 
-# ❌ Bad: CLI will reject missing --gnss-crs for CSV input
+# ❌ Bad: CLI will reject missing --crs for CSV input
 tp-cli project-gnss --gnss-file data.csv --network-file network.geojson
 ```
 

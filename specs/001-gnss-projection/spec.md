@@ -13,7 +13,7 @@
 - Q: What distance threshold should trigger diagnostic warnings for projections far from track axis? → A: Configurable parameter (user-defined at runtime) with 50m as default
 - Q: When a GNSS position is equidistant from multiple parallel netelements, what criteria should guide selection? → A: Pure spatial proximity (always pick geometrically nearest, ignore history)
 - Q: What input file format should the library support for railway network data? → A: GeoJSON (netelements as features with properties and geometry)
-- Q: How should users specify CRS for GNSS CSV input? → A: CLI parameter required: `--gnss-crs EPSG:4326`, but only for CSV; specifying this parameter for GeoJSON input must throw an error
+- Q: How should users specify CRS for GNSS CSV input? → A: CLI parameter required: `--crs EPSG:4326`, but only for CSV; specifying this parameter for GeoJSON input must throw an error
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -56,7 +56,7 @@ An infrastructure manager has a CSV file containing raw GNSS positions from a si
 
 - **FR-001**: Library MUST accept GNSS position data in CSV or GeoJSON format containing at minimum: latitude (decimal degrees), longitude (decimal degrees), and timestamp (with timezone information per Constitution Principle VI)
 - **FR-002**: Library MUST accept railway network data in GeoJSON format as a FeatureCollection where each Feature represents a netelement with properties containing unique identifier and geometry as LineString
-- **FR-003**: For GNSS CSV input, library MUST require CLI parameter `--gnss-crs` specifying CRS (e.g., EPSG:4326); for GNSS GeoJSON input, library MUST use WGS84 per GeoJSON RFC 7946 standard and MUST reject `--gnss-crs` parameter with error message
+- **FR-003**: For GNSS CSV input, library MUST require CLI parameter `--crs` specifying CRS (e.g., EPSG:4326); for GNSS GeoJSON input, library MUST use WGS84 per GeoJSON RFC 7946 standard and MUST reject `--crs` parameter with error message
 - **FR-004**: Library MUST extract CRS information from GeoJSON railway network (WGS84 per RFC 7946, or via crs property if present) or accept a parameter defining the network CRSS
 - **FR-005**: For GNSS CSV input, library MUST support configurable column mappings to identify latitude, longitude, and timestamp fields
 
@@ -80,14 +80,14 @@ An infrastructure manager has a CSV file containing raw GNSS positions from a si
 
 #### Error Handling & Data Quality
 
-- **FR-016**: Library MUST validate input data and fail fast with actionable error messages for: missing required fields, invalid coordinate values, malformed geometries, missing/invalid CRS specification (including --gnss-crs parameter misuse with GeoJSON), invalid timestamps
+- **FR-016**: Library MUST validate input data and fail fast with actionable error messages for: missing required fields, invalid coordinate values, malformed geometries, missing/invalid CRS specification (including --crs parameter misuse with GeoJSON), invalid timestamps
 - **FR-017**: Library MUST project every GNSS position to the nearest netelement regardless of distance, and MUST provide diagnostic warnings when projection distance exceeds a configurable threshold (default: 50 meters from track axis)
 - **FR-018**: Library MUST log all data transformations including CRS conversions, projection calculations, and netelement assignments for audit trail (per Constitution Principle IX)
 - **FR-019**: Library MUST provide diagnostic information about projection quality (e.g., distance between original GNSS position and projected position)
 
 #### CLI Interface
 
-- **FR-020**: Library MUST expose projection functionality via command-line interface accepting file paths for GNSS data and railway network, with required `--gnss-crs` parameter for CSV input (rejected with error for GeoJSON input)
+- **FR-020**: Library MUST expose projection functionality via command-line interface accepting file paths for GNSS data and railway network, with required `--crs` parameter for CSV input (rejected with error for GeoJSON input)
 - **FR-021**: CLI MUST emit processing results to stdout in JSON or CSV format (per Constitution Principle II)
 - **FR-022**: CLI MUST emit errors and warnings to stderr with appropriate exit codes (0 for success, non-zero for failures)
 - **FR-023**: CLI MUST support --help flag documenting all parameters and usage examples

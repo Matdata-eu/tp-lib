@@ -33,21 +33,21 @@ Path to GNSS positions file.
 
 ---
 
-### `--gnss-crs <EPSG>`
+### `--crs <EPSG>`
 
 Coordinate Reference System for GNSS data.
 
 - **Type**: EPSG code (e.g., `EPSG:4326`)
 - **Required**: Yes for CSV input, rejected for GeoJSON input
-- **Example**: `--gnss-crs EPSG:31370`
+- **Example**: `--crs EPSG:31370`
 
 **Validation**:
 - Must be valid EPSG code
 - Must be supported by PROJ library
 
 **Clarification** (from spec.md Q5):
-- **CSV**: MUST specify via `--gnss-crs` parameter
-- **GeoJSON**: MUST reject `--gnss-crs` (GeoJSON includes CRS in file)
+- **CSV**: MUST specify via `--crs` parameter
+- **GeoJSON**: MUST reject `--crs` (GeoJSON includes CRS in file)
 
 ---
 
@@ -229,7 +229,7 @@ INFO: Projected 1000 positions in 2.3 seconds
 ```bash
 tp-cli project-gnss \
   --gnss-file journey.csv \
-  --gnss-crs EPSG:31370 \
+  --crs EPSG:31370 \
   --network-file network.geojson \
   > output.csv
 ```
@@ -245,7 +245,7 @@ tp-cli project-gnss \
 ```bash
 tp-cli project-gnss \
   --gnss-file journey.csv \
-  --gnss-crs EPSG:4326 \
+  --crs EPSG:4326 \
   --lat-col "lat" \
   --lon-col "lon" \
   --time-col "time_utc" \
@@ -263,7 +263,7 @@ tp-cli project-gnss \
 ```bash
 tp-cli project-gnss \
   --gnss-file journey.csv \
-  --gnss-crs EPSG:31370 \
+  --crs EPSG:31370 \
   --network-file network.geojson \
   --output-format json \
   --warning-threshold 30.0 \
@@ -281,7 +281,7 @@ tp-cli project-gnss \
 ```bash
 tp-cli project-gnss \
   --gnss-file missing.csv \
-  --gnss-crs EPSG:31370 \
+  --crs EPSG:31370 \
   --network-file network.geojson
 
 # Output (stderr):
@@ -515,7 +515,7 @@ GeoJSON FeatureCollection with projected positions as Point features.
 ```bash
 tp-cli project-gnss \
   --gnss-file test_journey.csv \
-  --gnss-crs EPSG:4326 \
+  --crs EPSG:4326 \
   --network-file test_network.geojson \
   > output.csv
 
@@ -529,7 +529,7 @@ tp-cli project-gnss \
 ```bash
 tp-cli project-gnss \
   --gnss-file journey.csv \
-  --gnss-crs EPSG:9999 \
+  --crs EPSG:9999 \
   --network-file network.geojson
 
 # Verify:
@@ -541,7 +541,7 @@ tp-cli project-gnss \
 ```bash
 tp-cli project-gnss \
   --gnss-file missing.csv \
-  --gnss-crs EPSG:4326 \
+  --crs EPSG:4326 \
   --network-file network.geojson
 
 # Verify:
@@ -553,7 +553,7 @@ tp-cli project-gnss \
 ```bash
 tp-cli project-gnss \
   --gnss-file far_positions.csv \
-  --gnss-crs EPSG:4326 \
+  --crs EPSG:4326 \
   --network-file network.geojson \
   --warning-threshold 10.0 \
   2> warnings.log

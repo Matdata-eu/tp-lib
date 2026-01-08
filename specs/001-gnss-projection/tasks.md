@@ -119,8 +119,8 @@
 
 ### CLI Interface (US1 User Interaction)
 
-- [x] T043 [US1] Create tp-cli/src/main.rs with clap CLI definition: --gnss-file, --gnss-crs, --network-file, --output-format (csv|json), --warning-threshold, --lat-col, --lon-col, --time-col
-- [x] T044 [US1] Implement CLI argument validation in tp-cli/src/main.rs: reject --gnss-crs if GNSS input is GeoJSON, require --gnss-crs if CSV
+- [x] T043 [US1] Create tp-cli/src/main.rs with clap CLI definition: --gnss-file, --crs, --network-file, --output-format (csv|json), --warning-threshold, --lat-col, --lon-col, --time-col
+- [x] T044 [US1] Implement CLI argument validation in tp-cli/src/main.rs: reject --crs if GNSS input is GeoJSON, require --crs if CSV
 - [x] T045 [US1] Implement main() pipeline in tp-cli/src/main.rs: parse inputs → build network → project GNSS → write output to stdout, errors to stderr
 - [x] T046 [US1] Add exit code handling in tp-cli/src/main.rs: 0 for success, 1 for validation error, 2 for processing error, 3 for I/O error
 - [x] T047 [US1] Add --help flag documentation in tp-cli/src/main.rs with usage examples and parameter descriptions

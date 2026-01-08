@@ -63,6 +63,7 @@ use projection::spatial::{find_nearest_netelement, NetworkIndex};
 /// # Fields
 ///
 /// * `projection_distance_warning_threshold` - Distance in meters above which warnings are emitted
+/// * `suppress_warnings` - If true, suppresses console warnings during projection
 ///
 /// # Examples
 ///

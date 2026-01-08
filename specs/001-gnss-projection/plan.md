@@ -64,7 +64,7 @@ Project GNSS positions from train journeys onto railway track axis centerlines (
 
 ### Principle VII: Positions with Coordinate Reference System
 **Status**: ✅ **PASS**  
-**Evidence**: FR-003, FR-004 mandate explicit CRS specification. CLI parameter `--gnss-crs` for CSV, GeoJSON CRS extraction. Rust `proj` crate for CRS transformations (FR-008). Never assumes default CRS.
+**Evidence**: FR-003, FR-004 mandate explicit CRS specification. CLI parameter `--crs` for CSV, GeoJSON CRS extraction. Rust `proj` crate for CRS transformations (FR-008). Never assumes default CRS.
 
 ### Principle VIII: Thorough Error Handling
 **Status**: ✅ **PASS**  
@@ -232,7 +232,7 @@ See: [data-model.md](./data-model.md) (to be created)
 ```bash
 tp-cli project-gnss \
   --gnss-file journey.csv \
-  --gnss-crs EPSG:31370 \
+  --crs EPSG:31370 \
   --network-file network.geojson \
   --output-format csv > output.csv
 ```
