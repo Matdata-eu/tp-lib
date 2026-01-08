@@ -15,7 +15,7 @@ name = "tp-cli"
 path = "src/main.rs"
 
 [dependencies]
-tp-core = { path = "../tp-core" }
+tp-core = { version = "0.0.1", path = "../tp-core" }
 clap.workspace = true
 thiserror.workspace = true
 tracing.workspace = true

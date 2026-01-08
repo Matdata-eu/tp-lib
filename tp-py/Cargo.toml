@@ -15,5 +15,5 @@ name = "tp_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
-tp-core = { path = "../tp-core" }
+tp-core = { version = "0.0.1", path = "../tp-core" }
 pyo3.workspace = true
