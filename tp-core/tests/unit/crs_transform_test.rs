@@ -3,7 +3,7 @@
 //! Tests Belgian Lambert 72 and Lambert 2008 transformations.
 
 use geo::Point;
-use tp_core::crs::CrsTransformer;
+use tp_lib_core::crs::CrsTransformer;
 
 #[test]
 fn test_identity_transform() {

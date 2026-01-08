@@ -23,7 +23,7 @@
 
 use pyo3::exceptions::{PyIOError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
-use tp_core::{
+use tp_lib_core::{
     parse_gnss_csv, parse_network_geojson, project_gnss as core_project_gnss,
     ProjectedPosition as CoreProjectedPosition, ProjectionConfig as CoreProjectionConfig,
     ProjectionError, RailwayNetwork,

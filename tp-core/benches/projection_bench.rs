@@ -21,7 +21,7 @@
 use chrono::DateTime;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use geo::LineString;
-use tp_core::{project_gnss, GnssPosition, Netelement, ProjectionConfig, RailwayNetwork};
+use tp_lib_core::{project_gnss, GnssPosition, Netelement, ProjectionConfig, RailwayNetwork};
 
 /// Generate synthetic railway network with N netelements
 fn generate_network(n_netelements: usize) -> Vec<Netelement> {

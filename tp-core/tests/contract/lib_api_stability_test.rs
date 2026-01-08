@@ -3,7 +3,7 @@
 //! These tests verify that the public API signatures haven't changed unexpectedly.
 //! They serve as a snapshot of the expected API surface area.
 
-use tp_core::{
+use tp_lib_core::{
     GnssPosition, Netelement, ProjectedPosition, ProjectionConfig, ProjectionError,
     RailwayNetwork,
 };
@@ -181,7 +181,7 @@ fn test_project_gnss_contract() {
     let config = ProjectionConfig::default();
 
     // Function signature: project_gnss(&[GnssPosition], &RailwayNetwork, &ProjectionConfig) -> Result<Vec<ProjectedPosition>>
-    let result = tp_core::project_gnss(&[pos], &network, &config);
+    let result = tp_lib_core::project_gnss(&[pos], &network, &config);
     assert!(result.is_ok());
     let projected = result.unwrap();
     assert_eq!(projected.len(), 1);
@@ -195,7 +195,7 @@ fn test_io_functions_contract() {
 
     // parse_gnss_csv signature
     fn _check_parse_gnss_csv() -> Result<Vec<GnssPosition>, ProjectionError> {
-        tp_core::parse_gnss_csv(
+        tp_lib_core::parse_gnss_csv(
             "dummy.csv",
             "EPSG:4326",
             "latitude",
@@ -206,12 +206,12 @@ fn test_io_functions_contract() {
 
     // parse_gnss_geojson signature
     fn _check_parse_gnss_geojson() -> Result<Vec<GnssPosition>, ProjectionError> {
-        tp_core::parse_gnss_geojson("dummy.geojson", "EPSG:4326")
+        tp_lib_core::parse_gnss_geojson("dummy.geojson", "EPSG:4326")
     }
 
     // parse_network_geojson signature
     fn _check_parse_network_geojson() -> Result<Vec<Netelement>, ProjectionError> {
-        tp_core::parse_network_geojson("dummy.geojson")
+        tp_lib_core::parse_network_geojson("dummy.geojson")
     }
 
     // write_csv signature
@@ -219,7 +219,7 @@ fn test_io_functions_contract() {
         projected: &[ProjectedPosition],
         writer: &mut W,
     ) -> Result<(), ProjectionError> {
-        tp_core::write_csv(projected, writer)
+        tp_lib_core::write_csv(projected, writer)
     }
 
     // write_geojson signature
@@ -227,6 +227,6 @@ fn test_io_functions_contract() {
         projected: &[ProjectedPosition],
         writer: &mut W,
     ) -> Result<(), ProjectionError> {
-        tp_core::write_geojson(projected, writer)
+        tp_lib_core::write_geojson(projected, writer)
     }
 }

@@ -22,7 +22,7 @@ use geo::Coord;
 /// # Examples
 ///
 /// ```
-/// use tp_core::Netelement;
+/// use tp_lib_core::Netelement;
 /// use geo::LineString;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {

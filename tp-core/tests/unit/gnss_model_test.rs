@@ -2,7 +2,7 @@
 
 use chrono::{FixedOffset, TimeZone};
 use std::collections::HashMap;
-use tp_core::models::GnssPosition;
+use tp_lib_core::models::GnssPosition;
 
 #[test]
 fn test_valid_gnss_position() {

@@ -8,7 +8,7 @@ This document defines the stable Rust public API for the GNSS track axis project
 
 ## Public API Surface
 
-### Core Module: `tp_core::projection`
+### Core Module: `tp_lib_core::projection`
 
 ```rust
 pub mod projection {
@@ -269,8 +269,8 @@ pub fn project_gnss(
 
 **Example**:
 ```rust
-use tp_core::projection::{project_gnss, build_network, ProjectionConfig};
-use tp_core::models::{GnssPosition, Netelement};
+use tp_lib_core::projection::{project_gnss, build_network, ProjectionConfig};
+use tp_lib_core::models::{GnssPosition, Netelement};
 use chrono::DateTime;
 
 // Create GNSS positions
@@ -322,8 +322,8 @@ pub fn build_network(netelements: Vec<Netelement>) -> Result<RailwayNetwork, Pro
 
 **Example**:
 ```rust
-use tp_core::projection::build_network;
-use tp_core::models::Netelement;
+use tp_lib_core::projection::build_network;
+use tp_lib_core::models::Netelement;
 use geo::LineString;
 
 let netelements = vec![
@@ -361,7 +361,7 @@ pub mod io {
 
 **Example**:
 ```rust
-use tp_core::io::read_gnss_csv;
+use tp_lib_core::io::read_gnss_csv;
 use std::path::Path;
 
 let positions = read_gnss_csv(
@@ -391,7 +391,7 @@ pub mod io {
 
 **Example**:
 ```rust
-use tp_core::io::read_network_geojson;
+use tp_lib_core::io::read_network_geojson;
 use std::path::Path;
 
 let netelements = read_network_geojson(Path::new("network.geojson"))?;
@@ -422,7 +422,7 @@ pub mod io {
 
 **Example**:
 ```rust
-use tp_core::io::write_csv;
+use tp_lib_core::io::write_csv;
 use std::fs::File;
 
 let file = File::create("output.csv")?;
@@ -454,7 +454,7 @@ pub mod crs {
 
 **Example**:
 ```rust
-use tp_core::crs::CrsTransformer;
+use tp_lib_core::crs::CrsTransformer;
 use geo::Point;
 
 let transformer = CrsTransformer::new("EPSG:3812", "EPSG:4326")?;
@@ -471,8 +471,8 @@ println!("WGS84: lon={}, lat={}", point_wgs84.x(), point_wgs84.y());
 ### Example 1: End-to-End Pipeline
 
 ```rust
-use tp_core::projection::{build_network, project_gnss, ProjectionConfig};
-use tp_core::io::{read_gnss_csv, read_network_geojson, write_csv};
+use tp_lib_core::projection::{build_network, project_gnss, ProjectionConfig};
+use tp_lib_core::io::{read_gnss_csv, read_network_geojson, write_csv};
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -510,8 +510,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Example 2: Custom Processing
 
 ```rust
-use tp_core::projection::{build_network, ProjectionConfig};
-use tp_core::models::{GnssPosition, Netelement};
+use tp_lib_core::projection::{build_network, ProjectionConfig};
+use tp_lib_core::models::{GnssPosition, Netelement};
 use geo::{Point, LineString};
 
 fn project_single_position(

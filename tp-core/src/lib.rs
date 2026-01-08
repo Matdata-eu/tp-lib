@@ -10,7 +10,7 @@
 //! # Quick Start
 //!
 //! ```rust,no_run
-//! use tp_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork, project_gnss, ProjectionConfig};
+//! use tp_lib_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork, project_gnss, ProjectionConfig};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Load railway network from GeoJSON
@@ -68,7 +68,7 @@ use projection::spatial::{find_nearest_netelement, NetworkIndex};
 /// # Examples
 ///
 /// ```
-/// use tp_core::ProjectionConfig;
+/// use tp_lib_core::ProjectionConfig;
 ///
 /// // Use default configuration (50m warning threshold)
 /// let config = ProjectionConfig::default();
@@ -108,7 +108,7 @@ impl Default for ProjectionConfig {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use tp_core::{parse_network_geojson, RailwayNetwork};
+/// use tp_lib_core::{parse_network_geojson, RailwayNetwork};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load netelements from GeoJSON
@@ -143,7 +143,7 @@ impl RailwayNetwork {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use tp_core::{Netelement, RailwayNetwork};
+    /// use tp_lib_core::{Netelement, RailwayNetwork};
     /// use geo::LineString;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -235,8 +235,8 @@ impl RailwayNetwork {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use tp_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork};
-/// use tp_core::{project_gnss, ProjectionConfig};
+/// use tp_lib_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork};
+/// use tp_lib_core::{project_gnss, ProjectionConfig};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load data

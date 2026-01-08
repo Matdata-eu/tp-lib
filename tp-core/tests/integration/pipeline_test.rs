@@ -1,4 +1,4 @@
-use tp_core::{load_network, load_gnss, project_gnss, ProjectionConfig, write_csv, write_geojson};
+use tp_lib_core::{load_network, load_gnss, project_gnss, ProjectionConfig, write_csv, write_geojson};
 use std::io::Cursor;
 
 #[test]

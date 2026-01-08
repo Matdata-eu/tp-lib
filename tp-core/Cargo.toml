@@ -1,12 +1,12 @@
 [package]
-name = "tp-core"
+name = "tp-lib-core"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Core library for GNSS track axis projection with spatial indexing"
-documentation = "https://docs.rs/tp-core"
+documentation = "https://docs.rs/tp-lib-core"
 readme = "../README.md"
 keywords = ["gnss", "gps", "railway", "geospatial", "projection"]
 categories = ["science::geo", "algorithms"]

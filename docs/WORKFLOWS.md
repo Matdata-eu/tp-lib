@@ -147,7 +147,7 @@ pip install tp-lib
 
 2. **Create Index Page**
    - Generates `index.html` at root
-   - Auto-redirects to `tp_core/index.html`
+   - Auto-redirects to `tp_lib_core/index.html`
    - Provides navigation links to all crates
 
 3. **Deploy to GitHub Pages**

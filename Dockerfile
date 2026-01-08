@@ -22,7 +22,7 @@ RUN mkdir -p tp-core/src tp-core/benches tp-cli/src tp-py/src && \
 
 # Build dependencies (exclude benches in dummy build)
 ENV CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_BENCH=false
-RUN cargo build --release -p tp-cli -p tp-core
+RUN cargo build --release -p tp-lib-cli -p tp-lib-core
 
 # Remove dummy sources
 RUN rm -rf tp-core/src tp-core/benches tp-cli/src tp-py/src

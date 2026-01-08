@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: tp-lib:latest
-    container_name: tp-cli
+    container_name: tp-lib-cli
     volumes:
       # Mount local data directory for input/output files
       - ./data:/data:rw

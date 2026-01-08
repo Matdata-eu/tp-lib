@@ -52,16 +52,16 @@ jobs:
           <html lang="en">
           <head>
               <meta charset="utf-8">
-              <meta http-equiv="refresh" content="0; url=tp_core/index.html">
+              <meta http-equiv="refresh" content="0; url=tp_lib_core/index.html">
               <title>TP-Lib Documentation</title>
           </head>
           <body>
               <h1>TP-Lib Documentation</h1>
-              <p>Redirecting to <a href="tp_core/index.html">tp_core documentation</a>...</p>
+              <p>Redirecting to <a href="tp_lib_core/index.html">tp_lib_core documentation</a>...</p>
               <ul>
-                  <li><a href="tp_core/index.html">tp-core: Core library for geospatial transformations</a></li>
-                  <li><a href="tp_cli/index.html">tp-cli: Command-line interface</a></li>
-                  <li><a href="tp_py/index.html">tp-py: Python bindings</a></li>
+                  <li><a href="tp_lib_core/index.html">tp-core: Core library for geospatial transformations</a></li>
+                  <li><a href="tp_lib_cli/index.html">tp-cli: Command-line interface</a></li>
+                  <li><a href="tp_lib_py/index.html">tp-py: Python bindings</a></li>
               </ul>
           </body>
           </html>

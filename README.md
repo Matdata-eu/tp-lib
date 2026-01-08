@@ -1,7 +1,7 @@
 # TP-Lib: Train Positioning Library
 
 [![CI](https://github.com/matdata-eu/tp-lib/actions/workflows/ci.yml/badge.svg)](https://github.com/matdata-eu/tp-lib/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/tp-core.svg)](https://crates.io/crates/tp-core)
+[![crates.io](https://img.shields.io/crates/v/tp-lib-core.svg)](https://crates.io/crates/tp-lib-core)
 [![PyPI](https://img.shields.io/pypi/v/tp-lib.svg)](https://pypi.org/project/tp-lib/)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://matdata-eu.github.io/tp-lib/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -140,8 +140,8 @@ tp-cli --gnss-file data.csv \
 ### Library Usage
 
 ```rust
-use tp_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork};
-use tp_core::{project_gnss, ProjectionConfig};
+use tp_lib_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork};
+use tp_lib_core::{project_gnss, ProjectionConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load railway network from GeoJSON
@@ -313,7 +313,7 @@ TP-Lib has been tested with Belgian railway coordinate systems:
 **Usage:**
 
 ```rust
-use tp_core::crs::CrsTransformer;
+use tp_lib_core::crs::CrsTransformer;
 use geo::Point;
 
 // Create transformer (EPSG codes or PROJ strings)

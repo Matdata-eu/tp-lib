@@ -32,7 +32,7 @@
 use chrono::DateTime;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use geo::{EuclideanDistance, LineString, Point};
-use tp_core::{GnssPosition, Netelement};
+use tp_lib_core::{GnssPosition, Netelement};
 
 /// **Naive Nearest-Neighbor Search**: Brute-force O(m) scan without spatial indexing
 ///

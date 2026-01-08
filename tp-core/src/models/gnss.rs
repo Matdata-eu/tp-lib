@@ -20,7 +20,7 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```
-/// use tp_core::GnssPosition;
+/// use tp_lib_core::GnssPosition;
 /// use chrono::{DateTime, FixedOffset};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {

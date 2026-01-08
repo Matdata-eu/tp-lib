@@ -151,7 +151,7 @@ See [docs/WORKFLOWS.md](docs/WORKFLOWS.md) for details on CI/CD automation.
    /// Calculate distance between two points
    /// 
    /// ```
-   /// use tp_core::haversine_distance;
+   /// use tp_lib_core::haversine_distance;
    /// let dist = haversine_distance(50.0, 4.0, 50.1, 4.1);
    /// assert!(dist > 0.0);
    /// ```
@@ -208,7 +208,7 @@ Example:
 /// # Example
 ///
 /// ```
-/// use tp_core::{GnssPosition, RailwayNetwork, project_position};
+/// use tp_lib_core::{GnssPosition, RailwayNetwork, project_position};
 ///
 /// let position = GnssPosition::new(50.8503, 4.3517, "2024-01-01T12:00:00+00:00");
 /// let network = RailwayNetwork::from_geojson("network.geojson")?;

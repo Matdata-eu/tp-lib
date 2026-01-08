@@ -5,7 +5,7 @@ mod unit;
 
 #[cfg(test)]
 mod integration {
-    use tp_core::io::{parse_gnss_csv, parse_network_geojson};
+    use tp_lib_core::io::{parse_gnss_csv, parse_network_geojson};
 
     #[test]
     fn test_parse_gnss_csv() {
@@ -62,7 +62,7 @@ mod integration {
     }
     #[test]
     fn test_end_to_end_projection() {
-        use tp_core::{project_gnss, ProjectionConfig, RailwayNetwork};
+        use tp_lib_core::{project_gnss, ProjectionConfig, RailwayNetwork};
 
         // Load network
         let network_path = "tests/fixtures/test_network.geojson";
@@ -101,8 +101,8 @@ mod integration {
 
     #[test]
     fn test_write_csv_output() {
-        use tp_core::io::write_csv;
-        use tp_core::{project_gnss, ProjectionConfig, RailwayNetwork};
+        use tp_lib_core::io::write_csv;
+        use tp_lib_core::{project_gnss, ProjectionConfig, RailwayNetwork};
 
         // Load and project
         let network = RailwayNetwork::new(
@@ -147,8 +147,8 @@ mod integration {
 
     #[test]
     fn test_write_geojson_output() {
-        use tp_core::io::write_geojson;
-        use tp_core::{project_gnss, ProjectionConfig, RailwayNetwork};
+        use tp_lib_core::io::write_geojson;
+        use tp_lib_core::{project_gnss, ProjectionConfig, RailwayNetwork};
 
         // Load and project
         let network = RailwayNetwork::new(
@@ -198,7 +198,7 @@ mod integration {
 
     #[test]
     fn test_csv_to_projection_pipeline() {
-        use tp_core::{
+        use tp_lib_core::{
             parse_gnss_csv, parse_network_geojson, project_gnss, write_csv, write_geojson,
             ProjectionConfig, RailwayNetwork,
         };

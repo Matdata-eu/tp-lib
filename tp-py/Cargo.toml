@@ -1,11 +1,11 @@
 [package]
-name = "tp-py"
+name = "tp-lib-py"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Python bindings for tp-core GNSS projection library"
+description = "Python bindings for tp-lib-core GNSS projection library"
 readme = "../README.md"
 keywords = ["gnss", "gps", "railway", "python", "pyo3"]
 categories = ["api-bindings"]
@@ -15,5 +15,5 @@ name = "tp_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
-tp-core = { version = "0.0.1", path = "../tp-core" }
+tp-lib-core = { version = "0.0.1", path = "../tp-core" }
 pyo3.workspace = true

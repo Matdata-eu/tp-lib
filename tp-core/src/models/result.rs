@@ -24,8 +24,8 @@ use crate::models::GnssPosition;
 /// # Examples
 ///
 /// ```rust,no_run
-/// use tp_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork};
-/// use tp_core::{project_gnss, ProjectionConfig};
+/// use tp_lib_core::{parse_gnss_csv, parse_network_geojson, RailwayNetwork};
+/// use tp_lib_core::{project_gnss, ProjectionConfig};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load and project data
