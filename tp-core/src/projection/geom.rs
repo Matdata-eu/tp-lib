@@ -2,7 +2,7 @@
 
 use crate::errors::ProjectionError;
 use crate::models::{GnssPosition, ProjectedPosition};
-use geo::algorithm::{ClosestPoint, HaversineDistance};
+use geo::algorithm::{ClosestPoint, HaversineDistance, HaversineLength, LineLocatePoint};
 use geo::{LineString, Point};
 
 #[cfg(test)]
@@ -25,8 +25,8 @@ pub fn project_point_onto_linestring(
 
 /// Calculate the distance along a linestring from its start to a given point
 ///
-/// Uses haversine distance to compute geodesic distance in meters between
-/// consecutive points along the linestring up to the projected point.
+/// Uses the geo crate's line_locate_point to find the fractional position,
+/// then multiplies by the total haversine length to get distance in meters.
 pub fn calculate_measure_along_linestring(
     linestring: &LineString<f64>,
     point: &Point<f64>,
@@ -43,39 +43,20 @@ pub fn calculate_measure_along_linestring(
         ));
     }
 
-    // Accumulate distance from start
-    let mut total_distance = 0.0;
-    let mut closest_distance = f64::MAX;
-    let mut measure_at_closest = 0.0;
+    // Get fractional position (0.0 to 1.0) along the linestring
+    let fractional_position = linestring.line_locate_point(point).ok_or_else(|| {
+        ProjectionError::InvalidGeometry(
+            "Could not locate point on linestring".to_string(),
+        )
+    })?;
 
-    // Iterate through line segments
-    for i in 0..linestring.0.len() - 1 {
-        let segment_start = Point::from(linestring.0[i]);
-        let segment_end = Point::from(linestring.0[i + 1]);
+    // Calculate total length using haversine distance
+    let total_length = linestring.haversine_length();
 
-        // Calculate segment length
-        let segment_length = segment_start.haversine_distance(&segment_end);
+    // Calculate measure in meters
+    let measure = fractional_position * total_length;
 
-        // Check if point is closest to this segment
-        let segment_linestring = LineString::from(vec![linestring.0[i], linestring.0[i + 1]]);
-        let closest_on_segment = match segment_linestring.closest_point(point) {
-            geo::Closest::SinglePoint(p) | geo::Closest::Intersection(p) => p,
-            geo::Closest::Indeterminate => continue,
-        };
-
-        let distance_to_segment = point.haversine_distance(&closest_on_segment);
-
-        if distance_to_segment < closest_distance {
-            closest_distance = distance_to_segment;
-            // Calculate distance from segment start to projected point
-            let distance_along_segment = segment_start.haversine_distance(&closest_on_segment);
-            measure_at_closest = total_distance + distance_along_segment;
-        }
-
-        total_distance += segment_length;
-    }
-
-    Ok(measure_at_closest)
+    Ok(measure)
 }
 
 /// Project a GNSS position onto a netelement
