@@ -105,6 +105,8 @@ mod tests {
             timestamp,
             crs: "EPSG:4326".to_string(),
             metadata: HashMap::new(),
+            heading: None,
+            distance: None,
         };
         
         let projected = ProjectedPosition::new(

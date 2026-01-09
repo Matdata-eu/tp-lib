@@ -54,6 +54,13 @@ pub struct GnssPosition {
 
     /// Additional metadata from CSV (preserved for output)
     pub metadata: HashMap<String, String>,
+
+    /// Train heading in degrees (0-360), None if not available
+    /// 0° = North, 90° = East, 180° = South, 270° = West
+    pub heading: Option<f64>,
+
+    /// Distance from previous GNSS position in meters, None if not available or first position
+    pub distance: Option<f64>,
 }
 
 impl GnssPosition {
@@ -70,10 +77,83 @@ impl GnssPosition {
             timestamp,
             crs,
             metadata: HashMap::new(),
+            heading: None,
+            distance: None,
         };
 
         position.validate()?;
         Ok(position)
+    }
+
+    /// Create a new GNSS position with optional heading and distance
+    pub fn with_heading_distance(
+        latitude: f64,
+        longitude: f64,
+        timestamp: DateTime<FixedOffset>,
+        crs: String,
+        heading: Option<f64>,
+        distance: Option<f64>,
+    ) -> Result<Self, ProjectionError> {
+        let position = Self {
+            latitude,
+            longitude,
+            timestamp,
+            crs,
+            metadata: HashMap::new(),
+            heading,
+            distance,
+        };
+
+        position.validate()?;
+        position.validate_heading()?;
+        Ok(position)
+    }
+
+    /// Validate heading if present (must be 0-360°)
+    pub fn validate_heading(&self) -> Result<(), ProjectionError> {
+        if let Some(heading) = self.heading {
+            if !(0.0..=360.0).contains(&heading) {
+                return Err(ProjectionError::InvalidGeometry(format!(
+                    "Heading must be in range [0, 360], got {}",
+                    heading
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Check if two headings are opposite
+    /// Returns true if headings are closer to 180° apart than to 0° apart
+    ///
+    /// Logic: Compare distance to 180° shift vs normal distance
+    /// If shifting by 180° gives smaller circular distance, they're opposite
+    pub fn is_opposite_heading(h1: f64, h2: f64) -> bool {
+        // Calculate normal circular distance
+        let diff_normal = (h1 - h2).abs();
+        let dist_normal = diff_normal.min(360.0 - diff_normal);
+
+        // Calculate distance when one heading is shifted by 180°
+        let diff_shifted = (h1 - h2 - 180.0).abs() % 360.0;
+        let dist_shifted = diff_shifted.min(360.0 - diff_shifted);
+
+        // If shifted distance is smaller, they're opposite
+        dist_shifted < dist_normal
+    }
+
+    /// Calculate angular difference between two headings
+    /// Accounts for circular nature of compass bearings
+    /// Accounts for possible opposite headings (180° apart)
+    pub fn heading_difference(h1: f64, h2: f64) -> f64 {
+        // Check if headings are opposite
+        if Self::is_opposite_heading(h1, h2) {
+            // Opposite headings: return the small angular deviation from exactly 180°
+            let diff_shifted = (h1 - h2 - 180.0).abs() % 360.0;
+            diff_shifted.min(360.0 - diff_shifted)
+        } else {
+            // Not opposite: return normal circular distance
+            let diff = (h1 - h2).abs();
+            diff.min(360.0 - diff)
+        }
     }
 
     /// Validate latitude range

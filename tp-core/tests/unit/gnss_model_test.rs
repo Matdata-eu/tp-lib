@@ -15,6 +15,8 @@ fn test_valid_gnss_position() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     // Should be able to create a valid position
@@ -34,6 +36,8 @@ fn test_latitude_at_boundaries() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
     assert_eq!(pos_north.latitude, 90.0);
 
@@ -43,6 +47,8 @@ fn test_latitude_at_boundaries() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
     assert_eq!(pos_south.latitude, -90.0);
 }
@@ -59,6 +65,8 @@ fn test_longitude_at_boundaries() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
     assert_eq!(pos_east.longitude, 180.0);
 
@@ -68,6 +76,8 @@ fn test_longitude_at_boundaries() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
     assert_eq!(pos_west.longitude, -180.0);
 }
@@ -84,6 +94,8 @@ fn test_timezone_preservation() {
         timestamp: dt_plus,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     assert_eq!(pos_plus.timestamp.timezone(), tz_plus);
@@ -98,6 +110,8 @@ fn test_timezone_preservation() {
         timestamp: dt_minus,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     assert_eq!(pos_minus.timestamp.timezone(), tz_minus);
@@ -119,6 +133,8 @@ fn test_metadata_storage() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: metadata.clone(),
+        heading: None,
+        distance: None,
     };
 
     assert_eq!(pos.metadata.len(), 3);
@@ -138,6 +154,8 @@ fn test_empty_metadata() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     assert!(pos.metadata.is_empty());
@@ -163,6 +181,8 @@ fn test_various_crs_formats() {
             timestamp: dt,
             crs: crs.to_string(),
             metadata: HashMap::new(),
+            heading: None,
+            distance: None,
         };
         assert_eq!(pos.crs, crs);
     }
@@ -180,6 +200,8 @@ fn test_utc_timezone() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     assert_eq!(pos.timestamp.timezone(), tz);
@@ -199,6 +221,8 @@ fn test_extreme_timezone_offsets() {
         timestamp: dt_max,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
     assert_eq!(pos_max.timestamp.timezone(), tz_max);
 
@@ -212,6 +236,8 @@ fn test_extreme_timezone_offsets() {
         timestamp: dt_min,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
     assert_eq!(pos_min.timestamp.timezone(), tz_min);
 }
@@ -228,6 +254,8 @@ fn test_timestamp_ordering() {
         timestamp: dt1,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     let pos2 = GnssPosition {
@@ -236,6 +264,8 @@ fn test_timestamp_ordering() {
         timestamp: dt2,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     // Verify timestamps are ordered

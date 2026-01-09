@@ -26,6 +26,9 @@ crs-definitions = "0.3.1"
 rstar = "0.12"
 geojson = "0.24"
 
+# Graph algorithms
+petgraph = "0.6"
+
 # Data processing
 arrow = "53.0"
 polars = "0.44"

@@ -1,6 +1,6 @@
 //! GeoJSON parsing and writing
 
-use crate::models::{GnssPosition, Netelement, ProjectedPosition};
+use crate::models::{GnssPosition, Netelement, ProjectedPosition, NetRelation, TrainPath};
 use crate::errors::ProjectionError;
 use geojson::{GeoJson, Feature, Value};
 use geo::{LineString, Coord};
@@ -224,6 +224,8 @@ fn parse_gnss_feature(feature: &Feature, crs: &str, idx: usize) -> Result<GnssPo
         timestamp,
         crs: crs.to_string(),
         metadata,
+        heading: None,
+        distance: None,
     })
 }
 
@@ -275,6 +277,167 @@ fn parse_feature(feature: &Feature, crs: &str, idx: usize) -> Result<Netelement,
     };
     
     Netelement::new(id, linestring, crs.to_string())
+}
+
+/// Parse netrelations from GeoJSON file
+///
+/// Expects a FeatureCollection with features that have `type="netrelation"` property.
+/// Netrelations can have optional Point geometry representing the connection point.
+///
+/// # Required Properties
+///
+/// - `type`: Must be "netrelation"
+/// - `id`: Netrelation identifier
+/// - `netelementA`: ID of first netelement
+/// - `netelementB`: ID of second netelement
+/// - `positionOnA`: Position on netelementA (0 or 1)
+/// - `positionOnB`: Position on netelementB (0 or 1)
+/// - `navigability`: "both", "AB", "BA", or "none"
+///
+/// # Arguments
+///
+/// * `path` - Path to GeoJSON file
+///
+/// # Returns
+///
+/// Vector of NetRelation structs
+///
+/// # Example GeoJSON
+///
+/// ```json
+/// {
+///   "type": "FeatureCollection",
+///   "features": [
+///     {
+///       "type": "Feature",
+///       "geometry": {
+///         "type": "Point",
+///         "coordinates": [4.3517, 50.8503]
+///       },
+///       "properties": {
+///         "type": "netrelation",
+///         "id": "NR_001",
+///         "netelementA": "NE_001",
+///         "netelementB": "NE_002",
+///         "positionOnA": 1,
+///         "positionOnB": 0,
+///         "navigability": "both"
+///       }
+///     }
+///   ]
+/// }
+/// ```
+pub fn parse_netrelations_geojson(path: &str) -> Result<Vec<NetRelation>, ProjectionError> {
+    // Read file
+    let geojson_str = fs::read_to_string(path)?;
+    
+    // Parse GeoJSON
+    let geojson = geojson_str.parse::<GeoJson>()
+        .map_err(|e| ProjectionError::GeoJsonError(
+            format!("Failed to parse GeoJSON: {}", e)
+        ))?;
+    
+    // Extract FeatureCollection
+    let feature_collection = match geojson {
+        GeoJson::FeatureCollection(fc) => fc,
+        _ => return Err(ProjectionError::GeoJsonError(
+            "GeoJSON must be a FeatureCollection".to_string()
+        )),
+    };
+    
+    // Parse features, filtering for type="netrelation"
+    let mut netrelations = Vec::new();
+    
+    for (idx, feature) in feature_collection.features.iter().enumerate() {
+        // Check if this is a netrelation feature
+        if let Some(props) = &feature.properties {
+            if let Some(feature_type) = props.get("type") {
+                if feature_type.as_str() == Some("netrelation") {
+                    let netrelation = parse_netrelation_feature(feature, idx)?;
+                    netrelations.push(netrelation);
+                }
+            }
+        }
+    }
+    
+    Ok(netrelations)
+}
+
+/// Parse a single GeoJSON feature into a NetRelation
+fn parse_netrelation_feature(feature: &Feature, idx: usize) -> Result<NetRelation, ProjectionError> {
+    // Get properties
+    let properties = feature.properties.as_ref()
+        .ok_or_else(|| ProjectionError::GeoJsonError(
+            format!("Netrelation feature {} missing properties", idx)
+        ))?;
+    
+    // Extract ID
+    let id = properties.get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| ProjectionError::GeoJsonError(
+            format!("Netrelation feature {} missing 'id' property", idx)
+        ))?
+        .to_string();
+    
+    // Extract netelementA
+    let netelement_a = properties.get("netelementA")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| ProjectionError::GeoJsonError(
+            format!("Netrelation feature {} missing 'netelementA' property", idx)
+        ))?
+        .to_string();
+    
+    // Extract netelementB
+    let netelement_b = properties.get("netelementB")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| ProjectionError::GeoJsonError(
+            format!("Netrelation feature {} missing 'netelementB' property", idx)
+        ))?
+        .to_string();
+    
+    // Extract positionOnA (0 or 1)
+    let position_on_a = properties.get("positionOnA")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| ProjectionError::GeoJsonError(
+            format!("Netrelation feature {} missing or invalid 'positionOnA' property", idx)
+        ))? as u8;
+    
+    // Extract positionOnB (0 or 1)
+    let position_on_b = properties.get("positionOnB")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| ProjectionError::GeoJsonError(
+            format!("Netrelation feature {} missing or invalid 'positionOnB' property", idx)
+        ))? as u8;
+    
+    // Extract navigability and convert to boolean flags
+    let navigability_str = properties.get("navigability")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| ProjectionError::GeoJsonError(
+            format!("Netrelation feature {} missing 'navigability' property", idx)
+        ))?;
+    
+    let (navigable_forward, navigable_backward) = match navigability_str {
+        "both" => (true, true),
+        "AB" => (true, false),
+        "BA" => (false, true),
+        "none" => (false, false),
+        _ => return Err(ProjectionError::GeoJsonError(
+            format!("Netrelation feature {}: invalid navigability value '{}' (expected: both, AB, BA, or none)", idx, navigability_str)
+        )),
+    };
+    
+    // Create NetRelation
+    let netrelation = NetRelation::new(
+        id,
+        netelement_a,
+        netelement_b,
+        position_on_a,
+        position_on_b,
+        navigable_forward,
+        navigable_backward,
+    )?;
+    
+    Ok(netrelation)
 }
 
 /// Write projected positions as GeoJSON FeatureCollection
@@ -329,6 +492,130 @@ pub fn write_geojson(
     let json = serde_json::to_string_pretty(&feature_collection)
         .map_err(|e| ProjectionError::GeoJsonError(format!("Failed to serialize GeoJSON: {}", e)))?;
     
+    writer.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Write TrainPath as GeoJSON FeatureCollection
+///
+/// Serializes a TrainPath to GeoJSON, with each segment as a separate feature.
+/// The overall path probability and metadata are stored in the FeatureCollection properties.
+///
+/// # Arguments
+///
+/// * `train_path` - The TrainPath to serialize
+/// * `netelements` - Map of netelement IDs to Netelement geometries (for creating LineString features)
+/// * `writer` - Output writer
+///
+/// # Output Format
+///
+/// ```json
+/// {
+///   "type": "FeatureCollection",
+///   "properties": {
+///     "overall_probability": 0.89,
+///     "calculated_at": "2025-01-15T10:30:00Z",
+///     "distance_scale": 10.0,
+///     "heading_scale": 2.0
+///   },
+///   "features": [
+///     {
+///       "type": "Feature",
+///       "geometry": { "type": "LineString", "coordinates": [...] },
+///       "properties": {
+///         "netelement_id": "NE_A",
+///         "probability": 0.87,
+///         "start_intrinsic": 0.0,
+///         "end_intrinsic": 1.0,
+///         "gnss_start_index": 0,
+///         "gnss_end_index": 10
+///       }
+///     }
+///   ]
+/// }
+/// ```
+pub fn write_trainpath_geojson(
+    train_path: &crate::models::TrainPath,
+    netelements: &std::collections::HashMap<String, Netelement>,
+    writer: &mut impl std::io::Write,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use serde_json::{Map, Value as JsonValue};
+
+    let mut features = Vec::new();
+
+    // Create a feature for each segment
+    for segment in &train_path.segments {
+        // Look up the netelement geometry
+        let netelement = netelements.get(&segment.netelement_id)
+            .ok_or_else(|| ProjectionError::InvalidGeometry(
+                format!("Netelement {} not found in provided map", segment.netelement_id)
+            ))?;
+
+        // Extract the portion of the linestring covered by this segment
+        // For simplicity, use the full linestring geometry
+        // (In a production system, you'd extract the substring from start_intrinsic to end_intrinsic)
+        let coords: Vec<Vec<f64>> = netelement.geometry.points()
+            .map(|point| vec![point.x(), point.y()])
+            .collect();
+
+        let geometry = Geometry::new(Value::LineString(coords));
+
+        // Create properties for this segment
+        let mut properties = Map::new();
+        properties.insert("netelement_id".to_string(), JsonValue::from(segment.netelement_id.clone()));
+        properties.insert("probability".to_string(), JsonValue::from(segment.probability));
+        properties.insert("start_intrinsic".to_string(), JsonValue::from(segment.start_intrinsic));
+        properties.insert("end_intrinsic".to_string(), JsonValue::from(segment.end_intrinsic));
+        properties.insert("gnss_start_index".to_string(), JsonValue::from(segment.gnss_start_index as i64));
+        properties.insert("gnss_end_index".to_string(), JsonValue::from(segment.gnss_end_index as i64));
+
+        let feature = Feature {
+            bbox: None,
+            geometry: Some(geometry),
+            id: None,
+            properties: Some(properties),
+            foreign_members: None,
+        };
+
+        features.push(feature);
+    }
+
+    // Create FeatureCollection with overall properties
+    let mut fc_properties = Map::new();
+    fc_properties.insert("overall_probability".to_string(), JsonValue::from(train_path.overall_probability));
+    
+    if let Some(calculated_at) = &train_path.calculated_at {
+        fc_properties.insert("calculated_at".to_string(), JsonValue::from(calculated_at.to_rfc3339()));
+    }
+
+    // Add metadata if present
+    if let Some(metadata) = &train_path.metadata {
+        fc_properties.insert("distance_scale".to_string(), JsonValue::from(metadata.distance_scale));
+        fc_properties.insert("heading_scale".to_string(), JsonValue::from(metadata.heading_scale));
+        fc_properties.insert("cutoff_distance".to_string(), JsonValue::from(metadata.cutoff_distance));
+        fc_properties.insert("heading_cutoff".to_string(), JsonValue::from(metadata.heading_cutoff));
+        fc_properties.insert("probability_threshold".to_string(), JsonValue::from(metadata.probability_threshold));
+        if let Some(resampling_dist) = metadata.resampling_distance {
+            fc_properties.insert("resampling_distance".to_string(), JsonValue::from(resampling_dist));
+        }
+        fc_properties.insert("fallback_mode".to_string(), JsonValue::from(metadata.fallback_mode));
+        fc_properties.insert("candidate_paths_evaluated".to_string(), JsonValue::from(metadata.candidate_paths_evaluated as i64));
+        fc_properties.insert("bidirectional_path".to_string(), JsonValue::from(metadata.bidirectional_path));
+    }
+
+    let mut foreign_members = Map::new();
+    foreign_members.insert("properties".to_string(), JsonValue::Object(fc_properties));
+
+    let feature_collection = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: Some(foreign_members),
+    };
+
+    let json = serde_json::to_string_pretty(&feature_collection)
+        .map_err(|e| ProjectionError::GeoJsonError(format!("Failed to serialize TrainPath GeoJSON: {}", e)))?;
+
     writer.write_all(json.as_bytes())?;
     Ok(())
 }

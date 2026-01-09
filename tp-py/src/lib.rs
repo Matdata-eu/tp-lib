@@ -56,6 +56,15 @@ fn convert_error(error: ProjectionError) -> PyErr {
         ProjectionError::CsvError(err) => PyIOError::new_err(format!("CSV error: {}", err)),
         ProjectionError::GeoJsonError(msg) => PyIOError::new_err(format!("GeoJSON error: {}", msg)),
         ProjectionError::IoError(err) => PyIOError::new_err(format!("IO error: {}", err)),
+        ProjectionError::PathCalculationFailed { reason } => {
+            PyRuntimeError::new_err(format!("Path calculation failed: {}", reason))
+        }
+        ProjectionError::NoNavigablePath => {
+            PyValueError::new_err("No navigable path found between netelements")
+        }
+        ProjectionError::InvalidNetRelation(msg) => {
+            PyValueError::new_err(format!("Invalid netrelation: {}", msg))
+        }
     }
 }
 

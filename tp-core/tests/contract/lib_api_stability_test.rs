@@ -24,6 +24,8 @@ fn test_gnss_position_contract() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     // Verify fields are accessible
@@ -68,6 +70,8 @@ fn test_projected_position_contract() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     let proj = ProjectedPosition {
@@ -165,6 +169,8 @@ fn test_project_gnss_contract() {
         timestamp: dt,
         crs: "EPSG:4326".to_string(),
         metadata: HashMap::new(),
+        heading: None,
+        distance: None,
     };
 
     let geom = LineString::from(vec![(4.35, 50.85), (4.36, 50.86)]);

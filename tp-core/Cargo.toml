@@ -17,6 +17,7 @@ proj4rs.workspace = true
 crs-definitions.workspace = true
 rstar.workspace = true
 geojson.workspace = true
+petgraph.workspace = true
 arrow.workspace = true
 polars.workspace = true
 csv.workspace = true
@@ -39,4 +40,8 @@ harness = false
 
 [[bench]]
 name = "naive_baseline_bench"
+harness = false
+
+[[bench]]
+name = "path_calculation_bench"
 harness = false

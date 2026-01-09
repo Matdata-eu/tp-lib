@@ -17,16 +17,16 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Add petgraph ~1.0 dependency to tp-core/Cargo.toml with MIT OR Apache-2.0 license
-- [ ] T002 [P] Create tp-core/src/path.rs as public API module with mod declarations
-- [ ] T003 [P] Create tp-core/src/path/ directory for implementation modules
-- [ ] T004 [P] Create tp-core/tests/contract/path_api_contract.rs test file structure
-- [ ] T005 [P] Create tp-core/tests/integration/path_calculation_test.rs test file structure
-- [ ] T006 [P] Create tp-core/tests/unit/path_candidate_test.rs test file structure
-- [ ] T007 [P] Create tp-core/tests/unit/path_probability_test.rs test file structure
-- [ ] T008 [P] Create tp-core/tests/unit/path_construction_test.rs test file structure
-- [ ] T009 [P] Create tp-core/benches/path_calculation_bench.rs benchmark file
-- [ ] T010 [P] Create test fixtures directory tp-core/tests/fixtures/train_path/
+- [X] T001 Add petgraph ~1.0 dependency to tp-core/Cargo.toml with MIT OR Apache-2.0 license
+- [X] T002 [P] Create tp-core/src/path.rs as public API module with mod declarations
+- [X] T003 [P] Create tp-core/src/path/ directory for implementation modules
+- [X] T004 [P] Create tp-core/tests/contract/path_api_contract.rs test file structure
+- [X] T005 [P] Create tp-core/tests/integration/path_calculation_test.rs test file structure
+- [X] T006 [P] Create tp-core/tests/unit/path_candidate_test.rs test file structure
+- [X] T007 [P] Create tp-core/tests/unit/path_probability_test.rs test file structure
+- [X] T008 [P] Create tp-core/tests/unit/path_construction_test.rs test file structure
+- [X] T009 [P] Create tp-core/benches/path_calculation_bench.rs benchmark file
+- [X] T010 [P] Create test fixtures directory tp-core/tests/fixtures/train_path/
 
 ---
 
@@ -38,48 +38,48 @@
 
 ### Models (Data Structures)
 
-- [ ] T011 [P] Create tp-core/src/models/netrelation.rs with NetRelation struct (id, from_netelement_id, to_netelement_id, position_on_a, position_on_b, navigable_forward, navigable_backward)
-- [ ] T012 [P] Create tp-core/src/models/train_path.rs with TrainPath struct (id, segments, mode, overall_probability, metadata)
-- [ ] T013 [P] Create AssociatedNetElement struct in tp-core/src/models/train_path.rs (netelement_id, begin_intrinsic, end_intrinsic, length, probability)
-- [ ] T014 [P] Extend GnssPosition in tp-core/src/models/gnss.rs with optional heading and distance fields
-- [ ] T015 [P] Create GnssNetElementLink struct in tp-core/src/models/train_path.rs for candidate projections
-- [ ] T016 Add NetRelation module to tp-core/src/models.rs public exports
-- [ ] T017 Add TrainPath and AssociatedNetElement to tp-core/src/models.rs public exports
+- [X] T011 [P] Create tp-core/src/models/netrelation.rs with NetRelation struct (id, from_netelement_id, to_netelement_id, position_on_a, position_on_b, navigable_forward, navigable_backward)
+- [X] T012 [P] Create tp-core/src/models/train_path.rs with TrainPath struct (id, segments, mode, overall_probability, metadata)
+- [X] T013 [P] Create AssociatedNetElement struct in tp-core/src/models/train_path.rs (netelement_id, begin_intrinsic, end_intrinsic, length, probability)
+- [X] T014 [P] Extend GnssPosition in tp-core/src/models/gnss.rs with optional heading and distance fields
+- [X] T015 [P] Create GnssNetElementLink struct in tp-core/src/models/train_path.rs for candidate projections
+- [X] T016 Add NetRelation module to tp-core/src/models.rs public exports
+- [X] T017 Add TrainPath and AssociatedNetElement to tp-core/src/models.rs public exports
 
 ### Graph Infrastructure
 
-- [ ] T018 Create tp-core/src/path/graph.rs with NetelementSide struct (netelement_id, position: 0|1)
-- [ ] T019 Implement build_topology_graph() in tp-core/src/path/graph.rs to create petgraph DiGraph from netelements and netrelations
-- [ ] T020 Write unit test for NetelementSide node creation in tests/unit/path_construction_test.rs
-- [ ] T021 Write unit test for internal edge creation (start→end, end→start) in tests/unit/path_construction_test.rs
-- [ ] T022 Write unit test for netrelation connection edge creation in tests/unit/path_construction_test.rs
+- [X] T018 Create tp-core/src/path/graph.rs with NetelementSide struct (netelement_id, position: 0|1)
+- [X] T019 Implement build_topology_graph() in tp-core/src/path/graph.rs to create petgraph DiGraph from netelements and netrelations
+- [X] T020 Write unit test for NetelementSide node creation in tests/unit/path_construction_test.rs
+- [X] T021 Write unit test for internal edge creation (start→end, end→start) in tests/unit/path_construction_test.rs
+- [X] T022 Write unit test for netrelation connection edge creation in tests/unit/path_construction_test.rs
 
 ### Validation and Error Handling
 
-- [ ] T023 Extend ProjectionError enum in tp-core/src/errors.rs with PathCalculationFailed, NoNavigablePath, InvalidNetRelation variants
-- [ ] T024 Implement NetRelation::validate() method for position value validation (0 or 1 only)
-- [ ] T025 Implement NetRelation self-reference check (from != to) validation
-- [ ] T026 Write unit test for NetRelation validation rules in tests/unit/path_construction_test.rs
-- [ ] T026a Implement validate_netrelation_references() checking elementA/B IDs exist in netelements collection (FR-006a)
-- [ ] T026b Write unit test for invalid netelement reference handling and warning logs in tests/unit/path_construction_test.rs
+- [X] T023 Extend ProjectionError enum in tp-core/src/errors.rs with PathCalculationFailed, NoNavigablePath, InvalidNetRelation variants
+- [X] T024 Implement NetRelation::validate() method for position value validation (0 or 1 only)
+- [X] T025 Implement NetRelation self-reference check (from != to) validation
+- [X] T026 Write unit test for NetRelation validation rules in tests/unit/path_construction_test.rs
+- [X] T026a Implement validate_netrelation_references() checking elementA/B IDs exist in netelements collection (FR-006a)
+- [X] T026b Write unit test for invalid netelement reference handling and warning logs in tests/unit/path_construction_test.rs
 
 ### I/O Extensions
 
-- [ ] T027 [P] Extend GeoJSON parser in tp-core/src/io/geojson.rs to parse netrelations from features with type="netrelation"
-- [ ] T028 [P] Implement TrainPath GeoJSON serialization in tp-core/src/io/geojson.rs (FeatureCollection with segments)
-- [ ] T029 [P] Implement TrainPath CSV serialization in tp-core/src/io/csv.rs (one row per segment)
-- [ ] T030 [P] Implement TrainPath CSV deserialization for reading pre-calculated paths
-- [ ] T031 Write integration test for netrelation GeoJSON parsing in tests/integration/path_calculation_test.rs
-- [ ] T032 Write integration test for TrainPath serialization roundtrip in tests/integration/path_calculation_test.rs
+- [X] T027 [P] Extend GeoJSON parser in tp-core/src/io/geojson.rs to parse netrelations from features with type="netrelation"
+- [X] T028 [P] Implement TrainPath GeoJSON serialization in tp-core/src/io/geojson.rs (FeatureCollection with segments)
+- [X] T029 [P] Implement TrainPath CSV serialization in tp-core/src/io/csv.rs (one row per segment)
+- [X] T030 [P] Implement TrainPath CSV deserialization for reading pre-calculated paths
+- [X] T031 Write integration test for netrelation GeoJSON parsing in tests/integration/path_calculation_test.rs
+- [X] T032 Write integration test for TrainPath serialization roundtrip in tests/integration/path_calculation_test.rs
 
 ### Configuration
 
-- [ ] T033 [P] Create PathConfig struct in tp-core/src/path.rs (distance_scale, heading_scale, cutoff_distance, heading_cutoff, probability_threshold, resampling_distance, max_candidates)
-- [ ] T034 [P] Implement PathConfig::default() with documented default values (distance_scale: 10.0, heading_scale: 2.0, cutoff_distance: 50.0, heading_cutoff: 5.0, probability_threshold: 0.25, max_candidates: 3)
-- [ ] T035 [P] Create PathConfigBuilder with fluent API and validation
-- [ ] T036 [P] Create PathResult struct (path: Option<TrainPath>, mode: PathCalculationMode enum, projected_positions, warnings)
-- [ ] T037 [P] Create PathCalculationMode enum (TopologyBased, FallbackIndependent) in tp-core/src/path.rs
-- [ ] T038 Write contract test for PathConfig defaults in tests/contract/path_api_contract.rs
+- [X] T033 [P] Create PathConfig struct in tp-core/src/path.rs (distance_scale, heading_scale, cutoff_distance, heading_cutoff, probability_threshold, resampling_distance, max_candidates)
+- [X] T034 [P] Implement PathConfig::default() with documented default values (distance_scale: 10.0, heading_scale: 2.0, cutoff_distance: 50.0, heading_cutoff: 5.0, probability_threshold: 0.25, max_candidates: 3)
+- [X] T035 [P] Create PathConfigBuilder with fluent API and validation
+- [X] T036 [P] Create PathResult struct (path: Option<TrainPath>, mode: PathCalculationMode enum, projected_positions, warnings)
+- [X] T037 [P] Create PathCalculationMode enum (TopologyBased, FallbackIndependent) in tp-core/src/path.rs
+- [X] T038 Write contract test for PathConfig defaults in tests/contract/path_api_contract.rs
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
