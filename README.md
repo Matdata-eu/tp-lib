@@ -1,6 +1,7 @@
 # TP-Lib: Train Positioning Library
 
 [![CI](https://github.com/matdata-eu/tp-lib/actions/workflows/ci.yml/badge.svg)](https://github.com/matdata-eu/tp-lib/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/matdata-eu/tp-lib/branch/main/graph/badge.svg)](https://codecov.io/gh/matdata-eu/tp-lib)
 [![crates.io](https://img.shields.io/crates/v/tp-lib-core.svg)](https://crates.io/crates/tp-lib-core)
 [![PyPI](https://img.shields.io/pypi/v/tp-lib.svg)](https://pypi.org/project/tp-lib/)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://matdata-eu.github.io/tp-lib/)
