@@ -73,7 +73,7 @@ A railway engineer provides GNSS data that includes heading (direction relative 
 
 ### User Story 5 - Performance-Optimized Processing (Priority: P3)
 
-When processing dense GNSS data (coordinates recorded every meter or less), a railway analyst configures the resampling distance parameter to reduce computational load. The system intelligently samples coordinates at the specified interval for path calculation, maintaining accuracy while processing large datasets efficiently.
+When processing dense GNSS data (coordinates recorded every meter or less), a railway analyst configures the resampling distance parameter to reduce computational load. The system intelligently samples coordinates at the specified interval for path calculation, maintaining accuracy while processing large datasets efficiently. The final projected output still contains all original GNSS positions, ensuring no data loss.
 
 **Why this priority**: Enables practical processing of high-frequency GNSS data, but the core functionality works without this optimization. Important for production use with real-world data volumes.
 
@@ -84,6 +84,7 @@ When processing dense GNSS data (coordinates recorded every meter or less), a ra
 1. **Given** GNSS coordinates approximately 1 meter apart and a resampling parameter of 10 meters, **When** path calculation starts, **Then** the system uses approximately every 10th coordinate for path calculation
 2. **Given** GNSS data with varying spacing, **When** resampling is configured, **Then** the system calculates mean distance between neighboring coordinates and resamples accordingly
 3. **Given** GNSS data with distance column values, **When** determining coordinate spacing, **Then** the system uses distance values to calculate mean spacing between points
+4. **Given** resampling is enabled with any distance value, **When** path calculation completes, **Then** the projected coordinate output contains all original GNSS positions (not just the resampled subset)
 
 ---
 

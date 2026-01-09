@@ -189,6 +189,16 @@ For each position along the candidate path:
 **Process:**
 - Identical to forward construction but traverse in reverse direction
 - Follow netrelations in the opposite navigability direction
+- Construct path from last to first GNSS position
+
+**Reversal for Comparison:**
+Before comparing with the forward path, the backward path must be reversed:
+1. **Reverse segment order**: [D, C, B, A] → [A, B, C, D]
+2. **Swap intrinsic coordinates** for each AssociatedNetElement:
+   - Original: `start_intrinsic=0.2, end_intrinsic=0.8`
+   - Reversed: `start_intrinsic=0.8, end_intrinsic=0.2`
+
+This ensures the backward path represents the same physical traversal as the forward path for proper comparison.
 
 ### Path Validation
 
