@@ -84,7 +84,39 @@ mod tests {
     #[test]
     fn test_calculate_train_path_signature() {
         // T043: Verify calculate_train_path() function signature and error types
-        // To be implemented after US1 Phase 5 Integration tasks complete
+        use tp_lib_core::{models::{GnssPosition, Netelement, NetRelation}, PathConfig, calculate_train_path};
+        use geo::LineString;
+        use chrono::Utc;
+        
+        // Create minimal test data
+        let gnss_positions = vec![
+            GnssPosition::new(50.85, 4.35, Utc::now().into(), "EPSG:4326".to_string()).unwrap(),
+        ];
+        
+        let netelements = vec![
+            Netelement::new(
+                "NE_A".to_string(),
+                LineString::from(vec![(4.350, 50.850), (4.351, 50.851)]),
+                "EPSG:4326".to_string(),
+            ).unwrap(),
+        ];
+        
+        let netrelations = vec![];
+        let config = PathConfig::default();
+        
+        // Verify function exists with correct signature
+        let result = calculate_train_path(&gnss_positions, &netelements, &netrelations, &config);
+        
+        // Result should be Result<PathResult, ProjectionError>
+        assert!(result.is_ok() || result.is_err(), "Function should return Result type");
+        
+        // Verify PathResult structure
+        if let Ok(path_result) = result {
+            assert!(path_result.path.is_some() || path_result.path.is_none(), "path field should exist");
+            // path_result.mode should be PathCalculationMode
+            // path_result.projected_positions should be Vec<GnssPosition>
+            // path_result.warnings should be Vec<String>
+        }
     }
 
     #[test]

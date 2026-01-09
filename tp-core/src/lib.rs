@@ -49,8 +49,9 @@ pub mod temporal;
 
 // Re-export main types for convenience
 pub use errors::ProjectionError;
-pub use io::{parse_gnss_csv, parse_gnss_geojson, parse_network_geojson, write_csv, write_geojson};
-pub use models::{GnssPosition, Netelement, ProjectedPosition};
+pub use io::{parse_gnss_csv, parse_gnss_geojson, parse_network_geojson, parse_netrelations_geojson, write_csv, write_geojson, write_trainpath_geojson, write_trainpath_csv, parse_trainpath_csv};
+pub use models::{GnssPosition, Netelement, ProjectedPosition, NetRelation, TrainPath, AssociatedNetElement, PathMetadata};
+pub use path::{calculate_train_path, PathConfig, PathConfigBuilder, PathResult, PathCalculationMode};
 
 /// Result type alias using ProjectionError
 pub type Result<T> = std::result::Result<T, ProjectionError>;

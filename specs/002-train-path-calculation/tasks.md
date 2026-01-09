@@ -95,76 +95,76 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T039 [P] [US1] Write integration test for successful path calculation with simple linear path in tests/integration/path_calculation_test.rs
-- [ ] T040 [P] [US1] Write integration test for path calculation with junction (3 candidate branches) in tests/integration/path_calculation_test.rs
-- [ ] T041 [P] [US1] Write integration test for heading filtering (exclude segments with >5° difference) in tests/integration/path_calculation_test.rs
-- [ ] T042 [P] [US1] Write integration test for selecting highest probability path from multiple candidates in tests/integration/path_calculation_test.rs
-- [ ] T043 [P] [US1] Write contract test verifying calculate_train_path() signature and error types in tests/contract/path_api_contract.rs
+- [X] T039 [P] [US1] Write integration test for successful path calculation with simple linear path in tests/integration/path_calculation_test.rs
+- [X] T040 [P] [US1] Write integration test for path calculation with junction (3 candidate branches) in tests/integration/path_calculation_test.rs
+- [X] T041 [P] [US1] Write integration test for heading filtering (exclude segments with >5° difference) in tests/integration/path_calculation_test.rs
+- [X] T042 [P] [US1] Write integration test for selecting highest probability path from multiple candidates in tests/integration/path_calculation_test.rs
+- [X] T043 [P] [US1] Write contract test verifying calculate_train_path() signature and error types in tests/contract/path_api_contract.rs
 
 ### Implementation for User Story 1
 
 #### Phase 1: Candidate Selection Module
 
-- [ ] T044 [P] [US1] Create tp-core/src/path/candidate.rs module file
-- [ ] T045 [P] [US1] Implement find_candidate_netelements() using NetworkIndex (reuse from projection) with cutoff_distance filter
-- [ ] T046 [US1] Implement heading calculation at projection point on linestring (reuse from projection/geom.rs)
-- [ ] T047 [US1] Implement heading_difference() considering 180° equivalence (forward vs backward on same track)
-- [ ] T048 [US1] Write unit test for candidate selection within cutoff distance in tests/unit/path_candidate_test.rs
-- [ ] T049 [US1] Write unit test for heading difference calculation with 180° handling in tests/unit/path_candidate_test.rs
+- [X] T044 [P] [US1] Create tp-core/src/path/candidate.rs module file
+- [X] T045 [P] [US1] Implement find_candidate_netelements() using NetworkIndex (reuse from projection) with cutoff_distance filter
+- [X] T046 [US1] Implement heading calculation at projection point on linestring (reuse from projection/geom.rs)
+- [X] T047 [US1] Implement heading_difference() considering 180° equivalence (forward vs backward on same track)
+- [X] T048 [US1] Write unit test for candidate selection within cutoff distance in tests/unit/path_candidate_test.rs
+- [X] T049 [US1] Write unit test for heading difference calculation with 180° handling in tests/unit/path_candidate_test.rs
 
 #### Phase 2: GNSS-Level Probability
 
-- [ ] T050 [P] [US1] Create tp-core/src/path/probability.rs module file
-- [ ] T051 [P] [US1] Implement calculate_distance_probability() with exponential decay formula exp(-distance/distance_scale)
-- [ ] T052 [P] [US1] Implement calculate_heading_probability() with exponential decay exp(-heading_diff/heading_scale) and heading_cutoff rejection
-- [ ] T053 [US1] Implement calculate_combined_probability() as product of distance and heading probabilities
-- [ ] T054 [US1] Implement assign_positions_to_netelements() mapping each GNSS position to candidate netelements with probabilities
-- [ ] T055 [P] [US1] Write unit test for distance probability formula validation (0m→1.0, scale→0.37) in tests/unit/path_probability_test.rs
-- [ ] T056 [P] [US1] Write unit test for heading probability with cutoff behavior in tests/unit/path_probability_test.rs
-- [ ] T057 [US1] Write unit test for combined probability calculation in tests/unit/path_probability_test.rs
+- [X] T050 [P] [US1] Create tp-core/src/path/probability.rs module file
+- [X] T051 [P] [US1] Implement calculate_distance_probability() with exponential decay formula exp(-distance/distance_scale)
+- [X] T052 [P] [US1] Implement calculate_heading_probability() with exponential decay exp(-heading_diff/heading_scale) and heading_cutoff rejection
+- [X] T053 [US1] Implement calculate_combined_probability() as product of distance and heading probabilities
+- [X] T054 [US1] Implement assign_positions_to_netelements() mapping each GNSS position to candidate netelements with probabilities
+- [X] T055 [P] [US1] Write unit test for distance probability formula validation (0m→1.0, scale→0.37) in tests/unit/path_probability_test.rs
+- [X] T056 [P] [US1] Write unit test for heading probability with cutoff behavior in tests/unit/path_probability_test.rs
+- [X] T057 [US1] Write unit test for combined probability calculation in tests/unit/path_probability_test.rs
 
 #### Phase 3: Netelement-Level Probability
 
-- [ ] T058 [US1] Implement calculate_netelement_probability() averaging GNSS position probabilities for a netelement
-- [ ] T059 [US1] Implement identify_consecutive_positions() to find sequential GNSS positions assigned to same netelement
-- [ ] T060 [US1] Implement calculate_coverage_factor() as (consecutive_distance_sum / total_distance_first_to_last)
-- [ ] T061 [US1] Apply coverage correction factor to netelement probability
-- [ ] T062 [P] [US1] Write unit test for netelement probability averaging in tests/unit/path_probability_test.rs
-- [ ] T063 [US1] Write unit test for consecutive position identification in tests/unit/path_probability_test.rs
-- [ ] T064 [US1] Write unit test for coverage factor calculation in tests/unit/path_probability_test.rs
+- [X] T058 [US1] Implement calculate_netelement_probability() averaging GNSS position probabilities for a netelement
+- [X] T059 [US1] Implement identify_consecutive_positions() to find sequential GNSS positions assigned to same netelement
+- [X] T060 [US1] Implement calculate_coverage_factor() as (consecutive_distance_sum / total_distance_first_to_last)
+- [X] T061 [US1] Apply coverage correction factor to netelement probability
+- [X] T062 [P] [US1] Write unit test for netelement probability averaging in tests/unit/path_probability_test.rs
+- [X] T063 [US1] Write unit test for consecutive position identification in tests/unit/path_probability_test.rs
+- [X] T064 [US1] Write unit test for coverage factor calculation in tests/unit/path_probability_test.rs
 
 #### Phase 4: Path Construction (Bidirectional)
 
-- [ ] T065 [P] [US1] Create tp-core/src/path/construction.rs module file
-- [ ] T066 [P] [US1] Implement construct_forward_path() starting from highest probability netelement at first position
-- [ ] T067 [P] [US1] Implement construct_backward_path() starting from highest probability netelement at last position
-- [ ] T068 [US1] Implement graph traversal with navigability constraints using petgraph neighbors()
-- [ ] T069 [US1] Implement probability threshold filtering (default 25%, except when only navigable option)
-- [ ] T070 [US1] Implement path reversal for backward path (reverse segment order + swap intrinsic coordinates)
-- [ ] T071 [US1] Implement bidirectional validation comparing forward and reversed backward paths
-- [ ] T072 [US1] Write unit test for forward path construction in tests/unit/path_construction_test.rs
-- [ ] T073 [US1] Write unit test for backward path construction and reversal in tests/unit/path_construction_test.rs
-- [ ] T074 [US1] Write unit test for bidirectional agreement detection in tests/unit/path_construction_test.rs
+- [X] T065 [P] [US1] Create tp-core/src/path/construction.rs module file
+- [X] T066 [P] [US1] Implement construct_forward_path() starting from highest probability netelement at first position
+- [X] T067 [P] [US1] Implement construct_backward_path() starting from highest probability netelement at last position
+- [X] T068 [US1] Implement graph traversal with navigability constraints using petgraph neighbors()
+- [X] T069 [US1] Implement probability threshold filtering (default 25%, except when only navigable option)
+- [X] T070 [US1] Implement path reversal for backward path (reverse segment order + swap intrinsic coordinates)
+- [X] T071 [US1] Implement bidirectional validation comparing forward and reversed backward paths
+- [X] T072 [US1] Write unit test for forward path construction in tests/unit/path_construction_test.rs
+- [X] T073 [US1] Write unit test for backward path construction and reversal in tests/unit/path_construction_test.rs
+- [X] T074 [US1] Write unit test for bidirectional agreement detection in tests/unit/path_construction_test.rs
 
 #### Phase 5: Path Selection
 
-- [ ] T075 [P] [US1] Create tp-core/src/path/selection.rs module file
-- [ ] T076 [US1] Implement calculate_path_probability() as length-weighted average of netelement probabilities
-- [ ] T077 [US1] Implement bidirectional probability averaging: (P_forward + P_backward) / 2
-- [ ] T078 [US1] Handle unidirectional paths (only forward or only backward) with 0 for missing direction
-- [ ] T079 [US1] Implement select_best_path() choosing path with highest probability (first if tied)
-- [ ] T080 [US1] Assign probability 0 to paths that terminate before reaching end position
-- [ ] T081 [P] [US1] Write unit test for path probability calculation in tests/unit/path_probability_test.rs
-- [ ] T082 [US1] Write unit test for bidirectional averaging in tests/unit/path_probability_test.rs
-- [ ] T083 [US1] Write unit test for early termination detection in tests/unit/path_construction_test.rs
+- [X] T075 [P] [US1] Create tp-core/src/path/selection.rs module file
+- [X] T076 [US1] Implement calculate_path_probability() as length-weighted average of netelement probabilities
+- [X] T077 [US1] Implement bidirectional probability averaging: (P_forward + P_backward) / 2
+- [X] T078 [US1] Handle unidirectional paths (only forward or only backward) with 0 for missing direction
+- [X] T079 [US1] Implement select_best_path() choosing path with highest probability (first if tied)
+- [X] T080 [US1] Assign probability 0 to paths that terminate before reaching end position
+- [X] T081 [P] [US1] Write unit test for path probability calculation in tests/unit/path_probability_test.rs
+- [X] T082 [US1] Write unit test for bidirectional averaging in tests/unit/path_probability_test.rs
+- [X] T083 [US1] Write unit test for early termination detection in tests/unit/path_construction_test.rs
 
 #### Integration: Main API Function
 
-- [ ] T084 [US1] Implement calculate_train_path() main public function in tp-core/src/path.rs
-- [ ] T085 [US1] Wire candidate selection → probability calculation → path construction → path selection
-- [ ] T086 [US1] Add input validation (empty network, no netrelations, invalid geometry checks)
-- [ ] T087 [US1] Add logging for audit trail (CRS conversions, netelement selections, path probability scores)
-- [ ] T088 [US1] Verify all User Story 1 integration tests pass
+- [X] T084 [US1] Implement calculate_train_path() main public function in tp-core/src/path.rs
+- [X] T085 [US1] Wire candidate selection → probability calculation → path construction → path selection
+- [X] T086 [US1] Add input validation (empty network, no netrelations, invalid geometry checks)
+- [X] T087 [US1] Add logging for audit trail (CRS conversions, netelement selections, path probability scores)
+- [X] T088 [US1] Verify all User Story 1 integration tests pass
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 

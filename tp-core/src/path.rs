@@ -377,3 +377,93 @@ pub use selection::*;
 
 // Re-export configuration types
 pub use PathCalculationMode::{FallbackIndependent, TopologyBased};
+/// Calculate the most probable continuous train path through the network
+///
+/// Given GNSS positions, network netelements, netrelations defining connections,
+/// and configuration parameters, calculates the most likely continuous path the train
+/// traversed through the network.
+///
+/// # Arguments
+///
+/// * `gnss_positions` - Ordered sequence of GNSS positions from train journey
+/// * `netelements` - Network segments (track) with LineString geometries
+/// * `netrelations` - Connections between netelements defining navigable paths
+/// * `config` - Path calculation configuration (distance/heading scales, cutoff distances, etc.)
+///
+/// # Returns
+///
+/// `Ok(PathResult)` containing:
+/// - `path`: The calculated train path as TrainPath (if calculation succeeded)
+/// - `mode`: Algorithm mode used (TopologyBased or FallbackIndependent)
+/// - `projected_positions`: GNSS positions with projected coordinates
+/// - `warnings`: Any non-fatal issues encountered during calculation
+///
+/// `Err(ProjectionError)` if:
+/// - No valid path exists through the network
+/// - Input data is invalid
+/// - Calculation fails for other reasons
+///
+/// # Algorithm
+///
+/// 1. **Candidate Selection**: Find candidate netelements within cutoff_distance for each GNSS position
+/// 2. **Probability Calculation**: Calculate probability for each candidate using distance and heading
+/// 3. **Netelement Assignment**: Assign each GNSS position to best candidate netelements
+/// 4. **Path Construction**: Build continuous path by traversing network using topology constraints
+/// 5. **Bidirectional Validation**: Calculate path from both directions and validate consistency
+/// 6. **Path Selection**: Return highest probability path from multiple candidates
+///
+/// # Configuration Impact
+///
+/// - `distance_scale`: Decay rate for distance probability (default 10.0m)
+/// - `heading_scale`: Decay rate for heading probability (default 2.0°)
+/// - `cutoff_distance`: Maximum distance for candidate selection (default 50.0m)
+/// - `heading_cutoff`: Maximum heading difference, rejects if exceeded (default 5.0°)
+/// - `probability_threshold`: Minimum probability for segment inclusion (default 0.25)
+/// - `max_candidates`: Maximum candidates to evaluate per GNSS position
+///
+/// # Example
+///
+/// ```no_run
+/// use tp_lib_core::{calculate_train_path, PathConfig};
+/// use tp_lib_core::models::{GnssPosition, Netelement, NetRelation};
+/// use geo::LineString;
+/// use chrono::Utc;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let gnss_positions = vec![
+///     GnssPosition::new(50.8503, 4.3517, Utc::now().into(), "EPSG:4326".to_string())?,
+/// ];
+///
+/// let netelements = vec![
+///     Netelement::new(
+///         "NE_001".to_string(),
+///         LineString::from(vec![(4.3500, 50.8500), (4.3530, 50.8530)]),
+///         "EPSG:4326".to_string(),
+///     )?,
+/// ];
+///
+/// let netrelations = vec![];
+/// let config = PathConfig::default();
+///
+/// let result = calculate_train_path(&gnss_positions, &netelements, &netrelations, &config)?;
+/// println!("Path: {:?}", result.path);
+/// # Ok(())
+/// # }
+/// ```
+pub fn calculate_train_path(
+    gnss_positions: &[crate::models::GnssPosition],
+    netelements: &[crate::models::Netelement],
+    netrelations: &[crate::models::NetRelation],
+    config: &PathConfig,
+) -> Result<PathResult, crate::errors::ProjectionError> {
+    // TODO: T044-T088 Implementation
+    // Phase 1: Candidate selection (T044-T049)
+    // Phase 2: Probability calculation (T050-T057)
+    // Phase 3: Netelement-level probability (T058-T064)
+    // Phase 4: Path construction (T065-T074)
+    // Phase 5: Path selection (T075-T088)
+    
+    Err(crate::errors::ProjectionError::PathCalculationFailed {
+        reason: "Path calculation not yet implemented".to_string(),
+    })
+}
