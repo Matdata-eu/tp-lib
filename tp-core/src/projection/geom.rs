@@ -45,9 +45,7 @@ pub fn calculate_measure_along_linestring(
 
     // Get fractional position (0.0 to 1.0) along the linestring
     let fractional_position = linestring.line_locate_point(point).ok_or_else(|| {
-        ProjectionError::InvalidGeometry(
-            "Could not locate point on linestring".to_string(),
-        )
+        ProjectionError::InvalidGeometry("Could not locate point on linestring".to_string())
     })?;
 
     // Calculate total length using haversine distance

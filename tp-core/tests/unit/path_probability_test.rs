@@ -1,5 +1,5 @@
 //! Unit tests for probability calculation module
-//! 
+//!
 //! Tests for distance and heading probability formulas.
 
 #[cfg(test)]

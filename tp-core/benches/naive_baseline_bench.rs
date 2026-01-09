@@ -118,6 +118,8 @@ fn generate_gnss_positions(n_positions: usize) -> Vec<GnssPosition> {
             timestamp: base_time + chrono::Duration::seconds(i as i64),
             crs: "EPSG:4326".to_string(),
             metadata: Default::default(),
+            distance: None,
+            heading: None,
         });
     }
 

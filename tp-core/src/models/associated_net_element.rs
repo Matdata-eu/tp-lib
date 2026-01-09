@@ -135,8 +135,7 @@ mod tests {
 
     #[test]
     fn test_associated_netelement_valid() {
-        let segment =
-            AssociatedNetElement::new("NE_A".to_string(), 0.87, 0.25, 0.78, 5, 12);
+        let segment = AssociatedNetElement::new("NE_A".to_string(), 0.87, 0.25, 0.78, 5, 12);
 
         assert!(segment.is_ok());
         let seg = segment.unwrap();

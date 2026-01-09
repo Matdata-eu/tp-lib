@@ -1,7 +1,7 @@
 //! Continuous train path through the rail network
 
 use crate::errors::ProjectionError;
-use crate::models::{AssociatedNetElement, PathMetadata};
+use crate::models::{AssociatedNetElement, PathDiagnosticInfo, PathMetadata};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +77,21 @@ impl TrainPath {
         Ok(path)
     }
 
+    /// Build diagnostic info from the current segments (order, intrinsics, probabilities)
+    pub fn diagnostics(&self) -> PathDiagnosticInfo {
+        PathDiagnosticInfo::from_segments(&self.segments)
+    }
+
+    /// Attach metadata, auto-populating diagnostic info if not provided
+    pub fn with_metadata(mut self, mut metadata: PathMetadata) -> Self {
+        if metadata.diagnostic_info.is_none() {
+            metadata.diagnostic_info = Some(self.diagnostics());
+        }
+
+        self.metadata = Some(metadata);
+        self
+    }
+
     /// Validate train path
     fn validate(&self) -> Result<(), ProjectionError> {
         // Must have at least one segment
@@ -115,10 +130,7 @@ impl TrainPath {
 
     /// Calculate total path length (sum of fractional lengths)
     pub fn total_fractional_length(&self) -> f64 {
-        self.segments
-            .iter()
-            .map(|s| s.fractional_length())
-            .sum()
+        self.segments.iter().map(|s| s.fractional_length()).sum()
     }
 
     /// Get netelement IDs in traversal order
@@ -149,10 +161,8 @@ mod tests {
     #[test]
     fn test_train_path_valid() {
         let segments = vec![
-            AssociatedNetElement::new("NE_A".to_string(), 0.87, 0.0, 1.0, 0, 10)
-                .unwrap(),
-            AssociatedNetElement::new("NE_B".to_string(), 0.92, 0.0, 1.0, 11, 18)
-                .unwrap(),
+            AssociatedNetElement::new("NE_A".to_string(), 0.87, 0.0, 1.0, 0, 10).unwrap(),
+            AssociatedNetElement::new("NE_B".to_string(), 0.92, 0.0, 1.0, 11, 18).unwrap(),
         ];
 
         let path = TrainPath::new(segments, 0.89, Some(Utc::now()), None);
@@ -172,15 +182,8 @@ mod tests {
 
     #[test]
     fn test_train_path_invalid_probability() {
-        let segments = vec![AssociatedNetElement::new(
-            "NE_A".to_string(),
-            0.87,
-            0.0,
-            1.0,
-            0,
-            10,
-        )
-        .unwrap()];
+        let segments =
+            vec![AssociatedNetElement::new("NE_A".to_string(), 0.87, 0.0, 1.0, 0, 10).unwrap()];
 
         let path = TrainPath::new(segments, 1.5, Some(Utc::now()), None); // Invalid: > 1.0
 

@@ -26,6 +26,24 @@
           [4.3540, 50.8520]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "REL001",
+        "type": "netrelation",
+        "netelementA": "NE001",
+        "netelementB": "NE002",
+        "positionOnA": 1,
+        "positionOnB": 0,
+        "navigability": "both"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          [4.3520, 50.8510]
+        ]
+      }
     }
   ]
 }

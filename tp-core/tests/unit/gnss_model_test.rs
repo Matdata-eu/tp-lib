@@ -169,8 +169,8 @@ fn test_various_crs_formats() {
     // Test various CRS string formats
     let crs_formats = vec![
         "EPSG:4326",
-        "EPSG:31370",           // Belgian Lambert 72
-        "EPSG:3812",            // Belgian Lambert 2008
+        "EPSG:31370", // Belgian Lambert 72
+        "EPSG:3812",  // Belgian Lambert 2008
         "urn:ogc:def:crs:EPSG::4326",
     ];
 

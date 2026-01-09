@@ -49,9 +49,35 @@ pub mod temporal;
 
 // Re-export main types for convenience
 pub use errors::ProjectionError;
-pub use io::{parse_gnss_csv, parse_gnss_geojson, parse_network_geojson, parse_netrelations_geojson, write_csv, write_geojson, write_trainpath_geojson, write_trainpath_csv, parse_trainpath_csv};
-pub use models::{GnssPosition, Netelement, ProjectedPosition, NetRelation, TrainPath, AssociatedNetElement, PathMetadata, GnssNetElementLink};
-pub use path::{calculate_train_path, PathConfig, PathConfigBuilder, PathResult, PathCalculationMode};
+pub use io::{
+    parse_gnss_csv, parse_gnss_geojson, parse_netrelations_geojson, parse_network_geojson,
+    parse_trainpath_csv, write_csv, write_geojson, write_trainpath_csv, write_trainpath_geojson,
+};
+pub use models::{
+    AssociatedNetElement, GnssNetElementLink, GnssPosition, NetRelation, Netelement,
+    PathDiagnosticInfo, PathMetadata, ProjectedPosition, SegmentDiagnostic, TrainPath,
+};
+pub use path::{
+    calculate_mean_spacing,
+    calculate_train_path,
+    export_all_debug_info,
+    // Debug export functions (US7)
+    export_candidate_paths,
+    export_decision_tree,
+    export_position_candidates,
+    project_onto_path,
+    select_resampled_subset,
+    CandidateInfo,
+    CandidatePath,
+    // Debug info types (US7)
+    DebugInfo,
+    PathCalculationMode,
+    PathConfig,
+    PathConfigBuilder,
+    PathDecision,
+    PathResult,
+    PositionCandidates,
+};
 
 /// Result type alias using ProjectionError
 pub type Result<T> = std::result::Result<T, ProjectionError>;

@@ -1,5 +1,5 @@
 //! Unit tests for candidate selection module
-//! 
+//!
 //! Tests for finding candidate netelements for each GNSS position.
 
 #[cfg(test)]

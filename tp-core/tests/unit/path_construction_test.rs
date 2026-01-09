@@ -1,10 +1,10 @@
 //! Unit tests for path construction module
-//! 
+//!
 //! Tests for graph representation and path building algorithms.
 
-use tp_lib_core::path::{build_topology_graph, validate_netrelation_references, NetelementSide};
-use tp_lib_core::models::{NetRelation, Netelement};
 use geo::{Coord, LineString};
+use tp_lib_core::models::{NetRelation, Netelement};
+use tp_lib_core::path::{build_topology_graph, validate_netrelation_references, NetelementSide};
 
 #[cfg(test)]
 mod tests {
@@ -13,10 +13,7 @@ mod tests {
     fn create_test_netelement(id: &str) -> Netelement {
         Netelement {
             id: id.to_string(),
-            geometry: LineString::new(vec![
-                Coord { x: 0.0, y: 0.0 },
-                Coord { x: 1.0, y: 1.0 },
-            ]),
+            geometry: LineString::new(vec![Coord { x: 0.0, y: 0.0 }, Coord { x: 1.0, y: 1.0 }]),
             crs: "EPSG:4326".to_string(),
         }
     }
@@ -165,7 +162,7 @@ mod tests {
     }
 
     // Validation Tests (T026, T026b)
-    
+
     #[test]
     fn test_netrelation_valid_bidirectional() {
         // T026: Valid bidirectional netrelation
@@ -173,8 +170,8 @@ mod tests {
             "NR001".to_string(),
             "NE_A".to_string(),
             "NE_B".to_string(),
-            1,  // position_on_a: end of A
-            0,  // position_on_b: start of B
+            1, // position_on_a: end of A
+            0, // position_on_b: start of B
             true,
             true,
         );
@@ -213,7 +210,7 @@ mod tests {
             "NR003".to_string(),
             "NE_A".to_string(),
             "NE_B".to_string(),
-            2,  // Invalid: > 1
+            2, // Invalid: > 1
             0,
             true,
             false,
@@ -230,7 +227,7 @@ mod tests {
             "NE_A".to_string(),
             "NE_B".to_string(),
             1,
-            5,  // Invalid: > 1
+            5, // Invalid: > 1
             true,
             false,
         );
@@ -244,7 +241,7 @@ mod tests {
         let relation = NetRelation::new(
             "NR005".to_string(),
             "NE_A".to_string(),
-            "NE_A".to_string(),  // Invalid: same as from
+            "NE_A".to_string(), // Invalid: same as from
             1,
             0,
             true,
@@ -258,7 +255,7 @@ mod tests {
     fn test_netrelation_empty_id() {
         // T026: ID must be non-empty
         let relation = NetRelation::new(
-            "".to_string(),  // Invalid
+            "".to_string(), // Invalid
             "NE_A".to_string(),
             "NE_B".to_string(),
             1,
@@ -275,7 +272,7 @@ mod tests {
         // T026: from_netelement_id must be non-empty
         let relation = NetRelation::new(
             "NR006".to_string(),
-            "".to_string(),  // Invalid
+            "".to_string(), // Invalid
             "NE_B".to_string(),
             1,
             0,
@@ -292,7 +289,7 @@ mod tests {
         let relation = NetRelation::new(
             "NR007".to_string(),
             "NE_A".to_string(),
-            "".to_string(),  // Invalid
+            "".to_string(), // Invalid
             1,
             0,
             true,
@@ -301,9 +298,9 @@ mod tests {
 
         assert!(relation.is_err());
     }
-    
+
     // T026a-T026b: Test invalid netelement reference handling
-    
+
     #[test]
     fn test_validate_netrelation_references_all_valid() {
         // T026a: All references are valid
@@ -348,18 +345,16 @@ mod tests {
             create_test_netelement("NE_B"),
         ];
 
-        let netrelations = vec![
-            NetRelation::new(
-                "NR001".to_string(),
-                "NE_MISSING".to_string(), // Invalid reference
-                "NE_B".to_string(),
-                1,
-                0,
-                true,
-                true,
-            )
-            .unwrap(),
-        ];
+        let netrelations = vec![NetRelation::new(
+            "NR001".to_string(),
+            "NE_MISSING".to_string(), // Invalid reference
+            "NE_B".to_string(),
+            1,
+            0,
+            true,
+            true,
+        )
+        .unwrap()];
 
         let invalid = validate_netrelation_references(&netelements, &netrelations);
         assert_eq!(invalid.len(), 1);
@@ -374,18 +369,16 @@ mod tests {
             create_test_netelement("NE_B"),
         ];
 
-        let netrelations = vec![
-            NetRelation::new(
-                "NR001".to_string(),
-                "NE_A".to_string(),
-                "NE_MISSING".to_string(), // Invalid reference
-                1,
-                0,
-                true,
-                true,
-            )
-            .unwrap(),
-        ];
+        let netrelations = vec![NetRelation::new(
+            "NR001".to_string(),
+            "NE_A".to_string(),
+            "NE_MISSING".to_string(), // Invalid reference
+            1,
+            0,
+            true,
+            true,
+        )
+        .unwrap()];
 
         let invalid = validate_netrelation_references(&netelements, &netrelations);
         assert_eq!(invalid.len(), 1);
@@ -397,18 +390,16 @@ mod tests {
         // T026b: Both from and to reference non-existent netelements
         let netelements = vec![create_test_netelement("NE_A")];
 
-        let netrelations = vec![
-            NetRelation::new(
-                "NR001".to_string(),
-                "NE_MISSING1".to_string(), // Invalid
-                "NE_MISSING2".to_string(), // Invalid
-                1,
-                0,
-                true,
-                true,
-            )
-            .unwrap(),
-        ];
+        let netrelations = vec![NetRelation::new(
+            "NR001".to_string(),
+            "NE_MISSING1".to_string(), // Invalid
+            "NE_MISSING2".to_string(), // Invalid
+            1,
+            0,
+            true,
+            true,
+        )
+        .unwrap()];
 
         let invalid = validate_netrelation_references(&netelements, &netrelations);
         assert_eq!(invalid.len(), 1);
@@ -471,19 +462,85 @@ mod tests {
         let invalid = validate_netrelation_references(&netelements, &netrelations);
         assert_eq!(invalid.len(), 0);
     }
-    
+
     // US1 Phase 4 Tests (T072-T074, T083)
     // T072: Test forward path construction
     // T073: Test backward path construction and reversal
     // T074: Test bidirectional agreement detection
     // T083: Test early termination detection
-    
+
     // US2 Tests (T101)
     // T101: Test intrinsic coordinate calculation
-    
-    // US5 Tests (T135)
-    // T135: Test resampled subset selection
-    
+
+    #[test]
+    fn test_intrinsic_coordinate_calculation() {
+        // T101: Verify intrinsic coordinates are correctly calculated (0-1 range)
+        use chrono::Utc;
+        use tp_lib_core::models::{AssociatedNetElement, GnssPosition, TrainPath};
+        use tp_lib_core::{project_onto_path, PathConfig};
+
+        // Create a simple linear network
+        let netelements = vec![Netelement {
+            id: "NE_A".to_string(),
+            geometry: LineString::new(vec![
+                Coord {
+                    x: 4.350,
+                    y: 50.850,
+                },
+                Coord {
+                    x: 4.360,
+                    y: 50.860,
+                },
+            ]),
+            crs: "EPSG:4326".to_string(),
+        }];
+
+        // Create a path with one segment
+        let segments =
+            vec![AssociatedNetElement::new("NE_A".to_string(), 0.85, 0.0, 1.0, 0, 2).unwrap()];
+
+        let path = TrainPath::new(segments, 0.85, Some(Utc::now()), None).unwrap();
+
+        // Create GNSS positions at start, middle, and end
+        let gnss_positions = vec![
+            GnssPosition::new(50.850, 4.350, Utc::now().into(), "EPSG:4326".to_string()).unwrap(), // Start
+            GnssPosition::new(50.855, 4.355, Utc::now().into(), "EPSG:4326".to_string()).unwrap(), // Middle
+            GnssPosition::new(50.860, 4.360, Utc::now().into(), "EPSG:4326".to_string()).unwrap(), // End
+        ];
+
+        let config = PathConfig::default();
+        let result = project_onto_path(&gnss_positions, &path, &netelements, &config);
+
+        assert!(result.is_ok(), "Projection should succeed");
+        let projected = result.unwrap();
+
+        assert_eq!(projected.len(), 3, "Should have 3 projected positions");
+
+        // Verify intrinsic coordinates exist and are in valid range [0, 1]
+        for proj in &projected {
+            assert!(
+                proj.intrinsic.is_some(),
+                "Intrinsic coordinate should be set"
+            );
+            let intrinsic = proj.intrinsic.unwrap();
+            assert!(
+                (0.0..=1.0).contains(&intrinsic),
+                "Intrinsic coordinate {} should be in range [0, 1]",
+                intrinsic
+            );
+        }
+
+        // Verify ordering: start should have lower intrinsic than end
+        let start_intrinsic = projected[0].intrinsic.unwrap();
+        let end_intrinsic = projected[2].intrinsic.unwrap();
+        assert!(
+            start_intrinsic < end_intrinsic,
+            "Start intrinsic ({}) should be less than end intrinsic ({})",
+            start_intrinsic,
+            end_intrinsic
+        );
+    }
+
     // US6 Tests (T147)
     // T147: Test fallback detection logic
 }

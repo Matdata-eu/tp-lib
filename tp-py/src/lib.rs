@@ -89,10 +89,7 @@ pub struct ProjectionConfig {
 impl ProjectionConfig {
     #[new]
     #[pyo3(signature = (projection_distance_warning_threshold=50.0, suppress_warnings=false))]
-    fn new(
-        projection_distance_warning_threshold: f64,
-        suppress_warnings: bool,
-    ) -> Self {
+    fn new(projection_distance_warning_threshold: f64, suppress_warnings: bool) -> Self {
         Self {
             projection_distance_warning_threshold,
             suppress_warnings,
@@ -102,8 +99,7 @@ impl ProjectionConfig {
     fn __repr__(&self) -> String {
         format!(
             "ProjectionConfig(projection_distance_warning_threshold={}, suppress_warnings={})",
-            self.projection_distance_warning_threshold,
-            self.suppress_warnings
+            self.projection_distance_warning_threshold, self.suppress_warnings
         )
     }
 }
@@ -273,7 +269,8 @@ fn project_gnss(
         .map_err(convert_error)?;
 
     // Parse network from GeoJSON
-    let (netelements, _netrelations) = parse_network_geojson(network_file).map_err(convert_error)?;
+    let (netelements, _netrelations) =
+        parse_network_geojson(network_file).map_err(convert_error)?;
 
     // Build spatial index
     let network = RailwayNetwork::new(netelements).map_err(convert_error)?;

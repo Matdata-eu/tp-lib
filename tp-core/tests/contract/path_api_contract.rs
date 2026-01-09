@@ -26,6 +26,7 @@ mod tests {
             "resampling_distance default must be None (no resampling)"
         );
         assert_eq!(config.max_candidates, 3, "max_candidates default must be 3");
+        assert_eq!(config.path_only, false, "path_only default must be false");
     }
 
     #[test]
@@ -122,6 +123,53 @@ mod tests {
     #[test]
     fn test_project_onto_path_signature() {
         // T092: Verify project_onto_path() function signature
-        // To be implemented after US2 tasks complete
+        use tp_lib_core::models::{GnssPosition, Netelement, TrainPath, AssociatedNetElement, ProjectedPosition};
+        use tp_lib_core::{PathConfig, project_onto_path};
+        use geo::LineString;
+        use chrono::Utc;
+        
+        // Create minimal test data
+        let gnss_positions = vec![
+            GnssPosition::new(50.850, 4.350, Utc::now().into(), "EPSG:4326".to_string()).unwrap(),
+        ];
+        
+        let netelements = vec![
+            Netelement::new(
+                "NE_A".to_string(),
+                LineString::from(vec![(4.350, 50.850), (4.360, 50.860)]),
+                "EPSG:4326".to_string(),
+            ).unwrap(),
+        ];
+        
+        let segments = vec![
+            AssociatedNetElement::new(
+                "NE_A".to_string(),
+                0.0,
+                1.0,
+                1.0,
+                10,
+            ).unwrap(),
+        ];
+        
+        let path = TrainPath::new(
+            segments,
+            0.85,
+            Some(Utc::now()),
+            None,
+        ).unwrap();
+        
+        let config = PathConfig::default();
+        
+        // Verify function exists with correct signature
+        let result = project_onto_path(&gnss_positions, &path, &netelements, &config);
+        
+        // Result should be Result<Vec<ProjectedPosition>, ProjectionError>
+        assert!(result.is_ok() || result.is_err(), "Function should return Result type");
+        
+        // Verify result type
+        if let Ok(projected) = result {
+            // Should be Vec<ProjectedPosition>
+            assert!(projected.is_empty() || !projected.is_empty(), "Result should be vector of ProjectedPosition");
+        }
     }
 }

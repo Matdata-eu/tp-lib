@@ -272,6 +272,7 @@ tp-lib/
 │   ├── src/
 │   │   ├── models/        # Data models
 │   │   ├── projection/    # Projection algorithms
+│   │   ├── path/          # Train path calculation
 │   │   ├── io/            # Input/output parsers
 │   │   ├── crs/           # Coordinate transformations
 │   │   └── temporal/      # Timezone utilities
@@ -281,6 +282,82 @@ tp-lib/
 └── tp-py/                 # Python bindings
     └── python/tests/      # Python tests
 ```
+
+## Train Path Calculation Development
+
+When working on path calculation features (`tp-core/src/path/`):
+
+### Architecture Overview
+
+The path calculation module consists of several submodules:
+
+- **`candidate.rs`**: Find candidate netelements for each GNSS position
+- **`probability.rs`**: Calculate probabilities using distance and heading
+- **`construction.rs`**: Build paths forward and backward through network
+- **`selection.rs`**: Select best path from candidates
+- **`graph.rs`**: Network topology graph operations
+- **`spacing.rs`**: GNSS resampling for consistent spacing
+
+### Key Functions
+
+```rust
+// Main entry point
+calculate_train_path(gnss_positions, netelements, netrelations, config) -> PathResult
+
+// Project onto pre-calculated path
+project_onto_path(gnss_positions, path, netelements, config) -> Vec<ProjectedPosition>
+```
+
+### Algorithm Flow
+
+1. **Candidate Selection** (`find_candidate_netelements`)
+   - Uses R-tree spatial index for O(log n) lookup
+   - Filters by `cutoff_distance` and `max_candidates`
+
+2. **Probability Calculation** (`calculate_combined_probability`)
+   - Distance probability: `exp(-distance / distance_scale)`
+   - Heading probability: `exp(-heading_diff / heading_scale)`
+   - Combined: `distance_prob * heading_prob`
+
+3. **Path Construction** (`construct_forward_path`, `construct_backward_path`)
+   - Traverses network using netrelations (topology)
+   - Builds path in both directions for validation
+
+4. **Path Selection** (`select_best_path`)
+   - Validates bidirectional agreement
+   - Returns highest probability path
+
+### Testing Path Calculation
+
+```bash
+# Run path calculation tests
+cargo test --workspace path
+
+# Run integration tests
+cargo test --test tests path_calculation
+
+# Run benchmarks
+cargo bench --bench projection_bench
+cargo bench --bench naive_baseline_bench
+```
+
+### Performance Targets
+
+- **SC-001**: 1000 positions × 50 netelements in <10 seconds
+- **Current**: ~900μs (11,000× faster than target)
+- **Memory**: <500MB for 10k+ positions
+
+### Configuration Parameters
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `distance_scale` | 10.0 | Distance decay rate (meters) |
+| `heading_scale` | 2.0 | Heading decay rate (degrees) |
+| `cutoff_distance` | 50.0 | Max search distance (meters) |
+| `heading_cutoff` | 5.0 | Max heading difference (degrees) |
+| `probability_threshold` | 0.25 | Min probability for inclusion |
+| `max_candidates` | 3 | Max candidates per position |
+| `resampling_distance` | None | Optional GNSS resampling |
 
 ## Constitution Principles
 

@@ -1,8 +1,8 @@
 //! Projected GNSS position onto railway netelement
 
+use crate::models::GnssPosition;
 use geo::Point;
 use serde::{Deserialize, Serialize};
-use crate::models::GnssPosition;
 
 /// Represents a GNSS position projected onto a railway netelement
 ///
@@ -32,7 +32,7 @@ use crate::models::GnssPosition;
 /// let (netelements, _netrelations) = parse_network_geojson("network.geojson")?;
 /// let network = RailwayNetwork::new(netelements)?;
 /// let positions = parse_gnss_csv("gnss.csv", "EPSG:4326", "latitude", "longitude", "timestamp")?;
-/// 
+///
 /// let config = ProjectionConfig::default();
 /// let projected = project_gnss(&positions, &network, &config)?;
 ///
@@ -48,21 +48,26 @@ use crate::models::GnssPosition;
 pub struct ProjectedPosition {
     /// Original GNSS measurement (preserved)
     pub original: GnssPosition,
-    
+
     /// Projected coordinates on the track axis
     pub projected_coords: Point<f64>,
-    
+
     /// ID of the netelement this position was projected onto
     pub netelement_id: String,
-    
+
     /// Distance along the netelement from start (in meters)
     pub measure_meters: f64,
-    
+
     /// Distance between original GNSS position and projected position (in meters)
     pub projection_distance_meters: f64,
-    
+
     /// Coordinate Reference System of the projected coordinates
     pub crs: String,
+
+    /// Intrinsic coordinate (0-1 range) relative to netelement start
+    /// Only populated when projecting onto a calculated train path (US2)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intrinsic: Option<f64>,
 }
 
 impl ProjectedPosition {
@@ -82,6 +87,28 @@ impl ProjectedPosition {
             measure_meters,
             projection_distance_meters,
             crs,
+            intrinsic: None,
+        }
+    }
+
+    /// Create a new projected position with intrinsic coordinate (for path projection)
+    pub fn with_intrinsic(
+        original: GnssPosition,
+        projected_coords: Point<f64>,
+        netelement_id: String,
+        measure_meters: f64,
+        projection_distance_meters: f64,
+        crs: String,
+        intrinsic: f64,
+    ) -> Self {
+        Self {
+            original,
+            projected_coords,
+            netelement_id,
+            measure_meters,
+            projection_distance_meters,
+            crs,
+            intrinsic: Some(intrinsic),
         }
     }
 }
@@ -89,7 +116,7 @@ impl ProjectedPosition {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{TimeZone, FixedOffset};
+    use chrono::{FixedOffset, TimeZone};
     use std::collections::HashMap;
 
     #[test]
@@ -98,7 +125,7 @@ mod tests {
             .unwrap()
             .with_ymd_and_hms(2025, 12, 9, 14, 30, 0)
             .unwrap();
-        
+
         let original = GnssPosition {
             latitude: 50.8503,
             longitude: 4.3517,
@@ -108,7 +135,7 @@ mod tests {
             heading: None,
             distance: None,
         };
-        
+
         let projected = ProjectedPosition::new(
             original.clone(),
             Point::new(4.3517, 50.8503),
@@ -117,7 +144,7 @@ mod tests {
             2.3,
             "EPSG:4326".to_string(),
         );
-        
+
         assert_eq!(projected.netelement_id, "NE001");
         assert_eq!(projected.measure_meters, 100.5);
         assert_eq!(projected.projection_distance_meters, 2.3);

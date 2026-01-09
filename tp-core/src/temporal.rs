@@ -15,3 +15,6 @@ pub fn validate_timezone_present(_dt: &DateTime<FixedOffset>) -> Result<(), Proj
     // This function exists for API consistency
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

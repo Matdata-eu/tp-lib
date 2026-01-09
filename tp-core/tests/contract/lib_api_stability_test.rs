@@ -4,7 +4,7 @@
 //! They serve as a snapshot of the expected API surface area.
 
 use tp_lib_core::{
-    GnssPosition, Netelement, ProjectedPosition, ProjectionConfig, ProjectionError,
+    GnssPosition, NetRelation, Netelement, ProjectedPosition, ProjectionConfig, ProjectionError,
     RailwayNetwork,
 };
 
@@ -81,6 +81,7 @@ fn test_projected_position_contract() {
         measure_meters: 123.45,
         projection_distance_meters: 2.5,
         crs: "EPSG:4326".to_string(),
+        intrinsic: None,
     };
 
     // Verify fields are accessible
@@ -213,7 +214,8 @@ fn test_io_functions_contract() {
     }
 
     // parse_network_geojson signature
-    fn _check_parse_network_geojson() -> Result<(Vec<Netelement>, Vec<NetRelation>), ProjectionError> {
+    fn _check_parse_network_geojson() -> Result<(Vec<Netelement>, Vec<NetRelation>), ProjectionError>
+    {
         tp_lib_core::parse_network_geojson("dummy.geojson")
     }
 

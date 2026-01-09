@@ -108,10 +108,17 @@ impl NetelementSide {
 /// # Ok(())
 /// # }
 /// ```
+#[allow(clippy::type_complexity)]
 pub fn build_topology_graph(
     netelements: &[Netelement],
     netrelations: &[NetRelation],
-) -> Result<(DiGraph<NetelementSide, ()>, HashMap<NetelementSide, NodeIndex>), ProjectionError> {
+) -> Result<
+    (
+        DiGraph<NetelementSide, ()>,
+        HashMap<NetelementSide, NodeIndex>,
+    ),
+    ProjectionError,
+> {
     let mut graph = DiGraph::new();
     let mut node_map: HashMap<NetelementSide, NodeIndex> = HashMap::new();
 
@@ -152,8 +159,10 @@ pub fn build_topology_graph(
             netrelation.from_netelement_id.clone(),
             netrelation.position_on_a,
         )?;
-        let to_side =
-            NetelementSide::new(netrelation.to_netelement_id.clone(), netrelation.position_on_b)?;
+        let to_side = NetelementSide::new(
+            netrelation.to_netelement_id.clone(),
+            netrelation.position_on_b,
+        )?;
 
         // Check if nodes exist in graph (skip if referencing non-existent netelements)
         if !node_map.contains_key(&from_side) || !node_map.contains_key(&to_side) {
@@ -244,10 +253,7 @@ mod tests {
     fn create_test_netelement(id: &str) -> Netelement {
         Netelement {
             id: id.to_string(),
-            geometry: LineString::new(vec![
-                Coord { x: 0.0, y: 0.0 },
-                Coord { x: 1.0, y: 1.0 },
-            ]),
+            geometry: LineString::new(vec![Coord { x: 0.0, y: 0.0 }, Coord { x: 1.0, y: 1.0 }]),
             crs: "EPSG:4326".to_string(),
         }
     }
@@ -311,8 +317,8 @@ mod tests {
             "NR001".to_string(),
             "NE_A".to_string(),
             "NE_B".to_string(),
-            1, // Connect end of A
-            0, // to start of B
+            1,     // Connect end of A
+            0,     // to start of B
             true,  // Forward navigable
             false, // Not backward navigable
         )

@@ -3,8 +3,6 @@
 //! Implements exponential decay probability formulas for distance and heading,
 //! netelement-level probability aggregation, and coverage factor calculation.
 
-#[allow(unused)]
-
 /// Configuration for probability calculations
 #[derive(Debug, Clone)]
 pub struct ProbabilityConfig {
@@ -19,9 +17,9 @@ pub struct ProbabilityConfig {
 impl Default for ProbabilityConfig {
     fn default() -> Self {
         Self {
-            distance_scale: 100.0,      // 100m scale
-            heading_scale: 45.0,         // 45° scale
-            heading_cutoff: 90.0,        // reject if >90° difference
+            distance_scale: 100.0, // 100m scale
+            heading_scale: 45.0,   // 45° scale
+            heading_cutoff: 90.0,  // reject if >90° difference
         }
     }
 }
@@ -48,7 +46,11 @@ impl Default for ProbabilityConfig {
 /// ```
 pub fn calculate_distance_probability(distance_meters: f64, distance_scale: f64) -> f64 {
     if distance_scale <= 0.0 {
-        if distance_meters <= 0.0 { 1.0 } else { 0.0 }
+        if distance_meters <= 0.0 {
+            1.0
+        } else {
+            0.0
+        }
     } else {
         (-distance_meters / distance_scale).exp()
     }
@@ -83,7 +85,11 @@ pub fn calculate_heading_probability(
     if heading_difference_degrees > heading_cutoff_degrees {
         0.0
     } else if heading_scale <= 0.0 {
-        if heading_difference_degrees <= 0.0 { 1.0 } else { 0.0 }
+        if heading_difference_degrees <= 0.0 {
+            1.0
+        } else {
+            0.0
+        }
     } else {
         (-heading_difference_degrees / heading_scale).exp()
     }
@@ -108,10 +114,7 @@ pub fn calculate_heading_probability(
 /// let combined = calculate_combined_probability(0.8, 0.9);
 /// assert!((combined - 0.72).abs() < 0.001); // 0.8 * 0.9 = 0.72
 /// ```
-pub fn calculate_combined_probability(
-    distance_probability: f64,
-    heading_probability: f64,
-) -> f64 {
+pub fn calculate_combined_probability(distance_probability: f64, heading_probability: f64) -> f64 {
     distance_probability * heading_probability
 }
 
@@ -264,4 +267,3 @@ mod tests {
         assert!((corrected - 0.375).abs() < 0.0001); // 0.5 * (0.5 + 0.5*0.5) = 0.375
     }
 }
-
