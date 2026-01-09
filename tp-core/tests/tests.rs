@@ -37,8 +37,9 @@ mod integration {
             "Failed to parse GeoJSON: {:?}",
             result.err()
         );
-        let netelements = result.unwrap();
+        let (netelements, netrelations) = result.unwrap();
         assert_eq!(netelements.len(), 2, "Expected 2 netelements");
+        assert_eq!(netrelations.len(), 1, "Expected 1 netrelation");
 
         // Check first netelement
         let first = &netelements[0];
@@ -66,7 +67,7 @@ mod integration {
 
         // Load network
         let network_path = "tests/fixtures/test_network.geojson";
-        let netelements = parse_network_geojson(network_path).unwrap();
+        let (netelements, _netrelations) = parse_network_geojson(network_path).unwrap();
         let network = RailwayNetwork::new(netelements).unwrap();
 
         // Load GNSS positions
@@ -105,10 +106,8 @@ mod integration {
         use tp_lib_core::{project_gnss, ProjectionConfig, RailwayNetwork};
 
         // Load and project
-        let network = RailwayNetwork::new(
-            parse_network_geojson("tests/fixtures/test_network.geojson").unwrap(),
-        )
-        .unwrap();
+        let (netelements, _netrelations) = parse_network_geojson("tests/fixtures/test_network.geojson").unwrap();
+        let network = RailwayNetwork::new(netelements).unwrap();
         let gnss_positions = parse_gnss_csv(
             "tests/fixtures/test_gnss.csv",
             "EPSG:4326",
@@ -151,10 +150,8 @@ mod integration {
         use tp_lib_core::{project_gnss, ProjectionConfig, RailwayNetwork};
 
         // Load and project
-        let network = RailwayNetwork::new(
-            parse_network_geojson("tests/fixtures/test_network.geojson").unwrap(),
-        )
-        .unwrap();
+        let (netelements, _netrelations) = parse_network_geojson("tests/fixtures/test_network.geojson").unwrap();
+        let network = RailwayNetwork::new(netelements).unwrap();
         let gnss_positions = parse_gnss_csv(
             "tests/fixtures/test_gnss.csv",
             "EPSG:4326",
@@ -205,7 +202,7 @@ mod integration {
 
         // Load test network (2 netelements)
         let network_path = "tests/fixtures/test_network.geojson";
-        let netelements = parse_network_geojson(network_path).expect("Failed to load network");
+        let (netelements, _netrelations) = parse_network_geojson(network_path).expect("Failed to load network");
         let network = RailwayNetwork::new(netelements).expect("Failed to create network index");
 
         // Load test GNSS data (3 positions)

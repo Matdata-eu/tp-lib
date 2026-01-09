@@ -273,7 +273,7 @@ fn project_gnss(
         .map_err(convert_error)?;
 
     // Parse network from GeoJSON
-    let netelements = parse_network_geojson(network_file).map_err(convert_error)?;
+    let (netelements, _netrelations) = parse_network_geojson(network_file).map_err(convert_error)?;
 
     // Build spatial index
     let network = RailwayNetwork::new(netelements).map_err(convert_error)?;

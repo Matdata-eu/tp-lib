@@ -14,7 +14,7 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Load railway network from GeoJSON
-//! let netelements = parse_network_geojson("network.geojson")?;
+//! let (netelements, _netrelations) = parse_network_geojson("network.geojson")?;
 //! let network = RailwayNetwork::new(netelements)?;
 //!
 //! // Load GNSS positions from CSV
@@ -50,7 +50,7 @@ pub mod temporal;
 // Re-export main types for convenience
 pub use errors::ProjectionError;
 pub use io::{parse_gnss_csv, parse_gnss_geojson, parse_network_geojson, parse_netrelations_geojson, write_csv, write_geojson, write_trainpath_geojson, write_trainpath_csv, parse_trainpath_csv};
-pub use models::{GnssPosition, Netelement, ProjectedPosition, NetRelation, TrainPath, AssociatedNetElement, PathMetadata};
+pub use models::{GnssPosition, Netelement, ProjectedPosition, NetRelation, TrainPath, AssociatedNetElement, PathMetadata, GnssNetElementLink};
 pub use path::{calculate_train_path, PathConfig, PathConfigBuilder, PathResult, PathCalculationMode};
 
 /// Result type alias using ProjectionError
@@ -110,7 +110,7 @@ impl Default for ProjectionConfig {
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load netelements from GeoJSON
-/// let netelements = parse_network_geojson("network.geojson")?;
+/// let (netelements, _netrelations) = parse_network_geojson("network.geojson")?;
 ///
 /// // Build spatial index
 /// let network = RailwayNetwork::new(netelements)?;
@@ -238,7 +238,7 @@ impl RailwayNetwork {
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load data
-/// let netelements = parse_network_geojson("network.geojson")?;
+/// let (netelements, _netrelations) = parse_network_geojson("network.geojson")?;
 /// let network = RailwayNetwork::new(netelements)?;
 /// let positions = parse_gnss_csv("gnss.csv", "EPSG:4326", "latitude", "longitude", "timestamp")?;
 ///

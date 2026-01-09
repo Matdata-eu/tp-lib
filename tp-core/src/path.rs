@@ -28,10 +28,9 @@
 //!     &netelements,
 //!     &netrelations,
 //!     &config,
-//!     false, // Project coordinates onto path
 //! )?;
 //!
-//! if result.is_topology_based() {
+//! if result.path.is_some() {
 //!     println!("Path calculated successfully");
 //! }
 //! # Ok(())

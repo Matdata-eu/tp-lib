@@ -1,4 +1,4 @@
-//! Projected position result data model
+//! Projected GNSS position onto railway netelement
 
 use geo::Point;
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ use crate::models::GnssPosition;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load and project data
-/// let netelements = parse_network_geojson("network.geojson")?;
+/// let (netelements, _netrelations) = parse_network_geojson("network.geojson")?;
 /// let network = RailwayNetwork::new(netelements)?;
 /// let positions = parse_gnss_csv("gnss.csv", "EPSG:4326", "latitude", "longitude", "timestamp")?;
 /// 

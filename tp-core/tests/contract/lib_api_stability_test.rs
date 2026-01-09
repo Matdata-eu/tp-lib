@@ -213,7 +213,7 @@ fn test_io_functions_contract() {
     }
 
     // parse_network_geojson signature
-    fn _check_parse_network_geojson() -> Result<Vec<Netelement>, ProjectionError> {
+    fn _check_parse_network_geojson() -> Result<(Vec<Netelement>, Vec<NetRelation>), ProjectionError> {
         tp_lib_core::parse_network_geojson("dummy.geojson")
     }
 
