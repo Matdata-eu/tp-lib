@@ -1,7 +1,7 @@
 //! Unit tests for temporal utilities
 
 use super::*;
-use chrono::TimeZone;
+use chrono::{Datelike, TimeZone, Timelike};
 
 #[test]
 fn test_parse_valid_rfc3339_utc() {

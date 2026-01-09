@@ -32,6 +32,11 @@ pub fn parse_gnss_csv(
             ))
         })?;
 
+    // Handle empty CSV (only headers) - polars can't infer types from empty data
+    if df.height() == 0 {
+        return Ok(Vec::new());
+    }
+
     // Validate required columns exist
     let schema = df.schema();
     if !schema.contains(lat_col) {
@@ -388,6 +393,11 @@ pub fn parse_trainpath_csv(path: &str) -> Result<TrainPath, ProjectionError> {
     // Clean up temp file
     let _ = std::fs::remove_file(temp_file);
 
+    // Handle empty CSV (only headers)
+    if df.height() == 0 {
+        return TrainPath::new(Vec::new(), 1.0, None, None);
+    }
+
     // Extract columns and cast to correct types
     let netelement_id = df
         .column("netelement_id")
@@ -498,3 +508,6 @@ pub fn parse_trainpath_csv(path: &str) -> Result<TrainPath, ProjectionError> {
     // Create TrainPath
     TrainPath::new(segments, overall_prob, calculated_at, None)
 }
+
+#[cfg(test)]
+mod tests;

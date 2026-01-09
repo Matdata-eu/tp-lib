@@ -362,19 +362,30 @@ fn parse_feature(feature: &Feature, crs: &str, idx: usize) -> Result<Netelement,
         }
     };
 
-    // Get ID from properties or generate from index
+    // Get ID from properties (required)
     let id = if let Some(props) = &feature.properties {
         if let Some(id_value) = props.get("id") {
             id_value
                 .as_str()
                 .map(|s| s.to_string())
                 .or_else(|| id_value.as_i64().map(|i| i.to_string()))
-                .unwrap_or_else(|| format!("NE_{}", idx))
+                .ok_or_else(|| {
+                    ProjectionError::GeoJsonError(format!(
+                        "Feature {} has invalid 'id' property type",
+                        idx
+                    ))
+                })?
         } else {
-            format!("NE_{}", idx)
+            return Err(ProjectionError::GeoJsonError(format!(
+                "Feature {} missing required 'id' property",
+                idx
+            )));
         }
     } else {
-        format!("NE_{}", idx)
+        return Err(ProjectionError::GeoJsonError(format!(
+            "Feature {} missing properties object",
+            idx
+        )));
     };
 
     Netelement::new(id, linestring, crs.to_string())
@@ -487,34 +498,39 @@ fn parse_netrelation_feature(
         })?
         .to_string();
 
-    // Extract netelementA
+    // Extract netelementA (support both 'from' and 'netelementA' for backwards compatibility)
     let netelement_a = properties
         .get("netelementA")
+        .or_else(|| properties.get("from"))
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             ProjectionError::GeoJsonError(format!(
-                "Netrelation feature {} missing 'netelementA' property",
+                "Netrelation feature {} missing 'netelementA' or 'from' property",
                 idx
             ))
         })?
         .to_string();
 
-    // Extract netelementB
+    // Extract netelementB (support both 'to' and 'netelementB' for backwards compatibility)
     let netelement_b = properties
         .get("netelementB")
+        .or_else(|| properties.get("to"))
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             ProjectionError::GeoJsonError(format!(
-                "Netrelation feature {} missing 'netelementB' property",
+                "Netrelation feature {} missing 'netelementB' or 'to' property",
                 idx
             ))
         })?
         .to_string();
 
-    // Extract positionOnA (0 or 1)
+    // Extract positionOnA (0 or 1) - accept both integer and float
     let position_on_a = properties
         .get("positionOnA")
-        .and_then(|v| v.as_u64())
+        .and_then(|v| {
+            v.as_u64()
+                .or_else(|| v.as_f64().map(|f| f as u64))
+        })
         .ok_or_else(|| {
             ProjectionError::GeoJsonError(format!(
                 "Netrelation feature {} missing or invalid 'positionOnA' property",
@@ -522,10 +538,13 @@ fn parse_netrelation_feature(
             ))
         })? as u8;
 
-    // Extract positionOnB (0 or 1)
+    // Extract positionOnB (0 or 1) - accept both integer and float
     let position_on_b = properties
         .get("positionOnB")
-        .and_then(|v| v.as_u64())
+        .and_then(|v| {
+            v.as_u64()
+                .or_else(|| v.as_f64().map(|f| f as u64))
+        })
         .ok_or_else(|| {
             ProjectionError::GeoJsonError(format!(
                 "Netrelation feature {} missing or invalid 'positionOnB' property",
@@ -544,10 +563,10 @@ fn parse_netrelation_feature(
             ))
         })?;
 
-    let (navigable_forward, navigable_backward) = match navigability_str {
+    let (navigable_forward, navigable_backward) = match navigability_str.to_lowercase().as_str() {
         "both" => (true, true),
-        "AB" => (true, false),
-        "BA" => (false, true),
+        "ab" => (true, false),
+        "ba" => (false, true),
         "none" => (false, false),
         _ => return Err(ProjectionError::GeoJsonError(
             format!("Netrelation feature {}: invalid navigability value '{}' (expected: both, AB, BA, or none)", idx, navigability_str)
@@ -822,3 +841,6 @@ pub fn write_trainpath_geojson(
     writer.write_all(json.as_bytes())?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
