@@ -8,7 +8,28 @@ use std::fs;
 use chrono::DateTime;
 
 /// Parse railway network from GeoJSON file
-pub fn parse_network_geojson(path: &str) -> Result<Vec<Netelement>, ProjectionError> {
+///
+/// Loads both netelements and netrelations from a single GeoJSON FeatureCollection.
+/// Netelements are features with LineString/MultiLineString geometry (without type="netrelation").
+/// Netrelations are features with type="netrelation" property.
+///
+/// # Arguments
+///
+/// * `path` - Path to GeoJSON file containing both network elements and relations
+///
+/// # Returns
+///
+/// A tuple containing `(Vec<Netelement>, Vec<NetRelation>)`
+///
+/// # Example
+///
+/// ```no_run
+/// use tp_lib_core::io::parse_network_geojson;
+///
+/// let (netelements, netrelations) = parse_network_geojson("network.geojson")?;
+/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// ```
+pub fn parse_network_geojson(path: &str) -> Result<(Vec<Netelement>, Vec<NetRelation>), ProjectionError> {
     // Read file
     let geojson_str = fs::read_to_string(path)?;
     
@@ -67,10 +88,23 @@ pub fn parse_network_geojson(path: &str) -> Result<Vec<Netelement>, ProjectionEr
         ));
     }
     
-    // Parse features
+    // Parse features, separating netelements and netrelations
     let mut netelements = Vec::new();
+    let mut netrelations = Vec::new();
     
     for (idx, feature) in feature_collection.features.iter().enumerate() {
+        // Check if this is a netrelation feature
+        if let Some(props) = &feature.properties {
+            if let Some(feature_type) = props.get("type") {
+                if feature_type.as_str() == Some("netrelation") {
+                    let netrelation = parse_netrelation_feature(feature, idx)?;
+                    netrelations.push(netrelation);
+                    continue;
+                }
+            }
+        }
+        
+        // Otherwise parse as netelement
         let netelement = parse_feature(feature, &crs, idx)?;
         netelements.push(netelement);
     }
@@ -79,7 +113,7 @@ pub fn parse_network_geojson(path: &str) -> Result<Vec<Netelement>, ProjectionEr
         return Err(ProjectionError::EmptyNetwork);
     }
     
-    Ok(netelements)
+    Ok((netelements, netrelations))
 }
 
 /// Parse GNSS positions from GeoJSON file

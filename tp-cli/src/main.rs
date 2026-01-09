@@ -155,10 +155,11 @@ fn validate_args(args: &Args) -> Result<(), String> {
 fn run_pipeline(args: Args) -> Result<(), PipelineError> {
     // Load railway network
     tracing::info!(network_file = %args.network_file, "Loading railway network");
-    let netelements = parse_network_geojson(&args.network_file)
+    let (netelements, netrelations) = parse_network_geojson(&args.network_file)
         .map_err(|e| PipelineError::Io(format!("Failed to load network: {}", e)))?;
     tracing::info!(
         netelement_count = netelements.len(),
+        netrelation_count = netrelations.len(),
         "Railway network loaded"
     );
 
