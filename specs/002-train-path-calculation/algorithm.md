@@ -305,8 +305,8 @@ The algorithm exposes several tunable parameters:
 | Heading difference cutoff | 5 degrees | Hard threshold for heading alignment |
 | Minimum probability threshold | 25% | Minimum probability to include segment in path |
 | Resampling distance | 10 meters | Target spacing for performance optimization |
-| Distance scale | TBD | Controls distance probability decay rate |
-| Heading scale | TBD | Controls heading probability decay rate |
+| Distance scale | 10.0 meters | Controls distance probability decay rate (exponential decay) |
+| Heading scale | 2.0 degrees | Controls heading probability decay rate (exponential decay) |
 
 ---
 

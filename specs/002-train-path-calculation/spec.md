@@ -158,7 +158,7 @@ A developer troubleshooting path calculation issues exports intermediate results
 #### Network Topology
 
 - **FR-001**: System MUST accept network GeoJSON input containing a single feature collection where features are distinguished by a "type" property with value "netelement" or "netrelation"
-- **FR-002**: Each netrelation MUST have point coordinates representing the connection location between two track segments
+- **FR-002**: Each netrelation MAY have Point coordinates representing the connection location between two track segments (optional, useful for GIS visualization; can be null)
 - **FR-003**: Each netrelation MUST have properties: navigability, positionOnA, positionOnB, elementA, and elementB
 - **FR-004**: Navigability property MUST support values: "both" (navigable in both directions), "none" (not navigable), "AB" (navigable from A to B only), "BA" (navigable from B to A only)
 - **FR-005**: positionOnA and positionOnB MUST be either 0 (geometric start of track segment) or 1 (geometric end of track segment), never decimal values

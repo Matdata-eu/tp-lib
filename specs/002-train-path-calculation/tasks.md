@@ -60,6 +60,8 @@
 - [ ] T024 Implement NetRelation::validate() method for position value validation (0 or 1 only)
 - [ ] T025 Implement NetRelation self-reference check (from != to) validation
 - [ ] T026 Write unit test for NetRelation validation rules in tests/unit/path_construction_test.rs
+- [ ] T026a Implement validate_netrelation_references() checking elementA/B IDs exist in netelements collection (FR-006a)
+- [ ] T026b Write unit test for invalid netelement reference handling and warning logs in tests/unit/path_construction_test.rs
 
 ### I/O Extensions
 
@@ -501,7 +503,7 @@ With multiple developers:
 ## Total Task Summary
 
 - **Setup**: 10 tasks
-- **Foundational**: 28 tasks (BLOCKING)
+- **Foundational**: 30 tasks (BLOCKING) - includes T026a, T026b for netrelation reference validation
 - **User Story 1 (P1)**: 50 tasks - MVP Core
 - **User Story 2 (P2)**: 14 tasks - Projection
 - **User Story 3 (P3)**: 9 tasks - Export
@@ -512,7 +514,7 @@ With multiple developers:
 - **CLI Integration**: 18 tasks
 - **Polish**: 16 tasks
 
-**Total: 193 tasks**
+**Total: 195 tasks** (updated from 193 after adding reference validation tasks)
 
 **Estimated MVP Scope** (Setup + Foundational + US1 + US2 + CLI basics):  
 ~100 tasks for functional path-based projection
