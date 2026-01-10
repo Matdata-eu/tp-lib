@@ -263,7 +263,7 @@
 
 - [X] T124 [P] [US5] Write integration test for resampling with 10m interval on 1m-spaced data in tests/integration/path_calculation_test.rs
 - [X] T125 [P] [US5] Write integration test verifying all original positions in output despite resampling in tests/integration/path_calculation_test.rs
-- [ ] T126 [P] [US5] Write performance benchmark comparing resampled vs full processing in benches/path_calculation_bench.rs
+- [X] T126 [P] [US5] Write performance benchmark comparing resampled vs full processing in benches/path_calculation_bench.rs
 
 ### Implementation for User Story 5
 
@@ -302,8 +302,8 @@
 - [X] T143 [US6] Set PathResult.mode = PathCalculationMode::FallbackIndependent when fallback used
 - [X] T144 [US6] Populate PathResult.warnings with "No continuous path found, using fallback projection"
 - [X] T145 [US6] Ensure fallback ignores navigability (project to geometrically nearest regardless)
-- [ ] T146 [US6] Add logging for fallback trigger event (optional enhancement)
-- [ ] T147 [US6] Write unit test for fallback detection logic in tests/unit/path_construction_test.rs (covered by integration tests)
+- [X] T146 [US6] Add logging for fallback trigger event (optional enhancement)
+- [X] T147 [US6] Write unit test for fallback detection logic in tests/unit/path_construction_test.rs (covered by integration tests)
 - [X] T148 [US6] Verify all User Story 6 integration tests pass
 
 **Checkpoint**: User Stories 1-6 should all work independently
