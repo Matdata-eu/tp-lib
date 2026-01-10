@@ -189,4 +189,143 @@ mod tests {
 
         assert!(path.is_err());
     }
+
+    #[test]
+    fn test_train_path_negative_probability() {
+        let segments =
+            vec![AssociatedNetElement::new("NE_A".to_string(), 0.87, 0.0, 1.0, 0, 10).unwrap()];
+
+        let path = TrainPath::new(segments, -0.1, None, None);
+
+        assert!(path.is_err());
+    }
+
+    #[test]
+    fn test_train_path_total_fractional_length() {
+        let segments = vec![
+            AssociatedNetElement {
+                netelement_id: "NE_A".to_string(),
+                start_intrinsic: 0.0,
+                end_intrinsic: 1.0,
+                probability: 0.9,
+                gnss_start_index: 0,
+                gnss_end_index: 10,
+            },
+            AssociatedNetElement {
+                netelement_id: "NE_B".to_string(),
+                start_intrinsic: 0.0,
+                end_intrinsic: 0.5,
+                probability: 0.8,
+                gnss_start_index: 11,
+                gnss_end_index: 15,
+            },
+        ];
+
+        let path = TrainPath::new(segments, 0.85, None, None).unwrap();
+        let length = path.total_fractional_length();
+
+        assert!((length - 1.5).abs() < 1e-6); // 1.0 + 0.5 = 1.5
+    }
+
+    #[test]
+    fn test_train_path_netelement_ids() {
+        let segments = vec![
+            AssociatedNetElement {
+                netelement_id: "NE_A".to_string(),
+                start_intrinsic: 0.0,
+                end_intrinsic: 1.0,
+                probability: 0.9,
+                gnss_start_index: 0,
+                gnss_end_index: 10,
+            },
+            AssociatedNetElement {
+                netelement_id: "NE_B".to_string(),
+                start_intrinsic: 0.0,
+                end_intrinsic: 1.0,
+                probability: 0.8,
+                gnss_start_index: 11,
+                gnss_end_index: 15,
+            },
+        ];
+
+        let path = TrainPath::new(segments, 0.85, None, None).unwrap();
+        let ids = path.netelement_ids();
+
+        assert_eq!(ids.len(), 2);
+        assert_eq!(ids[0], "NE_A");
+        assert_eq!(ids[1], "NE_B");
+    }
+
+    #[test]
+    fn test_train_path_diagnostics() {
+        let segments = vec![
+            AssociatedNetElement {
+                netelement_id: "NE_A".to_string(),
+                start_intrinsic: 0.0,
+                end_intrinsic: 1.0,
+                probability: 0.9,
+                gnss_start_index: 0,
+                gnss_end_index: 10,
+            },
+        ];
+
+        let path = TrainPath::new(segments, 0.9, None, None).unwrap();
+        let diagnostics = path.diagnostics();
+
+        assert_eq!(diagnostics.segments.len(), 1);
+        assert_eq!(diagnostics.segments[0].netelement_id, "NE_A");
+    }
+
+    #[test]
+    fn test_train_path_with_metadata() {
+        use crate::models::PathMetadata;
+
+        let segments = vec![
+            AssociatedNetElement {
+                netelement_id: "NE_A".to_string(),
+                start_intrinsic: 0.0,
+                end_intrinsic: 1.0,
+                probability: 0.9,
+                gnss_start_index: 0,
+                gnss_end_index: 10,
+            },
+        ];
+
+        let metadata = PathMetadata {
+            distance_scale: 10.0,
+            heading_scale: 2.0,
+            cutoff_distance: 50.0,
+            heading_cutoff: 5.0,
+            probability_threshold: 0.25,
+            resampling_distance: None,
+            fallback_mode: false,
+            candidate_paths_evaluated: 5,
+            bidirectional_path: true,
+            diagnostic_info: None,
+        };
+
+        let path = TrainPath::new(segments, 0.9, None, Some(metadata.clone())).unwrap();
+
+        assert!(path.metadata.is_some());
+        assert_eq!(path.metadata.as_ref().unwrap().distance_scale, 10.0);
+    }
+
+    #[test]
+    fn test_train_path_with_calculated_at() {
+        let segments = vec![
+            AssociatedNetElement {
+                netelement_id: "NE_A".to_string(),
+                start_intrinsic: 0.0,
+                end_intrinsic: 1.0,
+                probability: 0.9,
+                gnss_start_index: 0,
+                gnss_end_index: 10,
+            },
+        ];
+
+        let now = Utc::now();
+        let path = TrainPath::new(segments, 0.9, Some(now), None).unwrap();
+
+        assert!(path.calculated_at.is_some());
+    }
 }

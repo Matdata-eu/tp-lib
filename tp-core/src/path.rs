@@ -569,6 +569,9 @@ pub mod probability;
 pub mod selection;
 pub mod spacing;
 
+#[cfg(test)]
+mod tests;
+
 // Re-exports
 pub use candidate::*;
 pub use construction::*;

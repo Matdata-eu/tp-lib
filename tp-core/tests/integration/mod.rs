@@ -7,6 +7,9 @@ mod path_calculation_test;
 #[path = "pipeline_test.rs"]
 mod pipeline_test;
 
+#[path = "path_calculation.rs"]
+mod path_calculation;
+
 // Original integration tests from tests.rs
 #[cfg(test)]
 mod inline_tests {
