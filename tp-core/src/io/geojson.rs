@@ -7,6 +7,37 @@ use geo::{Coord, LineString};
 use geojson::{Feature, GeoJson, Value};
 use std::fs;
 
+// Default CRS constant for GeoJSON (RFC 7946)
+const DEFAULT_CRS: &str = "EPSG:4326";
+
+/// Parse CRS from GeoJSON FeatureCollection
+/// 
+/// Extracts CRS from foreign_members or returns default WGS84
+fn parse_crs_from_feature_collection(feature_collection: &geojson::FeatureCollection) -> String {
+    let Some(crs_obj) = &feature_collection.foreign_members else {
+        return DEFAULT_CRS.to_string();
+    };
+    
+    let Some(crs_value) = crs_obj.get("crs") else {
+        return DEFAULT_CRS.to_string();
+    };
+    
+    // Try to extract CRS from properties.name
+    crs_value
+        .get("properties")
+        .and_then(|props| props.get("name"))
+        .and_then(|name| name.as_str())
+        .and_then(|name_str| {
+            // Handle URN format: "urn:ogc:def:crs:EPSG::4326"
+            if name_str.contains("EPSG") {
+                name_str.split("::").last().map(|code| format!("EPSG:{}", code))
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| DEFAULT_CRS.to_string())
+}
+
 /// Parse railway network from GeoJSON file
 ///
 /// Loads both netelements and netrelations from a single GeoJSON FeatureCollection.
@@ -51,38 +82,7 @@ pub fn parse_network_geojson(
     };
 
     // Determine CRS - RFC 7946 specifies WGS84 is the default
-    let default_crs = "EPSG:4326".to_string();
-    let crs = if let Some(crs_obj) = &feature_collection.foreign_members {
-        if let Some(crs_value) = crs_obj.get("crs") {
-            // Try to extract CRS from properties.name
-            if let Some(props) = crs_value.get("properties") {
-                if let Some(name) = props.get("name") {
-                    if let Some(name_str) = name.as_str() {
-                        // Handle URN format: "urn:ogc:def:crs:EPSG::4326"
-                        if name_str.contains("EPSG") {
-                            if let Some(code) = name_str.split("::").last() {
-                                format!("EPSG:{}", code)
-                            } else {
-                                default_crs.clone()
-                            }
-                        } else {
-                            default_crs.clone()
-                        }
-                    } else {
-                        default_crs.clone()
-                    }
-                } else {
-                    default_crs.clone()
-                }
-            } else {
-                default_crs.clone()
-            }
-        } else {
-            default_crs.clone()
-        }
-    } else {
-        default_crs.clone()
-    };
+    let crs = parse_crs_from_feature_collection(&feature_collection);
 
     // Validate CRS is WGS84 per RFC 7946
     if !crs.contains("4326") && !crs.contains("WGS84") {

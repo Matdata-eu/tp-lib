@@ -7,6 +7,12 @@ use crate::errors::ProjectionError;
 use crate::models::{AssociatedNetElement, NetRelation, TrainPath};
 use std::collections::HashMap;
 
+/// Maximum number of segments allowed in a path (safety limit)
+const MAX_PATH_SEGMENTS: usize = 1000;
+
+/// Placeholder length value for segments (meters)
+const PLACEHOLDER_SEGMENT_LENGTH: f64 = 100.0;
+
 /// Represents a path under construction with associated metadata
 #[derive(Debug, Clone)]
 pub struct PathConstruction {
@@ -169,17 +175,17 @@ pub fn construct_forward_path(
 
         // Add next segment to path
         let (_, next_segment) = netelement_map.get(*next_id).unwrap();
-        path.add_segment(next_segment.clone(), 100.0);
-        path.length_meters += 100.0; // Placeholder length
+        path.add_segment(next_segment.clone(), PLACEHOLDER_SEGMENT_LENGTH);
+        path.length_meters += PLACEHOLDER_SEGMENT_LENGTH; // Placeholder length
 
         // Update current position
         current_id = next_id.to_string();
         visited.insert(current_id.clone());
 
         // Safety limit to prevent infinite loops
-        if visited.len() > 1000 {
+        if visited.len() > MAX_PATH_SEGMENTS {
             return Err(ProjectionError::PathCalculationFailed {
-                reason: "Path construction exceeded maximum segment count (1000)".to_string(),
+                reason: format!("Path construction exceeded maximum segment count ({})", MAX_PATH_SEGMENTS),
             });
         }
     }
@@ -296,17 +302,17 @@ pub fn construct_backward_path(
 
         // Add previous segment to path (it will be reversed later)
         let (_, prev_segment) = netelement_map.get(*prev_id).unwrap();
-        path.add_segment(prev_segment.clone(), 100.0);
-        path.length_meters += 100.0; // Placeholder length
+        path.add_segment(prev_segment.clone(), PLACEHOLDER_SEGMENT_LENGTH);
+        path.length_meters += PLACEHOLDER_SEGMENT_LENGTH; // Placeholder length
 
         // Update current position
         current_id = prev_id.to_string();
         visited.insert(current_id.clone());
 
         // Safety limit to prevent infinite loops
-        if visited.len() > 1000 {
+        if visited.len() > MAX_PATH_SEGMENTS {
             return Err(ProjectionError::PathCalculationFailed {
-                reason: "Path construction exceeded maximum segment count (1000)".to_string(),
+                reason: format!("Path construction exceeded maximum segment count ({})", MAX_PATH_SEGMENTS),
             });
         }
     }

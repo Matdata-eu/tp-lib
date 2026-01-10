@@ -6,6 +6,24 @@ use chrono::{DateTime, FixedOffset};
 use polars::prelude::*;
 use std::collections::HashMap;
 
+// CSV column name constants for projected positions output
+const COL_ORIGINAL_LAT: &str = "original_lat";
+const COL_ORIGINAL_LON: &str = "original_lon";
+const COL_ORIGINAL_TIME: &str = "original_time";
+const COL_PROJECTED_LAT: &str = "projected_lat";
+const COL_PROJECTED_LON: &str = "projected_lon";
+const COL_NETELEMENT_ID: &str = "netelement_id";
+const COL_MEASURE_METERS: &str = "measure_meters";
+const COL_PROJECTION_DISTANCE_METERS: &str = "projection_distance_meters";
+const COL_CRS: &str = "crs";
+
+// CSV column names for train path output
+const COL_PROBABILITY: &str = "probability";
+const COL_START_INTRINSIC: &str = "start_intrinsic";
+const COL_END_INTRINSIC: &str = "end_intrinsic";
+const COL_GNSS_START_INDEX: &str = "gnss_start_index";
+const COL_GNSS_END_INDEX: &str = "gnss_end_index";
+
 /// Parse GNSS positions from CSV file
 pub fn parse_gnss_csv(
     path: &str,
@@ -224,15 +242,15 @@ pub fn write_csv(
 
     // Write header
     csv_writer.write_record([
-        "original_lat",
-        "original_lon",
-        "original_time",
-        "projected_lat",
-        "projected_lon",
-        "netelement_id",
-        "measure_meters",
-        "projection_distance_meters",
-        "crs",
+        COL_ORIGINAL_LAT,
+        COL_ORIGINAL_LON,
+        COL_ORIGINAL_TIME,
+        COL_PROJECTED_LAT,
+        COL_PROJECTED_LON,
+        COL_NETELEMENT_ID,
+        COL_MEASURE_METERS,
+        COL_PROJECTION_DISTANCE_METERS,
+        COL_CRS,
     ])?;
 
     // Write data rows
@@ -295,12 +313,12 @@ pub fn write_trainpath_csv(
 
     // Write header
     csv_writer.write_record([
-        "netelement_id",
-        "probability",
-        "start_intrinsic",
-        "end_intrinsic",
-        "gnss_start_index",
-        "gnss_end_index",
+        COL_NETELEMENT_ID,
+        COL_PROBABILITY,
+        COL_START_INTRINSIC,
+        COL_END_INTRINSIC,
+        COL_GNSS_START_INDEX,
+        COL_GNSS_END_INDEX,
     ])?;
 
     // Write data rows
