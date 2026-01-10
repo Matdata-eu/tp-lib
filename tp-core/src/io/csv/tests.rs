@@ -274,6 +274,41 @@ fn test_write_csv_empty_vector() {
 }
 
 #[test]
+fn test_write_csv_with_intrinsic_position() {
+    // Test that intrinsic coordinate can exist on ProjectedPosition
+    // Note: write_csv doesn't output intrinsic (legacy US1 format)
+    let mut projected = create_test_projected_position();
+    projected.intrinsic = Some(0.75);
+
+    let mut output = Vec::new();
+    let result = write_csv(&[projected], &mut output);
+    assert!(result.is_ok());
+
+    let csv_string = String::from_utf8(output).unwrap();
+    // Verify standard columns are present
+    assert!(csv_string.contains(COL_NETELEMENT_ID));
+    assert!(csv_string.contains(COL_MEASURE_METERS));
+}
+
+#[test]
+fn test_write_csv_multiple_positions() {
+    let pos1 = create_test_projected_position();
+    let mut pos2 = create_test_projected_position();
+    pos2.measure_meters = 200.5;
+    pos2.netelement_id = "NE002".to_string();
+
+    let mut output = Vec::new();
+    let result = write_csv(&[pos1, pos2], &mut output);
+    assert!(result.is_ok());
+
+    let csv_string = String::from_utf8(output).unwrap();
+    let lines: Vec<&str> = csv_string.lines().collect();
+    assert_eq!(lines.len(), 3); // header + 2 data rows
+    assert!(csv_string.contains("NE001"));
+    assert!(csv_string.contains("NE002"));
+}
+
+#[test]
 fn test_write_trainpath_csv_basic() {
     let path = create_test_trainpath();
 

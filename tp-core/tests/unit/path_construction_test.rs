@@ -543,4 +543,121 @@ mod tests {
 
     // US6 Tests (T147)
     // T147: Test fallback detection logic
+    // Note: Full fallback behavior is covered by integration tests (T137-T139)
+    // This unit test verifies the fallback logic components
+    #[test]
+    fn test_fallback_detection_logic() {
+        use chrono::Utc;
+        use tp_lib_core::models::GnssPosition;
+        use tp_lib_core::path::{PathCalculationMode, PathConfig};
+        use tp_lib_core::calculate_train_path;
+
+        // Create GNSS positions far from network to trigger "no candidates" scenario
+        // This is the most reliable way to trigger fallback
+        let gnss_positions = vec![
+            GnssPosition::new(50.950, 4.450, Utc::now().into(), "EPSG:4326".to_string()).unwrap(), // Very far
+            GnssPosition::new(50.951, 4.451, Utc::now().into(), "EPSG:4326".to_string()).unwrap(),
+        ];
+
+        // Create network far away from GNSS positions
+        let netelements = vec![
+            Netelement {
+                id: "NE_A".to_string(),
+                geometry: LineString::new(vec![
+                    Coord { x: 4.350, y: 50.850 }, // ~10km away from GNSS
+                    Coord { x: 4.351, y: 50.851 },
+                ]),
+                crs: "EPSG:4326".to_string(),
+            },
+        ];
+
+        let netrelations: Vec<NetRelation> = vec![];
+
+        // Use small cutoff distance to ensure GNSS is beyond reach
+        let mut config = PathConfig::default();
+        config.cutoff_distance = 100.0; // 100m - GNSS is ~10km away
+
+        let result = calculate_train_path(&gnss_positions, &netelements, &netrelations, &config);
+
+        assert!(result.is_ok(), "Fallback should succeed");
+        let path_result = result.unwrap();
+
+        // T147: Verify fallback mode was triggered
+        assert_eq!(
+            path_result.mode,
+            PathCalculationMode::FallbackIndependent,
+            "Should use fallback mode when GNSS beyond cutoff distance"
+        );
+
+        // Verify no path was calculated
+        assert!(
+            path_result.path.is_none(),
+            "Path should be None in fallback mode"
+        );
+
+        // Verify warnings indicate fallback was used
+        assert!(
+            path_result
+                .warnings
+                .iter()
+                .any(|w| w.contains("No continuous path found")),
+            "Should warn about path calculation failure, got: {:?}",
+            path_result.warnings
+        );
+        assert!(
+            path_result
+                .warnings
+                .iter()
+                .any(|w| w.to_lowercase().contains("fallback") || w.to_lowercase().contains("falling back")),
+            "Should warn about using fallback mode, got: {:?}",
+            path_result.warnings
+        );
+    }
+
+    #[test]
+    fn test_fallback_with_path_only_mode() {
+        use chrono::Utc;
+        use tp_lib_core::models::GnssPosition;
+        use tp_lib_core::path::{PathCalculationMode, PathConfig};
+        use tp_lib_core::calculate_train_path;
+
+        // GNSS far from network to trigger fallback
+        let gnss_positions =
+            vec![GnssPosition::new(50.950, 4.450, Utc::now().into(), "EPSG:4326".to_string()).unwrap()];
+
+        let netelements = vec![create_test_netelement("NE_A")]; // At default location ~4.35, 50.85
+
+        let netrelations: Vec<NetRelation> = vec![];
+
+        let mut config = PathConfig::default();
+        config.path_only = true;
+        config.cutoff_distance = 100.0; // GNSS is ~10km away
+
+        let result = calculate_train_path(&gnss_positions, &netelements, &netrelations, &config);
+
+        assert!(result.is_ok(), "Path-only fallback should succeed");
+        let path_result = result.unwrap();
+
+        // Verify fallback mode
+        assert_eq!(
+            path_result.mode,
+            PathCalculationMode::FallbackIndependent,
+            "Should use fallback mode when GNSS beyond cutoff"
+        );
+
+        // Verify no projected positions in path-only mode
+        assert!(
+            path_result.projected_positions.is_empty(),
+            "Path-only mode should skip fallback projection"
+        );
+
+        // Verify warnings indicate path-only skipped projection
+        assert!(
+            path_result
+                .warnings
+                .iter()
+                .any(|w| w.contains("Path-only mode")),
+            "Should warn about path-only mode"
+        );
+    }
 }

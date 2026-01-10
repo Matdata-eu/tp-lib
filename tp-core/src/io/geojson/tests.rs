@@ -751,7 +751,7 @@ fn test_parse_netrelations_geojson_empty_file() {
 }
 
 #[test]
-fn test_parse_netrelations_geojson_with_netelementA_and_netelementB() {
+fn test_parse_netrelations_geojson_with_netelement_a_and_netelement_b() {
     let geojson_content = r#"{
         "type": "FeatureCollection",
         "features": [

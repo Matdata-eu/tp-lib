@@ -148,5 +148,110 @@ mod tests {
         assert_eq!(projected.netelement_id, "NE001");
         assert_eq!(projected.measure_meters, 100.5);
         assert_eq!(projected.projection_distance_meters, 2.3);
+        assert!(projected.intrinsic.is_none());
+    }
+
+    #[test]
+    fn test_projected_position_with_intrinsic() {
+        let timestamp = FixedOffset::east_opt(3600)
+            .unwrap()
+            .with_ymd_and_hms(2025, 12, 9, 14, 30, 0)
+            .unwrap();
+
+        let original = GnssPosition {
+            latitude: 50.8503,
+            longitude: 4.3517,
+            timestamp,
+            crs: "EPSG:4326".to_string(),
+            metadata: HashMap::new(),
+            heading: None,
+            distance: None,
+        };
+
+        let projected = ProjectedPosition::with_intrinsic(
+            original.clone(),
+            Point::new(4.3517, 50.8503),
+            "NE001".to_string(),
+            100.5,
+            2.3,
+            "EPSG:4326".to_string(),
+            0.75,
+        );
+
+        assert_eq!(projected.netelement_id, "NE001");
+        assert_eq!(projected.measure_meters, 100.5);
+        assert_eq!(projected.projection_distance_meters, 2.3);
+        assert_eq!(projected.intrinsic, Some(0.75));
+    }
+
+    #[test]
+    fn test_projected_position_preserves_original_data() {
+        let timestamp = FixedOffset::east_opt(3600)
+            .unwrap()
+            .with_ymd_and_hms(2025, 12, 9, 14, 30, 0)
+            .unwrap();
+
+        let mut metadata = HashMap::new();
+        metadata.insert("speed".to_string(), "50.5".to_string());
+        metadata.insert("quality".to_string(), "high".to_string());
+
+        let original = GnssPosition {
+            latitude: 50.8503,
+            longitude: 4.3517,
+            timestamp,
+            crs: "EPSG:4326".to_string(),
+            metadata: metadata.clone(),
+            heading: Some(90.0),
+            distance: Some(150.5),
+        };
+
+        let projected = ProjectedPosition::new(
+            original.clone(),
+            Point::new(4.3517, 50.8503),
+            "NE001".to_string(),
+            100.5,
+            2.3,
+            "EPSG:4326".to_string(),
+        );
+
+        // Verify original data is preserved
+        assert_eq!(projected.original.latitude, 50.8503);
+        assert_eq!(projected.original.longitude, 4.3517);
+        assert_eq!(projected.original.heading, Some(90.0));
+        assert_eq!(projected.original.distance, Some(150.5));
+        assert_eq!(projected.original.metadata, metadata);
+        assert_eq!(projected.original.timestamp, timestamp);
+    }
+
+    #[test]
+    fn test_projected_position_different_crs() {
+        let timestamp = FixedOffset::east_opt(0)
+            .unwrap()
+            .with_ymd_and_hms(2025, 12, 9, 14, 30, 0)
+            .unwrap();
+
+        let original = GnssPosition {
+            latitude: 50.8503,
+            longitude: 4.3517,
+            timestamp,
+            crs: "EPSG:4326".to_string(),
+            metadata: HashMap::new(),
+            heading: None,
+            distance: None,
+        };
+
+        // Projected in Lambert 72
+        let projected = ProjectedPosition::new(
+            original.clone(),
+            Point::new(649775.0, 667946.0), // Lambert 72 coordinates
+            "NE001".to_string(),
+            100.5,
+            2.3,
+            "EPSG:31370".to_string(), // Belgian Lambert 72
+        );
+
+        assert_eq!(projected.crs, "EPSG:31370");
+        assert_eq!(projected.original.crs, "EPSG:4326");
+        assert_ne!(projected.projected_coords.x(), projected.original.longitude);
     }
 }

@@ -341,6 +341,12 @@ cargo bench --bench projection_bench
 cargo bench --bench naive_baseline_bench
 ```
 
+### Creating coverage report
+
+```bash
+cargo llvm-cov --lib -p tp-lib-core --html --output-dir target/coverage
+```
+
 ### Performance Targets
 
 - **SC-001**: 1000 positions × 50 netelements in <10 seconds

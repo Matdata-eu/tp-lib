@@ -230,6 +230,23 @@ impl RailwayNetwork {
     pub fn netelement_count(&self) -> usize {
         self.index.netelements().len()
     }
+
+    /// Get the number of netelements in the network
+    ///
+    /// Alias for `netelement_count()` for convenience.
+    pub fn len(&self) -> usize {
+        self.netelement_count()
+    }
+
+    /// Check if the network has no netelements
+    pub fn is_empty(&self) -> bool {
+        self.netelement_count() == 0
+    }
+
+    /// Iterate over all netelements
+    pub fn iter(&self) -> impl Iterator<Item = &Netelement> {
+        self.index.netelements().iter()
+    }
 }
 
 /// Project GNSS positions onto railway network

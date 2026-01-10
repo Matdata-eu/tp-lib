@@ -4,6 +4,90 @@ use super::*;
 use geo::LineString;
 
 #[test]
+fn test_railway_network_len() {
+    let netelements = vec![
+        Netelement {
+            id: "NE001".to_string(),
+            geometry: LineString::from(vec![(4.35, 50.85), (4.36, 50.86)]),
+            crs: "EPSG:4326".to_string(),
+        },
+        Netelement {
+            id: "NE002".to_string(),
+            geometry: LineString::from(vec![(4.37, 50.87), (4.38, 50.88)]),
+            crs: "EPSG:4326".to_string(),
+        },
+    ];
+
+    let network = RailwayNetwork::new(netelements).unwrap();
+    assert_eq!(network.len(), 2);
+}
+
+#[test]
+fn test_railway_network_is_empty() {
+    let netelements = vec![Netelement {
+        id: "NE001".to_string(),
+        geometry: LineString::from(vec![(4.35, 50.85), (4.36, 50.86)]),
+        crs: "EPSG:4326".to_string(),
+    }];
+
+    let network = RailwayNetwork::new(netelements).unwrap();
+    assert!(!network.is_empty());
+}
+
+#[test]
+fn test_railway_network_iter() {
+    let netelements = vec![
+        Netelement {
+            id: "NE001".to_string(),
+            geometry: LineString::from(vec![(4.35, 50.85), (4.36, 50.86)]),
+            crs: "EPSG:4326".to_string(),
+        },
+        Netelement {
+            id: "NE002".to_string(),
+            geometry: LineString::from(vec![(4.37, 50.87), (4.38, 50.88)]),
+            crs: "EPSG:4326".to_string(),
+        },
+    ];
+
+    let network = RailwayNetwork::new(netelements).unwrap();
+    let ids: Vec<String> = network.iter().map(|ne| ne.id.clone()).collect();
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&"NE001".to_string()));
+    assert!(ids.contains(&"NE002".to_string()));
+}
+
+#[test]
+fn test_projection_config_custom() {
+    let config = ProjectionConfig {
+        projection_distance_warning_threshold: 100.0,
+        suppress_warnings: true,
+    };
+    assert_eq!(config.projection_distance_warning_threshold, 100.0);
+    assert!(config.suppress_warnings);
+}
+
+#[test]
+fn test_projection_config_clone() {
+    let config1 = ProjectionConfig::default();
+    let config2 = config1.clone();
+    assert_eq!(
+        config1.projection_distance_warning_threshold,
+        config2.projection_distance_warning_threshold
+    );
+}
+
+#[test]
+fn test_result_type_alias() {
+    // Test that Result<T> alias works correctly
+    let ok_result: Result<i32> = Ok(42);
+    assert!(ok_result.is_ok());
+    assert_eq!(ok_result.unwrap(), 42);
+
+    let err_result: Result<i32> = Err(ProjectionError::EmptyNetwork);
+    assert!(err_result.is_err());
+}
+
+#[test]
 fn test_railway_network_creation() {
     let netelements = vec![Netelement {
         id: "NE001".to_string(),
@@ -100,16 +184,6 @@ fn test_projection_config_default() {
     let config = ProjectionConfig::default();
     assert_eq!(config.projection_distance_warning_threshold, 50.0);
     assert!(!config.suppress_warnings);
-}
-
-#[test]
-fn test_projection_config_custom() {
-    let config = ProjectionConfig {
-        projection_distance_warning_threshold: 100.0,
-        suppress_warnings: true,
-    };
-    assert_eq!(config.projection_distance_warning_threshold, 100.0);
-    assert!(config.suppress_warnings);
 }
 
 #[test]
@@ -215,15 +289,4 @@ fn test_projection_error_types() {
     let _err = ProjectionError::InvalidCoordinate("test".to_string());
     let _err = ProjectionError::InvalidTimestamp("test".to_string());
     let _err = ProjectionError::MissingTimezone("test".to_string());
-}
-
-#[test]
-fn test_result_type_alias() {
-    // Test that Result type alias works
-    let ok_result: Result<i32> = Ok(42);
-    assert!(ok_result.is_ok());
-    assert_eq!(ok_result.unwrap(), 42);
-
-    let err_result: Result<i32> = Err(ProjectionError::EmptyNetwork);
-    assert!(err_result.is_err());
 }

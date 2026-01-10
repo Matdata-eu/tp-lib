@@ -17,6 +17,8 @@ fn create_netelement(id: &str, coords: Vec<(f64, f64)>) -> Netelement {
 
 #[test]
 fn test_calculate_path_single_netelement_multiple_positions() {
+    use tp_lib_core::project_onto_path;
+    
     let netelements = vec![
         create_netelement("NE1", vec![(4.350, 50.850), (4.360, 50.860)]),
     ];
@@ -29,13 +31,24 @@ fn test_calculate_path_single_netelement_multiple_positions() {
     ];
     
     let netrelations = vec![];
-    let config = PathConfig::default();
+    // Use more lenient parameters for this test
+    let config = PathConfig::builder()
+        .cutoff_distance(500.0)  // 500m cutoff
+        .probability_threshold(0.0)  // Accept any probability
+        .build()
+        .unwrap();
     
     let result = calculate_train_path(&gnss, &netelements, &netrelations, &config);
     assert!(result.is_ok());
     
     let path_result = result.unwrap();
-    assert!(!path_result.projected_positions.is_empty());
+    assert!(path_result.path.is_some(), "Expected path to be calculated");
+    
+    // Now project the positions onto the calculated path
+    let train_path = path_result.path.unwrap();
+    let projected = project_onto_path(&gnss, &train_path, &netelements, &config);
+    assert!(projected.is_ok(), "Projection failed: {:?}", projected.err());
+    assert!(!projected.unwrap().is_empty(), "Expected projected positions");
 }
 
 #[test]

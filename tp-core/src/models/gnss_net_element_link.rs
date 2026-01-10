@@ -171,4 +171,115 @@ mod tests {
 
         assert!(link.is_err());
     }
+
+    #[test]
+    fn test_gnss_link_is_high_probability() {
+        let link = GnssNetElementLink::new(
+            5,
+            "NE_A".to_string(),
+            Point::new(4.3517, 50.8503),
+            3.2,
+            0.45,
+            Some(5.3),
+            0.89,
+        )
+        .unwrap();
+
+        assert!(link.is_high_probability(0.8));
+        assert!(link.is_high_probability(0.89));
+        assert!(!link.is_high_probability(0.9));
+    }
+
+    #[test]
+    fn test_gnss_link_is_within_distance() {
+        let link = GnssNetElementLink::new(
+            5,
+            "NE_A".to_string(),
+            Point::new(4.3517, 50.8503),
+            3.2,
+            0.45,
+            Some(5.3),
+            0.89,
+        )
+        .unwrap();
+
+        assert!(link.is_within_distance(5.0));
+        assert!(link.is_within_distance(3.2));
+        assert!(!link.is_within_distance(3.0));
+    }
+
+    #[test]
+    fn test_gnss_link_negative_distance() {
+        let link = GnssNetElementLink::new(
+            5,
+            "NE_A".to_string(),
+            Point::new(4.3517, 50.8503),
+            -1.0, // Invalid: negative
+            0.45,
+            Some(5.3),
+            0.89,
+        );
+
+        assert!(link.is_err());
+    }
+
+    #[test]
+    fn test_gnss_link_invalid_intrinsic() {
+        let link = GnssNetElementLink::new(
+            5,
+            "NE_A".to_string(),
+            Point::new(4.3517, 50.8503),
+            3.2,
+            1.5, // Invalid: > 1.0
+            Some(5.3),
+            0.89,
+        );
+
+        assert!(link.is_err());
+    }
+
+    #[test]
+    fn test_gnss_link_invalid_heading_difference() {
+        let link = GnssNetElementLink::new(
+            5,
+            "NE_A".to_string(),
+            Point::new(4.3517, 50.8503),
+            3.2,
+            0.45,
+            Some(200.0), // Invalid: > 180
+            0.89,
+        );
+
+        assert!(link.is_err());
+    }
+
+    #[test]
+    fn test_gnss_link_no_heading_difference() {
+        let link = GnssNetElementLink::new(
+            5,
+            "NE_A".to_string(),
+            Point::new(4.3517, 50.8503),
+            3.2,
+            0.45,
+            None, // Valid: no heading info
+            0.89,
+        );
+
+        assert!(link.is_ok());
+    }
+
+    #[test]
+    fn test_gnss_link_empty_netelement_id() {
+        let link = GnssNetElementLink::new(
+            5,
+            "".to_string(), // Invalid: empty
+            Point::new(4.3517, 50.8503),
+            3.2,
+            0.45,
+            Some(5.3),
+            0.89,
+        );
+
+        assert!(link.is_err());
+    }
 }

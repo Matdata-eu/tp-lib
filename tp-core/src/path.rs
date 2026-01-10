@@ -1161,6 +1161,15 @@ pub fn calculate_train_path(
             warnings.push("Both forward and backward path construction failed".to_string());
         }
 
+        // T146: Log fallback trigger event
+        tracing::warn!(
+            gnss_count = gnss_positions.len(),
+            netelement_count = netelements.len(),
+            forward_succeeded = forward_path.is_some(),
+            backward_succeeded = backward_path.is_some(),
+            "Path calculation failed, falling back to independent projection"
+        );
+
         // T143: Set mode to FallbackIndependent
         let fallback_positions = if config.path_only {
             // In path-only mode, return empty projected positions
