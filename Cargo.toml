@@ -55,3 +55,8 @@ pyo3 = { version = "0.21", features = ["extension-module"] }
 # Testing
 criterion = { version = "0.5", features = ["html_reports"] }
 quickcheck = "1.0"
+
+[profile.dev]
+debug = 2
+opt-level = 0
+split-debuginfo = "unpacked"

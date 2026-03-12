@@ -1,4 +1,12 @@
 {
+    "rust-analyzer.debug.engine": "vadimcn.vscode-lldb",
+    "rust-analyzer.debug.engineSettings": {
+        "vadimcn.vscode-lldb": {
+            "sourceLanguages": ["rust"]
+        }
+    },
+    "lldb.summaryTimeout": 0,
+    "lldb.evaluationTimeout": 0,
     "chat.promptFilesRecommendations": {
         "speckit.constitution": true,
         "speckit.specify": true,
