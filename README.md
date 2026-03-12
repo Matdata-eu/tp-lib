@@ -101,7 +101,7 @@ tp-lib/                    # Rust workspace root
 
 ```bash
 # Clone repository
-git clone https://github.com/infrabel/tp-lib
+git clone https://github.com/matdata-eu/tp-lib
 cd tp-lib
 
 # Build all crates
