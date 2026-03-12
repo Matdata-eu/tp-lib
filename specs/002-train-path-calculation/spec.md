@@ -5,6 +5,34 @@
 **Status**: Draft  
 **Input**: User description: "Implement continuous train path calculation with network topology and probabilistic routing"
 
+- [Feature Specification: Continuous Train Path Calculation with Network Topology](#feature-specification-continuous-train-path-calculation-with-network-topology)
+  - [User Scenarios \& Testing *(mandatory)*](#user-scenarios--testing-mandatory)
+    - [User Story 1 - Calculate Train Path from GNSS Data (Priority: P1)](#user-story-1---calculate-train-path-from-gnss-data-priority-p1)
+    - [User Story 2 - Project Coordinates on Calculated Path (Priority: P2)](#user-story-2---project-coordinates-on-calculated-path-priority-p2)
+    - [User Story 3 - Export Train Path Only (Priority: P3)](#user-story-3---export-train-path-only-priority-p3)
+    - [User Story 4 - Enhanced GNSS Data with Heading and Distance (Priority: P2)](#user-story-4---enhanced-gnss-data-with-heading-and-distance-priority-p2)
+    - [User Story 5 - Performance-Optimized Processing (Priority: P3)](#user-story-5---performance-optimized-processing-priority-p3)
+    - [User Story 6 - Fallback to Simple Projection (Priority: P2)](#user-story-6---fallback-to-simple-projection-priority-p2)
+    - [User Story 7 - Debug Path Calculation with Intermediate Results (Priority: P4)](#user-story-7---debug-path-calculation-with-intermediate-results-priority-p4)
+  - [Clarifications](#clarifications)
+    - [Session 2026-01-08](#session-2026-01-08)
+    - [Edge Cases](#edge-cases)
+  - [Requirements *(mandatory)*](#requirements-mandatory)
+    - [Functional Requirements](#functional-requirements)
+      - [Network Topology](#network-topology)
+      - [GNSS Input Enhancement](#gnss-input-enhancement)
+      - [Path Calculation](#path-calculation)
+      - [Performance Optimization](#performance-optimization)
+      - [Input/Output Options](#inputoutput-options)
+      - [Fallback Behavior](#fallback-behavior)
+      - [Debugging and Diagnostics](#debugging-and-diagnostics)
+    - [Key Entities](#key-entities)
+  - [Success Criteria *(mandatory)*](#success-criteria-mandatory)
+    - [Measurable Outcomes](#measurable-outcomes)
+  - [Assumptions](#assumptions)
+  - [Configuration Parameters](#configuration-parameters)
+
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Calculate Train Path from GNSS Data (Priority: P1)
