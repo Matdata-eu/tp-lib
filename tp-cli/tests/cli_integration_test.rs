@@ -691,3 +691,72 @@ fn test_subcommand_help() {
         .stdout(predicate::str::contains("--network"))
         .stdout(predicate::str::contains("--output"));
 }
+
+/// Debug test: mirrors the exact CLI invocation used for manual testing.
+///
+/// Equivalent command:
+///   tp-cli simple-projection \
+///     --gnss tp-core/tests/fixtures/log_28876_L36-B.csv \
+///     --crs EPSG:4326 \
+///     --network tp-core/tests/fixtures/test_network_airport.geojson \
+///     --output <temp>/log_28876_L36-B-processed.geojson
+///
+/// Run with `cargo test test_simple_projection_real_fixture -- --nocapture`
+/// to see the full output for debugging.
+#[test]
+fn test_simple_projection_real_fixture() {
+    let temp_dir = TempDir::new().unwrap();
+    let output_file = temp_dir.path().join("log_28876_L36-B-processed.geojson");
+
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let gnss_file = format!(
+        "{}/../tp-core/tests/fixtures/log_28876_L36-B.csv",
+        manifest_dir
+    );
+    let network_file = format!(
+        "{}/../tp-core/tests/fixtures/test_network_airport.geojson",
+        manifest_dir
+    );
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
+    cmd.arg("simple-projection")
+        .arg("--gnss")
+        .arg(&gnss_file)
+        .arg("--crs")
+        .arg("EPSG:4326")
+        .arg("--network")
+        .arg(&network_file)
+        .arg("--output")
+        .arg(&output_file);
+
+    let output = cmd.assert().success();
+
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr);
+    eprintln!("--- stderr ---\n{}", stderr);
+
+    assert!(output_file.exists(), "Output GeoJSON file should be created");
+
+    let content = fs::read_to_string(&output_file).unwrap();
+    eprintln!("--- output (first 2000 chars) ---\n{}", &content[..content.len().min(2000)]);
+
+    assert!(
+        content.contains("FeatureCollection"),
+        "Output should be a GeoJSON FeatureCollection, got:\n{}",
+        &content[..content.len().min(500)]
+    );
+    assert!(
+        content.contains("netelement_id"),
+        "Each projected point should have a netelement_id property"
+    );
+    assert!(
+        content.contains("measure_meters"),
+        "Each projected point should have a measure_meters property"
+    );
+
+    // Count features: the input CSV has one row per GNSS fix, output should match
+    let feature_count = content.matches("\"type\":\"Feature\"")
+        .count()
+        .max(content.matches("\"type\": \"Feature\"").count());
+    eprintln!("--- feature count: {} ---", feature_count);
+    assert!(feature_count > 0, "Output should contain at least one projected feature");
+}
