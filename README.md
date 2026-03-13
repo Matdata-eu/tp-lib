@@ -17,7 +17,7 @@ Train positioning library excels in post-processing the GNSS positions of your m
 - 📍 **Accurate Projection**: Haversine distance and geodesic calculations with geo-rs
 - 🛤️ **Train Path Calculation**: Probabilistic path calculation through rail networks using topology
 - 🌍 **CRS Aware**: Explicit coordinate reference system handling (EPSG codes)
-- ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets
+- ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; timezone-less ISO 8601 datetimes assumed UTC
 - 📊 **Multiple Formats**: CSV and GeoJSON input/output
 - 🧪 **Well Tested**: 266 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
 - ⚡ **Production Ready**: Full CLI interface with validation and error handling
@@ -243,7 +243,7 @@ latitude,longitude,timestamp,altitude,hdop
 50.8503,4.3517,2025-12-09T14:30:00+01:00,100.0,2.0
 ```
 
-- RFC3339 timestamps with timezone (+HH:MM format required)
+- RFC3339 timestamps with timezone (e.g. `2025-12-09T14:30:00+01:00` or `2025-12-09T14:30:00Z`); timezone-less ISO 8601 datetimes (e.g. `2025-12-09T14:30:00`) are accepted and assumed UTC
 - CRS must be specified via `--crs` flag
 - Column names configurable with `--lat-col`, `--lon-col`, `--time-col`
 

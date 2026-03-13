@@ -562,11 +562,13 @@ fn test_parse_gnss_csv_timezone_validation_missing_utc() {
         "longitude",
         "timestamp",
     );
-    
-    // Should fail due to missing timezone
-    assert!(result.is_err());
-    if let Err(e) = result {
-        assert!(e.to_string().contains("timezone"));
+
+    // Should succeed - timezone-less timestamps are assumed to be UTC
+    assert!(result.is_ok());
+    if let Ok(positions) = result {
+        assert_eq!(positions.len(), 1);
+        // Verify timestamp was parsed as UTC (offset 0)
+        assert_eq!(positions[0].timestamp.offset().local_minus_utc(), 0);
     }
 }
 

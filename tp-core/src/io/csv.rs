@@ -2,7 +2,7 @@
 
 use crate::errors::ProjectionError;
 use crate::models::{AssociatedNetElement, GnssPosition, ProjectedPosition, TrainPath};
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone, Utc};
 use polars::prelude::*;
 use std::collections::HashMap;
 
@@ -23,6 +23,25 @@ const COL_START_INTRINSIC: &str = "start_intrinsic";
 const COL_END_INTRINSIC: &str = "end_intrinsic";
 const COL_GNSS_START_INDEX: &str = "gnss_start_index";
 const COL_GNSS_END_INDEX: &str = "gnss_end_index";
+
+/// Parse a timestamp string, accepting RFC3339 (with timezone) or ISO 8601 without timezone
+/// (assumed to be UTC).
+fn parse_timestamp(s: &str) -> Result<DateTime<FixedOffset>, String> {
+    // First try full RFC3339 (includes timezone)
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Ok(dt);
+    }
+    // Fall back: treat timezone-less ISO 8601 datetime as UTC
+    let naive = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f")
+        .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S"))
+        .map_err(|e| {
+            format!(
+                "{} (expected RFC3339 with timezone, e.g., 2025-12-09T14:30:00+01:00, or ISO 8601 without timezone assumed UTC)",
+                e
+            )
+        })?;
+    Ok(Utc.from_utc_datetime(&naive).fixed_offset())
+}
 
 /// Parse GNSS positions from CSV file
 pub fn parse_gnss_csv(
@@ -155,22 +174,12 @@ pub fn parse_gnss_csv(
             ProjectionError::InvalidTimestamp(format!("Missing timestamp at row {}", i))
         })?;
 
-        let timestamp = DateTime::<FixedOffset>::parse_from_rfc3339(time_str)
-            .map_err(|e| ProjectionError::InvalidTimestamp(
-                format!("Invalid timestamp '{}' at row {}: {} (expected RFC3339 format with timezone, e.g., 2025-12-09T14:30:00+01:00)", 
-                    time_str, i, e)
-            ))?;
-
-        // Validate timezone is present
-        if timestamp.timezone().local_minus_utc() == 0
-            && !time_str.contains('+')
-            && !time_str.ends_with('Z')
-        {
-            return Err(ProjectionError::InvalidTimestamp(format!(
-                "Timestamp at row {} missing explicit timezone offset",
-                i
-            )));
-        }
+        let timestamp = parse_timestamp(time_str).map_err(|e| {
+            ProjectionError::InvalidTimestamp(format!(
+                "Invalid timestamp '{}' at row {}: {}",
+                time_str, i, e
+            ))
+        })?;
 
         // Build metadata from other columns
         let mut metadata = HashMap::new();
