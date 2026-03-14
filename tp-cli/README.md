@@ -1,6 +1,6 @@
 # tp-cli: Train Positioning CLI
 
-> Command-line interface for projecting GNSS positions onto railway track netelements
+> Command-line interface for calculating train paths and projecting GNSS positions onto railway track netelements
 
 ## Installation
 
@@ -25,52 +25,82 @@ export PATH="$PATH:$(pwd)/target/release"
 
 ## Quick Start
 
-### Basic Usage
+### Default Mode (Path Calculation + Projection)
 
 ```bash
-# Project CSV GNSS data onto railway network
-tp-cli --gnss-file positions.csv \
+# Calculate train path and project GNSS coordinates onto track network
+tp-cli --gnss positions.csv \
        --crs EPSG:4326 \
-       --network-file network.geojson
-
-# Output defaults to CSV format on stdout
+       --network network.geojson \
+       --output projected.geojson
 ```
 
-### With GeoJSON Output
+### Path Calculation Only
 
 ```bash
-tp-cli --gnss-file positions.csv \
+# Calculate the most likely train path without projecting coordinates
+tp-cli calculate-path \
+       --gnss positions.csv \
        --crs EPSG:4326 \
-       --network-file network.geojson \
-       --output-format json > projected.geojson
+       --network network.geojson \
+       --output path.csv
 ```
 
-### Custom Warning Threshold
+### With Pre-Calculated Path
 
 ```bash
-# Warn only for projection distances > 100 meters
-tp-cli --gnss-file positions.csv \
+# Use an existing train path file to skip path calculation
+tp-cli --gnss positions.csv \
        --crs EPSG:4326 \
-       --network-file network.geojson \
-       --warning-threshold 100.0
+       --network network.geojson \
+       --train-path path.csv \
+       --output projected.geojson
 ```
 
-### Custom CSV Column Names
+### With Debug Output
 
 ```bash
-tp-cli --gnss-file data.csv \
+# Enable debug mode to write intermediate GeoJSON files
+tp-cli --gnss positions.csv \
        --crs EPSG:4326 \
-       --network-file network.geojson \
-       --lat-col lat \
-       --lon-col lon \
-       --time-col ts
+       --network network.geojson \
+       --output projected.geojson \
+       --debug
+```
+
+## Commands
+
+`tp-cli` has three modes of operation:
+
+### Default (no subcommand)
+
+Calculates the train path and projects GNSS coordinates onto the path. This is the recommended mode.
+
+```bash
+tp-cli --gnss <FILE> --network <FILE> --output <FILE> [OPTIONS]
+```
+
+### `calculate-path`
+
+Calculates the most likely sequence of netelements (train path) without performing coordinate projection.
+
+```bash
+tp-cli calculate-path --gnss <FILE> --network <FILE> --output <FILE> [OPTIONS]
+```
+
+### `simple-projection`
+
+Legacy nearest-netelement projection (feature 001 behavior). Projects each GNSS position to its nearest netelement independently, without path awareness.
+
+```bash
+tp-cli simple-projection --gnss <FILE> --network <FILE> --output <FILE> [OPTIONS]
 ```
 
 ## Arguments
 
 ### Required Arguments
 
-#### `--gnss-file <FILE>` (or `-g`)
+#### `--gnss <FILE>` (or `-g`)
 
 Path to GNSS input file (CSV or GeoJSON format).
 
@@ -88,7 +118,7 @@ latitude,longitude,timestamp,altitude,hdop
 - Timestamps must be RFC3339 format with timezone (e.g., `2025-12-09T14:30:00+01:00`)
 - Additional columns preserved as metadata
 
-#### `--network-file <FILE>` (or `-n`)
+#### `--network <FILE>` (or `-n`)
 
 Path to railway network GeoJSON file.
 
@@ -120,6 +150,10 @@ Path to railway network GeoJSON file.
 - LineString geometries (track centerlines)
 - `id` property (unique identifier per netelement)
 
+#### `--output <FILE>` (or `-o`)
+
+Output file path. The format is determined by the file extension (`.csv` or `.geojson`/`.json`) or the `--format` flag.
+
 ### Optional Arguments
 
 #### `--crs <CRS>`
@@ -137,9 +171,100 @@ Coordinate Reference System of GNSS data (e.g., `EPSG:4326`).
 - `EPSG:31370` - Belgian Lambert 2008
 - `EPSG:3857` - Web Mercator
 
-#### `--output-format <FORMAT>` (or `-o`)
+#### `--format <FORMAT>`
 
-Output format: `csv` or `json`. Default: `csv`.
+Output format: `csv`, `geojson`, or `auto` (detect from file extension). Default: `auto`.
+
+#### `--train-path <FILE>` (default mode only)
+
+Pre-calculated train path file. When provided, path calculation is skipped and this path is used directly for projection.
+
+#### `--save-path <FILE>` (default mode only)
+
+Save the calculated train path to this file in addition to the projected output. Useful for inspecting or reusing the path.
+
+#### `--warning-threshold <METERS>` (or `-w`)
+
+Distance threshold in meters for emitting projection warnings. Default: `50.0`.
+
+Warnings are printed to stderr when a GNSS position projects more than this distance from the track.
+
+#### `--lat-col <COLUMN>`
+
+Latitude column name in CSV input. Default: `latitude`.
+
+#### `--lon-col <COLUMN>`
+
+Longitude column name in CSV input. Default: `longitude`.
+
+#### `--time-col <COLUMN>`
+
+Timestamp column name in CSV input. Default: `timestamp`.
+
+### Algorithm Parameters
+
+These parameters control the path calculation algorithm. The defaults work well for typical railway scenarios.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--distance-scale` | `10.0` | Distance exponential decay scale (meters) |
+| `--heading-scale` | `2.0` | Heading exponential decay scale (degrees) |
+| `--cutoff-distance` | `50.0` | Maximum distance for candidate selection (meters) |
+| `--heading-cutoff` | `5.0` | Maximum heading difference before rejection (degrees) |
+| `--probability-threshold` | `0.25` | Minimum probability for path segment inclusion |
+| `--max-candidates` | `3` | Maximum candidate netelements per GNSS position |
+| `--resampling-distance` | _(none)_ | Resample GNSS data at this interval (meters) |
+
+### Debug Options
+
+#### `--debug`
+
+Enable debug mode. Writes intermediate GeoJSON files for each phase of the path calculation process. The files are written to the output file's parent directory, or to a custom directory specified with `--debug-output-dir`.
+
+**Debug files produced:**
+
+| File | Description |
+|------|-------------|
+| `phase2_candidates.geojson` | GNSS points with candidate projections and per-position probabilities |
+| `phase3_netelements.geojson` | Netelement-level aggregated probabilities |
+| `phase4_netelement_map.geojson` | Final netelement map used for path construction |
+| `candidates.json` | Raw candidate data (JSON) |
+| `positions.json` | Position-level debug data (JSON) |
+| `decisions.json` | Path construction decisions (JSON) |
+
+#### `--debug-output-dir <DIR>`
+
+Directory for debug output files. Only used when `--debug` is also specified; a warning is emitted if `--debug-output-dir` is given without `--debug`.
+
+When `--debug` is given without `--debug-output-dir`, files are written to the output file's parent directory.
+
+```bash
+# Debug files go to the output file's directory
+tp-cli --gnss data.csv --crs EPSG:4326 --network network.geojson \
+       --output results/projected.geojson --debug
+
+# Debug files go to a custom directory
+tp-cli --gnss data.csv --crs EPSG:4326 --network network.geojson \
+       --output results/projected.geojson --debug --debug-output-dir ./debug-out
+```
+
+### General Options
+
+| Flag | Description |
+|------|-------------|
+| `-v`, `--verbose` | Enable verbose logging output |
+| `--quiet` | Suppress all non-error output |
+| `-h`, `--help` | Print help |
+| `-V`, `--version` | Print version |
+
+## Exit Codes
+
+- **0**: Success - All positions processed successfully
+- **1**: Validation error - Invalid arguments or configuration
+- **2**: Processing error - Projection or computation failure
+- **3**: I/O error - File not found, permission denied, or read/write failure
+
+## Output
 
 **CSV Output Example:**
 
@@ -148,7 +273,7 @@ original_lat,original_lon,original_time,projected_lat,projected_lon,netelement_i
 50.8503,4.3517,2025-12-09T14:30:00+01:00,50.85074,4.35148,NE001,132.54,51.31,EPSG:4326
 ```
 
-**JSON Output Example:**
+**GeoJSON Output Example:**
 
 ```json
 {
@@ -174,119 +299,73 @@ original_lat,original_lon,original_time,projected_lat,projected_lon,netelement_i
 }
 ```
 
-#### `--warning-threshold <METERS>` (or `-w`)
-
-Distance threshold in meters for emitting projection warnings. Default: `50.0`.
-
-Warnings are printed to stderr when a GNSS position projects more than this distance from the track.
-
-**Example:**
-
-```bash
-# Warn only for distances > 100m
-tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson -w 100.0
-```
-
-#### `--lat-col <COLUMN>`
-
-Latitude column name in CSV input. Default: `latitude`.
-
-#### `--lon-col <COLUMN>`
-
-Longitude column name in CSV input. Default: `longitude`.
-
-#### `--time-col <COLUMN>`
-
-Timestamp column name in CSV input. Default: `timestamp`.
-
-**Example with custom columns:**
-
-```bash
-tp-cli --gnss-file data.csv \
-       --crs EPSG:4326 \
-       --network-file network.geojson \
-       --lat-col lat --lon-col lon --time-col ts
-```
-
-## Exit Codes
-
-- **0**: Success - All positions processed successfully
-- **1**: Validation error - Invalid arguments or configuration
-- **2**: Processing error - Projection or computation failure
-- **3**: I/O error - File not found, permission denied, or read/write failure
-
-## Output Behavior
-
-- **Stdout**: Projected results (CSV or GeoJSON)
-- **Stderr**: Warnings and error messages
-
-**Example:**
-
-```bash
-# Redirect output to file, view warnings in terminal
-tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson > output.csv
-
-# Redirect both output and errors
-tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson > output.csv 2> errors.log
-```
-
 ## Examples
 
-### Example 1: Basic CSV Processing
+### Example 1: Full Pipeline with Path Saving
 
 ```bash
-tp-cli --gnss-file train_journey.csv \
+# Calculate path, save it, and project coordinates
+tp-cli --gnss train_journey.csv \
        --crs EPSG:4326 \
-       --network-file infrabel_network.geojson \
-       > projected_positions.csv
+       --network infrabel_network.geojson \
+       --output projected.geojson \
+       --save-path calculated_path.csv
 ```
 
-**Input (train_journey.csv):**
-
-```csv
-latitude,longitude,timestamp,speed,heading
-50.8503,4.3517,2025-12-09T14:30:00+01:00,80.5,45
-50.8504,4.3518,2025-12-09T14:30:01+01:00,81.2,46
-```
-
-**Output (projected_positions.csv):**
-
-```csv
-original_lat,original_lon,original_time,projected_lat,projected_lon,netelement_id,measure_meters,projection_distance_meters,crs
-50.8503,4.3517,2025-12-09T14:30:00+01:00,50.85074,4.35148,NE001,132.54,51.31,EPSG:4326
-50.8504,4.3518,2025-12-09T14:30:01+01:00,50.8508,4.3516,NE001,143.28,46.64,EPSG:4326
-```
-
-### Example 2: GeoJSON Output with Custom Threshold
+### Example 2: Path Calculation Only
 
 ```bash
-tp-cli --gnss-file positions.csv \
-       --crs EPSG:31370 \
-       --network-file network.geojson \
-       --output-format json \
-       --warning-threshold 75.0 \
-       > projected.geojson
-```
-
-### Example 3: Custom Column Names
-
-```bash
-# Input CSV has columns: lat, lon, time
-tp-cli --gnss-file gps_data.csv \
+# Calculate the train path without projection
+tp-cli calculate-path \
+       --gnss train_journey.csv \
        --crs EPSG:4326 \
-       --network-file tracks.geojson \
-       --lat-col lat \
-       --lon-col lon \
-       --time-col time \
-       > output.csv
+       --network infrabel_network.geojson \
+       --output path.geojson
 ```
 
-### Example 4: Pipeline with Filtering
+### Example 3: Reuse Existing Path
 
 ```bash
-# Project positions and filter for low projection distances
-tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson | \
-  awk -F',' 'NR==1 || $8 < 30' > high_quality_positions.csv
+# Project using a previously calculated path
+tp-cli --gnss train_journey.csv \
+       --crs EPSG:4326 \
+       --network infrabel_network.geojson \
+       --train-path calculated_path.csv \
+       --output projected.geojson
+```
+
+### Example 4: Debug Mode with Custom Directory
+
+```bash
+# Write debug GeoJSON files for inspection in QGIS
+tp-cli --gnss train_journey.csv \
+       --crs EPSG:4326 \
+       --network infrabel_network.geojson \
+       --output projected.geojson \
+       --debug --debug-output-dir ./debug
+```
+
+### Example 5: Custom Algorithm Parameters
+
+```bash
+# Adjust for a dense urban network with tight track spacing
+tp-cli --gnss data.csv \
+       --crs EPSG:4326 \
+       --network network.geojson \
+       --output projected.csv \
+       --cutoff-distance 30.0 \
+       --max-candidates 5 \
+       --distance-scale 5.0
+```
+
+### Example 6: Custom CSV Column Names
+
+```bash
+tp-cli --gnss gps_data.csv \
+       --crs EPSG:4326 \
+       --network tracks.geojson \
+       --output projected.csv \
+       --lat-col lat --lon-col lon --time-col ts
 ```
 
 ## Troubleshooting
@@ -298,8 +377,7 @@ tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson | \
 **Solution:**
 
 ```bash
-# Add --crs flag
-tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson
+tp-cli --gnss data.csv --crs EPSG:4326 --network network.geojson --output out.csv
 ```
 
 ### Error: "CRS should not be specified for GeoJSON GNSS input"
@@ -310,7 +388,7 @@ tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson
 
 ```bash
 # Remove --crs flag
-tp-cli --gnss-file data.geojson --network-file network.geojson
+tp-cli --gnss data.geojson --network network.geojson --output out.csv
 ```
 
 ### Warning: "Large projection distance (X.XXm > threshold)"
@@ -358,23 +436,6 @@ tp-cli --gnss-file data.geojson --network-file network.geojson
 - Coordinates must be valid numbers
 - Order: `[longitude, latitude]` (not lat/lon)
 
-### Performance Issues
-
-**Symptom:** Processing takes too long (> 10 seconds for 1000 positions × 50 netelements).
-
-**Possible causes:**
-
-- Very large network (> 1000 netelements)
-- Complex netelement geometries (> 1000 points per LineString)
-- High I/O overhead (network file on slow disk)
-
-**Solutions:**
-
-- Simplify netelement geometries (reduce points with Douglas-Peucker algorithm)
-- Split large networks into regional subsets
-- Use SSD for input files
-- Consider using library API for bulk processing (avoids CLI startup overhead)
-
 ## Advanced Usage
 
 ### Batch Processing Multiple Files
@@ -383,10 +444,10 @@ tp-cli --gnss-file data.geojson --network-file network.geojson
 # Process all CSV files in directory
 for file in data/*.csv; do
   echo "Processing $file..."
-  tp-cli --gnss-file "$file" \
+  tp-cli --gnss "$file" \
          --crs EPSG:4326 \
-         --network-file network.geojson \
-         > "output/$(basename $file .csv)_projected.csv"
+         --network network.geojson \
+         --output "output/$(basename $file .csv)_projected.csv"
 done
 ```
 
@@ -394,16 +455,7 @@ done
 
 ```bash
 # Convert output GeoJSON to Shapefile with ogr2ogr
-tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson -o json | \
-  ogr2ogr -f "ESRI Shapefile" output.shp /vsistdin/ -lco ENCODING=UTF-8
-```
-
-### Quality Filtering
-
-```bash
-# Extract only high-quality projections (< 20m distance)
-tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson | \
-  awk -F',' 'NR==1 || ($8+0) < 20' > high_quality.csv
+ogr2ogr -f "ESRI Shapefile" output.shp projected.geojson -lco ENCODING=UTF-8
 ```
 
 ## Help
@@ -412,6 +464,9 @@ tp-cli --gnss-file data.csv --crs EPSG:4326 --network-file network.geojson | \
 # View all options
 tp-cli --help
 
+# View subcommand options
+tp-cli calculate-path --help
+
 # View version
 tp-cli --version
 ```
@@ -419,13 +474,13 @@ tp-cli --version
 ## See Also
 
 - [TP-Lib README](../README.md) - Library usage and architecture
-- [API Documentation](https://docs.rs/tp-core) - Rust API reference
-- [Feature Specification](../specs/001-gnss-projection/spec.md) - Requirements and design
+- [GNSS Projection Specification](../specs/001-gnss-projection/spec.md) - Projection requirements and design
+- [Train Path Calculation Specification](../specs/002-train-path-calculation/spec.md) - Path algorithm specification
 
 ## Support
 
 For issues or questions:
 
-- File a GitHub issue: [infrabel/tp-lib/issues](https://github.com/infrabel/tp-lib/issues)
+- File a GitHub issue: [Matdata-eu/tp-lib/issues](https://github.com/Matdata-eu/tp-lib/issues)
 - Check documentation: [../specs/](../specs/)
 - Review test cases: [../tp-core/tests/](../tp-core/tests/)
