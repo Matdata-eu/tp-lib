@@ -279,44 +279,54 @@ let candidates = graph.neighbors_directed(current_node, Direction::Incoming)
 
 ---
 
-## 4. Distance Coverage Correction Factor
+## 4. Coverage Correction Factor
 
 ### Decision
-Calculate **consecutive position coverage** for each netelement:
+Calculate an **absolute coverage score** for each netelement using two probability roles:
 
 ```rust
-// For netelement with associated GNSS positions [P1, P3, P4, P7]
-// Identify consecutive pairs: (P1→P3 gap), (P3→P4 consecutive), (P4→P7 gap)
+// For netelement with N associated GNSS positions out of T total working positions:
+let max_intrinsic = positions.iter().map(|p| p.intrinsic).fold(f64::MIN, f64::max);
+let min_intrinsic = positions.iter().map(|p| p.intrinsic).fold(f64::MAX, f64::min);
+let covered_meters = (max_intrinsic - min_intrinsic) * netelement_length;
+const REFERENCE_COVERAGE_METERS: f64 = 500.0;
+let coverage_factor = (covered_meters / REFERENCE_COVERAGE_METERS)
+    .max(n as f64 / total_gnss_count as f64)
+    .min(1.0);
 
-let consecutive_distance = sum of distances between consecutive positions only;
-let total_distance = distance from first to last associated GNSS position;
-let coverage_factor = consecutive_distance / total_distance;
-
-// Final netelement probability
-P(netelement) = P_avg × coverage_factor
+// Threshold probability — used for candidate map insertion only:
+let avg_prob = total_prob / n as f64;
+// Selection probability — used for junction comparison and BFS ranking:
+let coverage_prob = coverage_factor * avg_prob;
 ```
 
-**Consecutive definition**: Positions are consecutive if they appear sequentially in the original GNSS coordinate list (no other positions between them).
+**Two-role design**: `avg_prob` governs whether a netelement enters the path candidate map (preserving the original 25% threshold behaviour regardless of coverage). `coverage_prob` governs which branch is selected when the topology offers multiple options at a junction.
 
 ### Rationale
-- **Prevents false positives**: Segments that pass several times near the ground truth segment can also contain hits but not consecutive
-- **Distance-weighted**: Longer coverage (more consecutive positions) increases confidence
-- **Normalized**: Division by total distance ensures correction factor ∈ [0, 1]
+- **Absolute scale**: Normalising against a fixed 500 m reference instead of the netelement's own length rewards long segments with genuine coverage (880 m on a 1 024 m segment → factor 1.0) over short segments that happened to be visited (135 m → factor 0.27). This correctly biases junction selection toward the more-traversed branch.
+- **Count fallback**: `N / T` ensures isolated single-point candidates still receive a meaningful score when the intrinsic range is zero, preventing silent ties at junctions.
+- **Threshold independence**: Decoupling the insertion threshold from coverage means sparse test data with few GNSS points (e.g., 2 GNSS positions on a short netelement) still passes the 25% threshold as long as `avg_prob` is sufficient.
 
 ### Example Scenario
 ```
-Netelement A (100m long):
-- Associated positions: P1 (0m), P10 (50m), P11 (60m), P30 (100m)
-- Consecutive pairs: P10→P11 (10m)
-- Total span: P1→P30 (100m)
-- Coverage factor: 10/100 = 0.1
-- Even with high individual probabilities, low coverage reduces final score
+Junction: netelement 88_L_127 connects to 88_L_126 (135 m) and 88_L_9748 (1024 m).
+Total working GNSS: 6 positions.
+
+88_L_126:  2 GNSS, avg_prob = 0.24, covered = 130 m
+  coverage_factor = max(130/500, 2/6) = max(0.26, 0.33) = 0.33
+  coverage_prob   = 0.33 × 0.24 = 0.079
+
+88_L_9748: 5 GNSS, avg_prob = 0.95, covered = 880 m
+  coverage_factor = max(880/500, 5/6) = max(1.0, 0.83) = 1.0  (capped)
+  coverage_prob   = 1.0 × 0.95 = 0.95
+
+BFS selects 88_L_9748 (higher coverage_prob) — correct branch.
 ```
 
 ### Alternatives Considered
-1. **Simple average**: P = mean(all position probabilities); ignores coverage gaps
-2. **Count-based**: P = P_avg × (consecutive_count / total_count); doesn't weight by distance
-3. **No correction**: Proximity alone insufficient for path determination
+1. **Consecutive-distance ratio** (original design): `consecutive_distances / netelement_length`; biased against long netelements with sparse GNSS, and produces zero for single-point associations.
+2. **Simple average**: P = mean(all position probabilities); ignores how much of the netelement was actually traversed.
+3. **Count-based**: P = P_avg × (N / T); correct direction but does not account for the spatial spread of GNSS projections along the netelement.
 
 ---
 

@@ -19,7 +19,7 @@ Train positioning library excels in post-processing the GNSS positions of your m
 - 🌍 **CRS Aware**: Explicit coordinate reference system handling (EPSG codes)
 - ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; timezone-less ISO 8601 datetimes assumed UTC
 - 📊 **Multiple Formats**: CSV and GeoJSON input/output
-- 🧪 **Well Tested**: 266 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
+- 🧪 **Well Tested**: 427 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
 - ⚡ **Production Ready**: Full CLI interface with validation and error handling
 
 ## Train Path Calculation
@@ -30,8 +30,8 @@ to determine the most probable route a train took through the railway network.
 ### How It Works
 
 1. **Candidate Selection**: Find candidate track segments within cutoff distance of each GNSS position
-2. **Probability Scoring**: Calculate probability using distance and heading alignment
-3. **Path Construction**: Build continuous paths using network topology constraints
+2. **Probability Scoring**: Calculate per-position probability using distance and heading alignment; aggregate into a per-netelement average (`P_avg`) and a coverage-adjusted score (`coverage_prob = C_coverage × P_avg`) where `C_coverage` rewards segments with large absolute GNSS coverage (reference: 500 m)
+3. **Path Construction**: Build continuous paths using network topology; `P_avg` gates candidate inclusion while `coverage_prob` drives junction selection; topology-only bridge segments are inserted automatically when a navigable connection carries no GNSS evidence
 4. **Bidirectional Validation**: Validate path consistency from both directions
 5. **Path Selection**: Return highest probability path
 

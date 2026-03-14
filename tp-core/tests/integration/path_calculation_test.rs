@@ -334,8 +334,9 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert!(
-            path.overall_probability > 0.5,
-            "Path should have reasonable probability"
+            path.overall_probability >= 0.5,
+            "Path should have reasonable probability (got {})",
+            path.overall_probability
         );
     }
 

@@ -671,7 +671,7 @@ pub fn calculate_train_path(
     };
     use crate::path::probability::{
         calculate_combined_probability, calculate_distance_probability,
-        calculate_heading_probability, calculate_netelement_probability,
+        calculate_heading_probability,
     };
     use crate::path::selection::{average_bidirectional_probability, select_best_path};
     use std::collections::HashMap;
@@ -847,28 +847,98 @@ pub fn calculate_train_path(
         }
     }
 
+    // Track intrinsic coordinate range per netelement for coverage-based probability.
+    // A wider intrinsic range means more of the netelement's length was covered by the
+    // GPS track, giving higher confidence that it was traversed.
+    let mut intrinsic_ranges: HashMap<usize, (f64, f64)> = HashMap::new();
+    for candidates in &position_candidates {
+        for candidate in candidates {
+            if let Some(&ne_idx) = netelement_index.get(&candidate.netelement_id) {
+                let ic = candidate.intrinsic_coordinate;
+                intrinsic_ranges
+                    .entry(ne_idx)
+                    .and_modify(|(mn, mx)| {
+                        if ic < *mn {
+                            *mn = ic;
+                        }
+                        if ic > *mx {
+                            *mx = ic;
+                        }
+                    })
+                    .or_insert((ic, ic));
+            }
+        }
+    }
+
+    use geo::HaversineLength;
+    // Normalisation constant for covered metres.  A netelement with at least
+    // this many metres of GPS coverage gets a coverage factor of 1.0; shorter
+    // coverage scales linearly below 1.0.
+    const REFERENCE_COVERAGE_METERS: f64 = 500.0;
+    // Minimum average per-position match quality.  Filters netelements that
+    // were within the spatial cutoff but are geometrically far from the GPS
+    // track (e.g. a distant parallel infrastructure element).
+    const MIN_QUALITY: f64 = 0.05;
+
+    let total_gnss_count = working_positions.len() as f64;
+
+    // Build avg_prob map for threshold decisions (uses raw average quality).
+    // This respects the caller's probability_threshold regardless of coverage,
+    // ensuring that test fixtures with few GNSS points are not unfairly excluded.
+    let mut avg_prob_cache: HashMap<usize, f64> = HashMap::new();
+    for (&netelement_idx, &total_prob) in &netelement_probabilities {
+        let count = *position_counts.get(&netelement_idx).unwrap_or(&1);
+        avg_prob_cache.insert(netelement_idx, total_prob / count as f64);
+    }
+
     for (netelement_idx, total_prob) in netelement_probabilities.iter_mut() {
         let count = position_counts.get(netelement_idx).unwrap_or(&1);
-        *total_prob = calculate_netelement_probability(&vec![*total_prob / *count as f64; *count]);
+        let avg_prob = *total_prob / *count as f64;
+        let coverage = intrinsic_ranges
+            .get(netelement_idx)
+            .map(|(mn, mx)| mx - mn)
+            .unwrap_or(0.0);
+        let length_m = netelements[*netelement_idx].geometry.haversine_length();
+        let covered_meters = coverage * length_m;
+        // Coverage-adjusted probability used for BFS comparison and path selection only.
+        // coverage_factor rewards netelements with large absolute GPS coverage
+        // (e.g. 880 m on a 1024 m segment) over short traversals (e.g. 135 m).
+        // The gnss_fraction fallback handles single-point (zero-range) cases
+        // while still providing a relative measure to compare candidates.
+        // NOTE: this value is NOT used as the netelement_map insertion threshold;
+        // that uses avg_prob (above).  See netelement_map construction below.
+        let coverage_factor = (covered_meters / REFERENCE_COVERAGE_METERS)
+            .max(*count as f64 / total_gnss_count)
+            .min(1.0);
+        *total_prob = if avg_prob >= MIN_QUALITY {
+            coverage_factor * avg_prob
+        } else {
+            0.0
+        };
     }
 
     // Phase 4: Path Construction (T065-T074)
-    // Build netelement map for path construction
+    // Build netelement map for path construction.
+    // Insertion threshold uses avg_prob (raw positional quality) so that short
+    // segments with few GNSS points are not incorrectly excluded.
+    // The stored probability is the coverage-adjusted score (coverage_prob), which
+    // is used for BFS candidate comparison and junction selection.
     let mut netelement_map: HashMap<String, (f64, AssociatedNetElement)> = HashMap::new();
 
-    for (&netelement_idx, &prob) in &netelement_probabilities {
-        if prob >= config.probability_threshold || netelement_map.is_empty() {
+    for (&netelement_idx, &coverage_prob) in &netelement_probabilities {
+        let avg_prob = avg_prob_cache.get(&netelement_idx).copied().unwrap_or(0.0);
+        if avg_prob >= config.probability_threshold || netelement_map.is_empty() {
             let netelement = &netelements[netelement_idx];
             // Create basic AssociatedNetElement (simplified for now)
             let segment = AssociatedNetElement::new(
                 netelement.id.clone(),
-                prob,
+                coverage_prob,
                 0.0,
                 1.0, // Full intrinsic range
                 0,
                 working_positions.len() - 1, // GNSS range based on working set
             )?;
-            netelement_map.insert(netelement.id.clone(), (prob, segment));
+            netelement_map.insert(netelement.id.clone(), (coverage_prob, segment));
         }
     }
 

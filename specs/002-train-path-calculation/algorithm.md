@@ -143,11 +143,15 @@ Calculate the overall probability that each netelement was part of the actual tr
 
 ### Formula
 
-**For each netelement, considering all associated GNSS positions:**
+**For each netelement, two probability values are computed with different roles:**
 
 ```
-P(netelement in path) = P_avg × C_distance
+P_avg     = (Σ P(position_i on netelement)) / N      ← used for threshold insertion
+coverage_prob = C_coverage × P_avg                   ← used for junction selection / BFS
 ```
+
+- `P_avg` (raw average quality) is used to decide whether the netelement is **inserted** into the candidate map at all. Using the raw average preserves the original threshold behaviour and avoids unfairly excluding short segments that have only a few GNSS associations.
+- `coverage_prob` (coverage-adjusted quality) is used when **comparing** competing netelements at junctions and during BFS candidate ranking. It rewards segments with extensive absolute GNSS coverage.
 
 ### Average Position Probability (P_avg)
 
@@ -159,37 +163,41 @@ Where N = number of GNSS positions associated with this netelement.
 
 This represents the mean individual probability across all positions that considered this netelement as a candidate.
 
-### Distance Coverage Correction (C_distance)
+### Coverage Factor (C_coverage)
 
 ```
-C_distance = (Σ consecutive_distances) / total_netelement_length
+covered_meters = (max_intrinsic − min_intrinsic) × netelement_length
+C_coverage     = max(covered_meters / R, N / T).min(1.0)
 ```
 
-**Calculation:**
-1. Identify groups of **consecutive** GNSS positions associated with the netelement
-2. For each consecutive pair, calculate the distance traveled between them:
-   - Use `distance` column values if available (wheel sensor data)
-   - Otherwise, compute geometric distance between coordinates
-3. Sum all consecutive distances
-4. Divide by the total geometric length of the netelement
+Where:
+- `max_intrinsic`, `min_intrinsic` = maximum and minimum intrinsic coordinates of all GNSS projections onto the netelement (range over [0, 1])
+- `netelement_length` = Haversine length of the netelement geometry in metres
+- `R` = 500 m (reference coverage length — a netelement covered by 500 m of GNSS track receives full score)
+- `N` = number of GNSS positions associated with this netelement
+- `T` = total number of GNSS positions in the working set
+
+**Two-term max ensures fair scoring in both regimes:**
+- `covered_meters / R` rewards netelements with large absolute GNSS footprint (e.g., 880 m on a 1 024 m segment → 1.0)
+- `N / T` provides a proportional fallback for isolated single-point associations where the intrinsic range is zero
 
 **Examples:**
 
-| Scenario | Netelement Length | GNSS Associations | Consecutive Distances | C_distance | Reasoning |
-|----------|-------------------|-------------------|----------------------|------------|-----------|
-| Excellent coverage | 100m | 20 positions covering 95m | 95m | 0.95 | Good quality |
-| Continuous coverage | 100m | Positions 5,6,7,8 (10m+10m+10m) | 30m | 0.30 | Partial coverage |
-| Partial coverage | 100m | Positions 3,4 and 8,9 (10m + 10m) | 20m | 0.20 | Two separate consecutive groups |
-| Sparse coverage | 100m | Positions 5,10 (both isolated) | 0m | 0.00 | Non-consecutive = no path continuity |
-| Single position | 100m | Position 5 only | 0m | 0.00 | No consecutive pairs |
+| Scenario | NE Length | GNSS count (N) | Total GNSS (T) | covered_meters | C_coverage | Reasoning |
+|----------|-----------|----------------|----------------|---------------|------------|-----------|
+| Full-length coverage | 1000m | 50 | 50 | 950m | 1.00 | Exceeds 500m reference |
+| Good coverage | 1000m | 20 | 40 | 600m | 1.00 | Exceeds 500m reference |
+| Partial coverage | 1000m | 10 | 40 | 300m | max(0.60, 0.25) = 0.60 | covered_meters term dominates |
+| Short netelement | 135m | 2 | 6 | 130m | max(0.26, 0.33) = 0.33 | count term dominates |
+| Single position | 100m | 1 | 6 | 0m | max(0.00, 0.17) = 0.17 | count term prevents zero |
 
 **Purpose:**
-- Ensures netelements are only probable if GNSS data shows **continuous travel** along them
-- Prevents selection of segments where the train merely passed nearby without traversing
-- Acts as a coverage quality metric
+- Rewards netelements with large absolute GNSS coverage over those that were only briefly observed
+- The `N / T` fallback ensures isolated points are not silently dropped when comparing junction branches
+- Decoupling from netelement length means a short 135 m segment and a long 1 024 m segment are evaluated on the same absolute scale
 
 ### Output
-For each netelement: an aggregate probability score accounting for both position alignment and coverage continuity.
+For each netelement: `P_avg` (for threshold check in Phase 4) and `coverage_prob` (for junction selection in Phases 4–5).
 
 ---
 
@@ -215,12 +223,15 @@ For each position along the candidate path:
    - Check if the netrelation allows traversal in the direction of travel
    - Navigability values: `"both"`, `"AB"`, `"BA"`, `"none"`
 4. **Filter by Probability:**
-   - Check if the connected netelement has probability ≥ minimum threshold (default: 25%)
+   - Check if the connected netelement has `P_avg` ≥ minimum threshold (default: 25%)
    - **Exception:** If it's the only navigable connection, include it regardless of probability
-5. **Handle Branching:**
-   - If multiple valid next segments exist → create separate path branches
-   - Track each branch independently
-6. **Termination:**
+5. **Bridge BFS for topology gaps:**
+   - If a direct neighbour is **not** in the probability map (no GNSS evidence), perform a bounded BFS (up to 10 hops) through topology-only netelements to find the nearest mapped netelement
+   - Bridge netelements (no GNSS evidence) are inserted with probability 1.0 (topologically certain) to avoid artificially reducing overall path probability
+   - At junctions where multiple mapped candidates exist at the same BFS hop distance, the one with the highest `coverage_prob` is selected
+6. **Handle Branching:**
+   - If multiple valid next segments exist → select the one with the highest `coverage_prob`
+7. **Termination:**
    - Path continues until reaching coverage of the last GNSS position
    - Path assigned probability = 0 if it terminates prematurely
 
