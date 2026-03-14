@@ -65,3 +65,6 @@ htmlcov/
 Thumbs.db
 
 .cargo
+test-data/best_position_geom_*.csv
+test-data/TP-Lib_attachments.zip
+test-data/TP-Lib.qgs

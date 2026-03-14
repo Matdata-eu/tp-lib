@@ -18,8 +18,8 @@ use tp_lib_core::{project_gnss, ProjectionConfig, RailwayNetwork};
 
 #[test]
 fn simple_projection_real_fixture() {
-    let gnss_path = "tests/fixtures/log_28876_L36-B.csv";
-    let network_path = "tests/fixtures/test_network_airport.geojson";
+    let gnss_path = "../test-data/log_28554/log_28554_L36-A_to_L36C-A.csv";
+    let network_path = "../test-data/network_airport.geojson";
 
     // --- load network ---
     let (netelements, _netrelations) =

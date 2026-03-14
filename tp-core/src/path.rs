@@ -146,6 +146,31 @@ pub struct DebugInfo {
 
     /// Decision tree showing path selection process
     pub decision_tree: Vec<PathDecision>,
+
+    /// Netelement-level aggregated probabilities (populated after Phase 3)
+    pub netelement_probabilities: Vec<NetelementProbabilityInfo>,
+}
+
+/// Aggregated probability information for a single netelement
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetelementProbabilityInfo {
+    /// Netelement ID
+    pub netelement_id: String,
+
+    /// Coverage-adjusted probability (used for BFS/path selection)
+    pub coverage_probability: f64,
+
+    /// Raw average per-position probability
+    pub avg_probability: f64,
+
+    /// Number of GNSS positions that matched this netelement
+    pub position_count: usize,
+
+    /// Geometry coordinates as Vec of [lon, lat] pairs
+    pub geometry_coords: Vec<Vec<f64>>,
+
+    /// Whether this netelement was included in the netelement_map (passed threshold)
+    pub in_netelement_map: bool,
 }
 
 /// Information about a candidate path evaluated during calculation
@@ -209,6 +234,12 @@ pub struct CandidateInfo {
 
     /// Why this candidate was included or excluded
     pub status: String,
+
+    /// Projected point latitude (WGS84)
+    pub projected_lat: f64,
+
+    /// Projected point longitude (WGS84)
+    pub projected_lon: f64,
 }
 
 /// A decision point in the path selection process
@@ -267,6 +298,7 @@ impl DebugInfo {
         self.candidate_paths.is_empty()
             && self.position_candidates.is_empty()
             && self.decision_tree.is_empty()
+            && self.netelement_probabilities.is_empty()
     }
 }
 
@@ -451,7 +483,7 @@ impl Default for PathConfig {
 /// let config = PathConfig::builder()
 ///     .distance_scale(15.0)
 ///     .heading_scale(3.0)
-///     .cutoff_distance(75.0)
+///     .cutoff_distance(50.0)
 ///     .heading_cutoff(10.0)
 ///     .probability_threshold(0.3)
 ///     .resampling_distance(Some(10.0))
@@ -803,6 +835,8 @@ pub fn calculate_train_path(
                     } else {
                         "below_threshold".to_string()
                     },
+                    projected_lat: candidate.projected_point.y(),
+                    projected_lon: candidate.projected_point.x(),
                 });
             }
         }
@@ -917,6 +951,28 @@ pub fn calculate_train_path(
         };
     }
 
+    // Debug: Collect netelement-level probability info after Phase 3
+    if let Some(ref mut debug) = debug_info {
+        for (&netelement_idx, &coverage_prob) in &netelement_probabilities {
+            let avg_prob = avg_prob_cache.get(&netelement_idx).copied().unwrap_or(0.0);
+            let count = *position_counts.get(&netelement_idx).unwrap_or(&1);
+            let netelement = &netelements[netelement_idx];
+            let coords: Vec<Vec<f64>> = netelement
+                .geometry
+                .points()
+                .map(|p| vec![p.x(), p.y()])
+                .collect();
+            debug.netelement_probabilities.push(NetelementProbabilityInfo {
+                netelement_id: netelement.id.clone(),
+                coverage_probability: coverage_prob,
+                avg_probability: avg_prob,
+                position_count: count,
+                geometry_coords: coords,
+                in_netelement_map: false, // Will be updated after Phase 4
+            });
+        }
+    }
+
     // Phase 4: Path Construction (T065-T074)
     // Build netelement map for path construction.
     // Insertion threshold uses avg_prob (raw positional quality) so that short
@@ -939,6 +995,15 @@ pub fn calculate_train_path(
                 working_positions.len() - 1, // GNSS range based on working set
             )?;
             netelement_map.insert(netelement.id.clone(), (coverage_prob, segment));
+        }
+    }
+
+    // Debug: Mark which netelements made it into the netelement_map
+    if let Some(ref mut debug) = debug_info {
+        for entry in &mut debug.netelement_probabilities {
+            if netelement_map.contains_key(&entry.netelement_id) {
+                entry.in_netelement_map = true;
+            }
         }
     }
 

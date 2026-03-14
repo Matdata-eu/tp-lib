@@ -11,10 +11,10 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::process;
 use tp_lib_core::{
-    calculate_train_path, parse_gnss_csv, parse_gnss_geojson, parse_network_geojson,
-    parse_trainpath_csv, project_gnss, project_onto_path, write_csv, write_geojson,
-    write_trainpath_csv, write_trainpath_geojson, Netelement, PathConfig, PathConfigBuilder,
-    ProjectionConfig, RailwayNetwork,
+    calculate_train_path, export_all_debug_info, parse_gnss_csv, parse_gnss_geojson,
+    parse_network_geojson, parse_trainpath_csv, project_gnss, project_onto_path, write_csv,
+    write_geojson, write_trainpath_csv, write_trainpath_geojson, Netelement, PathConfig,
+    PathConfigBuilder, ProjectionConfig, RailwayNetwork,
 };
 use tracing_subscriber::EnvFilter;
 
@@ -109,6 +109,14 @@ struct Cli {
     #[arg(long = "time-col", value_name = "COLUMN", default_value = "timestamp")]
     time_col: String,
 
+    /// Enable debug mode: write intermediate GeoJSON files for each calculation phase
+    #[arg(long = "debug", global = true)]
+    debug: bool,
+
+    /// Directory for debug output files (only used with --debug; defaults to output file directory)
+    #[arg(long = "debug-output-dir", value_name = "DIR", global = true)]
+    debug_output_dir: Option<String>,
+
     /// Enable verbose logging output
     #[arg(short = 'v', long = "verbose", global = true)]
     verbose: bool,
@@ -171,6 +179,14 @@ enum Commands {
         max_candidates: usize,
         #[arg(long = "resampling-distance")]
         resampling_distance: Option<f64>,
+
+        /// Enable debug mode: write intermediate GeoJSON files
+        #[arg(long = "debug")]
+        debug: bool,
+
+        /// Directory for debug output files (only used with --debug; defaults to output file directory)
+        #[arg(long = "debug-output-dir", value_name = "DIR")]
+        debug_output_dir: Option<String>,
 
         /// Latitude column name for CSV
         #[arg(long = "lat-col", default_value = "latitude")]
@@ -257,10 +273,17 @@ fn main() {
             probability_threshold,
             max_candidates,
             resampling_distance,
+            debug,
+            debug_output_dir,
             lat_col,
             lon_col,
             time_col,
-        }) => run_calculate_path(
+        }) => {
+            if debug_output_dir.is_some() && !debug {
+                tracing::warn!("--debug-output-dir is ignored without --debug");
+                eprintln!("Warning: --debug-output-dir has no effect without --debug");
+            }
+            run_calculate_path(
             &gnss_file,
             gnss_crs.as_deref(),
             &network_file,
@@ -273,10 +296,12 @@ fn main() {
             probability_threshold,
             max_candidates,
             resampling_distance,
+            debug,
+            debug_output_dir.as_deref(),
             &lat_col,
             &lon_col,
             &time_col,
-        ),
+        )},
         Some(Commands::SimpleProjection {
             gnss_file,
             gnss_crs,
@@ -331,6 +356,10 @@ fn main() {
                 }
             };
 
+            if cli.debug_output_dir.is_some() && !cli.debug {
+                tracing::warn!("--debug-output-dir is ignored without --debug");
+                eprintln!("Warning: --debug-output-dir has no effect without --debug");
+            }
             run_default_command(
                 &gnss,
                 cli.gnss_crs.as_deref(),
@@ -346,6 +375,8 @@ fn main() {
                 cli.probability_threshold,
                 cli.max_candidates,
                 cli.resampling_distance,
+                cli.debug,
+                cli.debug_output_dir.as_deref(),
                 cli.warning_threshold,
                 &cli.lat_col,
                 &cli.lon_col,
@@ -428,6 +459,8 @@ fn run_default_command(
     probability_threshold: f64,
     max_candidates: usize,
     resampling_distance: Option<f64>,
+    debug: bool,
+    debug_output_dir: Option<&str>,
     _warning_threshold: f64,
     lat_col: &str,
     lon_col: &str,
@@ -477,6 +510,7 @@ fn run_default_command(
             probability_threshold,
             max_candidates,
             resampling_distance,
+            debug,
         )?;
 
         tracing::info!("Calculating train path");
@@ -485,6 +519,15 @@ fn run_default_command(
                 .map_err(|e| {
                     PipelineError::Processing(format!("Path calculation failed: {}", e))
                 })?;
+
+        // Export debug info if debug mode was enabled
+        if let Some(ref debug_info) = result.debug_info {
+            let debug_dir = resolve_debug_dir(debug_output_dir, output_file);
+            export_all_debug_info(debug_info, &debug_dir).map_err(|e| {
+                PipelineError::Io(format!("Failed to write debug files: {}", e))
+            })?;
+            tracing::info!(debug_dir = %debug_dir, "Debug GeoJSON files written");
+        }
 
         // Save path if requested
         if let Some(save_file) = save_path_file {
@@ -519,6 +562,7 @@ fn run_default_command(
         probability_threshold,
         max_candidates,
         resampling_distance,
+        false,
     )?;
 
     // Project coordinates onto path
@@ -548,6 +592,8 @@ fn run_calculate_path(
     probability_threshold: f64,
     max_candidates: usize,
     resampling_distance: Option<f64>,
+    debug: bool,
+    debug_output_dir: Option<&str>,
     lat_col: &str,
     lon_col: &str,
     time_col: &str,
@@ -580,6 +626,7 @@ fn run_calculate_path(
         probability_threshold,
         max_candidates,
         resampling_distance,
+        debug,
     )?;
 
     // Calculate path
@@ -587,6 +634,15 @@ fn run_calculate_path(
     let result =
         calculate_train_path(&gnss_positions, &netelements, &netrelations, &path_config)
             .map_err(|e| PipelineError::Processing(format!("Path calculation failed: {}", e)))?;
+
+    // Export debug info if debug mode was enabled
+    if let Some(ref debug_info) = result.debug_info {
+        let debug_dir = resolve_debug_dir(debug_output_dir, output_file);
+        export_all_debug_info(debug_info, &debug_dir).map_err(|e| {
+            PipelineError::Io(format!("Failed to write debug files: {}", e))
+        })?;
+        tracing::info!(debug_dir = %debug_dir, "Debug GeoJSON files written");
+    }
 
     let path = result.path.ok_or_else(|| {
         PipelineError::Processing("Path calculation failed - no valid path found".to_string())
@@ -773,6 +829,7 @@ fn build_path_config(
     probability_threshold: f64,
     max_candidates: usize,
     resampling_distance: Option<f64>,
+    debug_mode: bool,
 ) -> Result<PathConfig, PipelineError> {
     let builder = PathConfigBuilder::default()
         .distance_scale(distance_scale)
@@ -781,11 +838,25 @@ fn build_path_config(
         .heading_cutoff(heading_cutoff)
         .probability_threshold(probability_threshold)
         .max_candidates(max_candidates)
-        .resampling_distance(resampling_distance);
+        .resampling_distance(resampling_distance)
+        .debug_mode(debug_mode);
 
     builder
         .build()
         .map_err(|e| PipelineError::Validation(format!("Invalid path configuration: {}", e)))
+}
+
+/// Resolve debug output directory from CLI argument, defaulting to the output file's parent directory
+fn resolve_debug_dir(debug_output_dir: Option<&str>, output_file: &str) -> String {
+    match debug_output_dir {
+        Some(dir) if !dir.is_empty() => dir.to_string(),
+        _ => {
+            let path = std::path::Path::new(output_file);
+            path.parent()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|| ".".to_string())
+        }
+    }
 }
 
 /// Write projected positions to output file

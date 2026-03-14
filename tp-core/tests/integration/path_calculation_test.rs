@@ -1597,6 +1597,8 @@ mod tests {
                 heading_probability: Some(0.8),
                 combined_probability: 0.72,
                 status: "selected".to_string(),
+                projected_lat: 50.851,
+                projected_lon: 4.351,
             }],
             selected_netelement: Some("NE_A".to_string()),
         };

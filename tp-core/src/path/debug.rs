@@ -119,12 +119,244 @@ pub fn export_all_debug_info<P: AsRef<Path>>(
 
     if !debug_info.position_candidates.is_empty() {
         export_position_candidates(debug_info, dir.join("positions.json"))?;
+        export_phase2_geojson(debug_info, dir.join("phase2_candidates.geojson"))?;
     }
 
     if !debug_info.decision_tree.is_empty() {
         export_decision_tree(debug_info, dir.join("decisions.json"))?;
     }
 
+    if !debug_info.netelement_probabilities.is_empty() {
+        export_phase3_geojson(debug_info, dir.join("phase3_netelements.geojson"))?;
+        export_phase4_geojson(debug_info, dir.join("phase4_netelement_map.geojson"))?;
+    }
+
+    Ok(())
+}
+
+/// Export Phase 2 (GNSS-level probability) debug data as GeoJSON
+///
+/// Produces a FeatureCollection with:
+/// - Point features for each GNSS position
+/// - LineString features from each GNSS position to its candidate projections
+pub fn export_phase2_geojson<P: AsRef<Path>>(
+    debug_info: &DebugInfo,
+    output_path: P,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use serde_json::{Map, Value as JsonValue};
+
+    let mut features = Vec::new();
+
+    for pos in &debug_info.position_candidates {
+        // Point feature for the GNSS position
+        let point_geom = Geometry::new(Value::Point(vec![pos.coordinates.1, pos.coordinates.0]));
+        let mut props = Map::new();
+        props.insert("feature_type".to_string(), JsonValue::from("gnss_position"));
+        props.insert(
+            "position_index".to_string(),
+            JsonValue::from(pos.position_index as i64),
+        );
+        props.insert(
+            "timestamp".to_string(),
+            JsonValue::from(pos.timestamp.clone()),
+        );
+        if let Some(ref sel) = pos.selected_netelement {
+            props.insert(
+                "selected_netelement".to_string(),
+                JsonValue::from(sel.clone()),
+            );
+        }
+        features.push(Feature {
+            bbox: None,
+            geometry: Some(point_geom),
+            id: None,
+            properties: Some(props),
+            foreign_members: None,
+        });
+
+        // LineString features from GNSS to each candidate projection
+        for candidate in &pos.candidates {
+            let line_geom = Geometry::new(Value::LineString(vec![
+                vec![pos.coordinates.1, pos.coordinates.0],
+                vec![candidate.projected_lon, candidate.projected_lat],
+            ]));
+            let mut line_props = Map::new();
+            line_props.insert(
+                "feature_type".to_string(),
+                JsonValue::from("projection_line"),
+            );
+            line_props.insert(
+                "position_index".to_string(),
+                JsonValue::from(pos.position_index as i64),
+            );
+            line_props.insert(
+                "netelement_id".to_string(),
+                JsonValue::from(candidate.netelement_id.clone()),
+            );
+            line_props.insert(
+                "distance".to_string(),
+                JsonValue::from(candidate.distance),
+            );
+            if let Some(hd) = candidate.heading_difference {
+                line_props.insert("heading_difference".to_string(), JsonValue::from(hd));
+            }
+            line_props.insert(
+                "distance_probability".to_string(),
+                JsonValue::from(candidate.distance_probability),
+            );
+            if let Some(hp) = candidate.heading_probability {
+                line_props.insert("heading_probability".to_string(), JsonValue::from(hp));
+            }
+            line_props.insert(
+                "combined_probability".to_string(),
+                JsonValue::from(candidate.combined_probability),
+            );
+            line_props.insert(
+                "status".to_string(),
+                JsonValue::from(candidate.status.clone()),
+            );
+            features.push(Feature {
+                bbox: None,
+                geometry: Some(line_geom),
+                id: None,
+                properties: Some(line_props),
+                foreign_members: None,
+            });
+        }
+    }
+
+    let fc = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: None,
+    };
+    let json = serde_json::to_string_pretty(&fc).map_err(|e| {
+        ProjectionError::InvalidGeometry(format!("Failed to serialize phase2 GeoJSON: {}", e))
+    })?;
+    let mut file = File::create(output_path.as_ref())?;
+    file.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Export Phase 3 (netelement-level probability) debug data as GeoJSON
+///
+/// Produces a FeatureCollection with LineString features for every netelement
+/// that had a non-zero probability, with aggregated probability properties.
+pub fn export_phase3_geojson<P: AsRef<Path>>(
+    debug_info: &DebugInfo,
+    output_path: P,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use serde_json::{Map, Value as JsonValue};
+
+    let mut features = Vec::new();
+
+    for ne in &debug_info.netelement_probabilities {
+        if ne.geometry_coords.len() < 2 {
+            continue;
+        }
+        let geom = Geometry::new(Value::LineString(ne.geometry_coords.clone()));
+        let mut props = Map::new();
+        props.insert(
+            "netelement_id".to_string(),
+            JsonValue::from(ne.netelement_id.clone()),
+        );
+        props.insert(
+            "coverage_probability".to_string(),
+            JsonValue::from(ne.coverage_probability),
+        );
+        props.insert(
+            "avg_probability".to_string(),
+            JsonValue::from(ne.avg_probability),
+        );
+        props.insert(
+            "position_count".to_string(),
+            JsonValue::from(ne.position_count as i64),
+        );
+        props.insert(
+            "in_netelement_map".to_string(),
+            JsonValue::from(ne.in_netelement_map),
+        );
+        features.push(Feature {
+            bbox: None,
+            geometry: Some(geom),
+            id: None,
+            properties: Some(props),
+            foreign_members: None,
+        });
+    }
+
+    let fc = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: None,
+    };
+    let json = serde_json::to_string_pretty(&fc).map_err(|e| {
+        ProjectionError::InvalidGeometry(format!("Failed to serialize phase3 GeoJSON: {}", e))
+    })?;
+    let mut file = File::create(output_path.as_ref())?;
+    file.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Export Phase 4 (netelement_map) debug data as GeoJSON
+///
+/// Produces a FeatureCollection with LineString features only for netelements
+/// that passed the probability threshold and were included in the netelement_map.
+pub fn export_phase4_geojson<P: AsRef<Path>>(
+    debug_info: &DebugInfo,
+    output_path: P,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use serde_json::{Map, Value as JsonValue};
+
+    let mut features = Vec::new();
+
+    for ne in &debug_info.netelement_probabilities {
+        if !ne.in_netelement_map {
+            continue;
+        }
+        if ne.geometry_coords.len() < 2 {
+            continue;
+        }
+        let geom = Geometry::new(Value::LineString(ne.geometry_coords.clone()));
+        let mut props = Map::new();
+        props.insert(
+            "netelement_id".to_string(),
+            JsonValue::from(ne.netelement_id.clone()),
+        );
+        props.insert(
+            "coverage_probability".to_string(),
+            JsonValue::from(ne.coverage_probability),
+        );
+        props.insert(
+            "avg_probability".to_string(),
+            JsonValue::from(ne.avg_probability),
+        );
+        props.insert(
+            "position_count".to_string(),
+            JsonValue::from(ne.position_count as i64),
+        );
+        features.push(Feature {
+            bbox: None,
+            geometry: Some(geom),
+            id: None,
+            properties: Some(props),
+            foreign_members: None,
+        });
+    }
+
+    let fc = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: None,
+    };
+    let json = serde_json::to_string_pretty(&fc).map_err(|e| {
+        ProjectionError::InvalidGeometry(format!("Failed to serialize phase4 GeoJSON: {}", e))
+    })?;
+    let mut file = File::create(output_path.as_ref())?;
+    file.write_all(json.as_bytes())?;
     Ok(())
 }
 
@@ -177,6 +409,8 @@ mod tests {
                 heading_probability: Some(0.8),
                 combined_probability: 0.72,
                 status: "selected".to_string(),
+                projected_lat: 50.851,
+                projected_lon: 4.351,
             }],
             selected_netelement: Some("NE_A".to_string()),
         });

@@ -13,6 +13,9 @@ mod path_calculation;
 #[path = "simple_projection_fixture_test.rs"]
 mod simple_projection_fixture_test;
 
+#[path = "path_calculation_fixture_test.rs"]
+mod path_calculation_fixture_test;
+
 // Original integration tests from tests.rs
 #[cfg(test)]
 mod inline_tests {

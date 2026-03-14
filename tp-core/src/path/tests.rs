@@ -311,6 +311,8 @@ fn test_candidate_info_creation() {
         heading_probability: Some(0.90),
         combined_probability: 0.875,
         status: "included".to_string(),
+        projected_lat: 50.851,
+        projected_lon: 4.351,
     };
     
     assert_eq!(info.netelement_id, "NE1");
@@ -331,6 +333,8 @@ fn test_position_candidates_creation() {
         heading_probability: None,
         combined_probability: 0.8,
         status: "included".to_string(),
+        projected_lat: 50.851,
+        projected_lon: 4.351,
     }];
     
     let info = PositionCandidates {
