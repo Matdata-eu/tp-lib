@@ -164,6 +164,13 @@ A developer troubleshooting path calculation issues exports intermediate results
 
 ---
 
+### Session 2026-03-15
+
+- Q: When no heading data is supplied in GNSS input, should the system estimate heading from adjacent positions? → A: Yes. For position x (not first or last), estimate heading as the haversine bearing from position x-1 to position x+1, subject to three guard conditions: (1) x is not an endpoint, (2) distance symmetry — the ratio difference between dist(x-1,x) and dist(x,x+1) must be < 20%, (3) heading continuity — heading change between consecutive estimated headings must be < 10°. Positions failing any guard retain heading = None (P_heading = 1.0).
+- Q: Should candidate netelements be rejected if the GNSS projection falls at the very edge (start or end) of the netelement? → A: Yes. Reject candidates where intrinsic coordinate < 1×10⁻⁶ or > 1 − 1×10⁻⁶. Edge projections indicate the GNSS point is more likely on an adjacent track segment; including them risks linking positions to already-passed or not-yet-reached tracks.
+
+---
+
 ### Edge Cases
 
 - GNSS coordinates more than the configured cutoff distance (default 50m) from any track segment are excluded from output (omitted from results)

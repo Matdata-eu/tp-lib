@@ -77,9 +77,9 @@ fn test_path_config_validation_invalid_probability() {
 #[test]
 fn test_path_config_validation_invalid_heading_cutoff() {
     assert!(PathConfig::builder().heading_cutoff(-5.0).build().is_err());
-    assert!(PathConfig::builder().heading_cutoff(190.0).build().is_err());
+    assert!(PathConfig::builder().heading_cutoff(95.0).build().is_err());
     assert!(PathConfig::builder().heading_cutoff(0.0).build().is_ok());
-    assert!(PathConfig::builder().heading_cutoff(180.0).build().is_ok());
+    assert!(PathConfig::builder().heading_cutoff(90.0).build().is_ok());
 }
 
 #[test]

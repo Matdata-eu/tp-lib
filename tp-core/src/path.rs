@@ -409,9 +409,9 @@ impl PathConfig {
             ));
         }
 
-        if !(0.0..=180.0).contains(&self.heading_cutoff) {
+        if !(0.0..=90.0).contains(&self.heading_cutoff) {
             return Err(ProjectionError::InvalidGeometry(
-                "heading_cutoff must be in [0, 180]".to_string(),
+                "heading_cutoff must be in [0, 90]".to_string(),
             ));
         }
 
@@ -767,6 +767,11 @@ pub fn calculate_train_path(
         .map(|(idx, ne)| (ne.id.clone(), idx))
         .collect();
 
+    // Pre-compute estimated headings from neighboring positions for the
+    // working set.  These are used as fallback when no heading data is supplied.
+    let estimated_headings =
+        crate::path::candidate::estimate_headings_from_neighbors(&working_positions);
+
     let mut position_probabilities: Vec<HashMap<usize, f64>> = Vec::new(); // Vec<HashMap<netelement_idx, probability>>
 
     for (pos_idx, candidates) in position_candidates.iter().enumerate() {
@@ -791,9 +796,14 @@ pub fn calculate_train_path(
             let dist_prob =
                 calculate_distance_probability(candidate.distance_meters, config.distance_scale);
 
-            // Heading probability (if available)
-            let heading_diff_value = if let Some(gnss_heading) = gnss.heading {
-                // Calculate netelement heading at projection point
+            // Heading probability: prefer supplied heading, fall back to
+            // estimated heading from neighbors, default to 1.0 (no constraint).
+            let (effective_heading, heading_is_estimated) = match gnss.heading {
+                Some(h) => (Some(h), false),
+                None => (estimated_headings[pos_idx], true),
+            };
+
+            let heading_diff_value = if let Some(gnss_heading) = effective_heading {
                 use crate::path::candidate::{calculate_heading_at_point, heading_difference};
                 let netelement = &netelements[*netelement_idx];
                 let netelement_heading =
@@ -804,11 +814,16 @@ pub fn calculate_train_path(
             };
 
             let heading_prob = if let Some(heading_diff) = heading_diff_value {
-                calculate_heading_probability(
-                    heading_diff,
-                    config.heading_scale,
-                    config.heading_cutoff,
-                )
+                // Estimated headings (from chord geometry) skip the hard cutoff
+                // because the chord-to-tangent deviation on curves can exceed
+                // the cutoff even for correctly-aligned candidates.  The
+                // exponential decay still penalises large mismatches.
+                let cutoff = if heading_is_estimated {
+                    90.0 // no practical cutoff (max possible diff is 90°)
+                } else {
+                    config.heading_cutoff
+                };
+                calculate_heading_probability(heading_diff, config.heading_scale, cutoff)
             } else {
                 1.0 // No heading data, assume heading match
             };

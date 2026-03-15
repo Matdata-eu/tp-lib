@@ -71,11 +71,11 @@ mod tests {
         assert!(PathConfig::builder().probability_threshold(0.0).build().is_ok());
         assert!(PathConfig::builder().probability_threshold(1.0).build().is_ok());
 
-        // Invalid heading_cutoff (must be in [0, 180])
-        assert!(PathConfig::builder().heading_cutoff(190.0).build().is_err());
+        // Invalid heading_cutoff (must be in [0, 90])
+        assert!(PathConfig::builder().heading_cutoff(95.0).build().is_err());
         assert!(PathConfig::builder().heading_cutoff(-5.0).build().is_err());
         assert!(PathConfig::builder().heading_cutoff(0.0).build().is_ok());
-        assert!(PathConfig::builder().heading_cutoff(180.0).build().is_ok());
+        assert!(PathConfig::builder().heading_cutoff(90.0).build().is_ok());
 
         // Invalid max_candidates (must be >= 1)
         assert!(PathConfig::builder().max_candidates(0).build().is_err());

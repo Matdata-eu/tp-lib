@@ -15,13 +15,14 @@
     - [Objective](#objective-1)
     - [Formula](#formula)
     - [Distance Component](#distance-component)
+    - [Heading Estimation from Adjacent Positions](#heading-estimation-from-adjacent-positions)
     - [Heading Component](#heading-component)
     - [Output](#output-1)
   - [Phase 3: Aggregate Netelement Probability](#phase-3-aggregate-netelement-probability)
     - [Objective](#objective-2)
     - [Formula](#formula-1)
     - [Average Position Probability (P\_avg)](#average-position-probability-p_avg)
-    - [Distance Coverage Correction (C\_distance)](#distance-coverage-correction-c_distance)
+    - [Coverage Factor (C\_coverage)](#coverage-factor-c_coverage)
     - [Output](#output-2)
   - [Phase 4: Path Construction](#phase-4-path-construction)
     - [Objective](#objective-3)
@@ -76,6 +77,7 @@ For each GNSS coordinate, identify the track segments that could plausibly conta
 2. Sort candidates by distance (nearest first)
 3. Select at most **N nearest netelements** (default: N = 3)
 4. Project the GNSS coordinate onto each candidate to determine the exact location on the linear geometry
+5. **Reject edge projections**: Remove candidates where the projection falls at the very start or end of the netelement (intrinsic coordinate < 1×10⁻⁶ or > 1 − 1×10⁻⁶). Projections at the geometric endpoints indicate the GNSS point is more likely located on an adjacent netelement; including them risks linking positions to already-passed or not-yet-reached tracks.
 
 ### Output
 A mapping of each GNSS coordinate to its candidate netelements with projection points.
@@ -112,9 +114,30 @@ Where:
 - Distance = 0 → P_distance = 1.0 (maximum)
 - Distance increases → P_distance approaches 0
 
+### Heading Estimation from Adjacent Positions
+
+When supplied heading data is not available for a GNSS position, the system estimates heading from the geometry of adjacent positions. For position `x` (0-indexed), the estimated heading is the azimuth of the line from position `x-1` to position `x+1`.
+
+**Formula:**
+```
+estimated_heading(x) = haversine_bearing(position[x-1], position[x+1])
+```
+
+**Guard conditions** — all three must pass for the estimated heading to be used:
+
+1. **Not an endpoint**: `x` is not the first or last position in the sequence. Endpoints have no symmetric neighbors, so heading is left as `None`.
+2. **Distance symmetry**: The distances from `x-1 → x` and `x → x+1` must be approximately equal:
+   ```
+   |dist(x-1, x) − dist(x, x+1)| / max(dist(x-1, x), dist(x, x+1)) < 0.20
+   ```
+   A ratio difference ≥ 20% indicates the position may be at a curve apex or the spacing is irregular, making the two-neighbor azimuth unreliable.
+3. **Heading continuity**: The change between consecutive estimated headings must be < 10°. If the heading change between `estimated_heading(x)` and `estimated_heading(x-1)` exceeds 10°, discard `estimated_heading(x)` (set to `None`). This rejects implausible heading jumps that a train cannot physically produce between consecutive positions.
+
+Estimated headings are computed once for the entire working position set before Phase 2 probability calculation begins.
+
 ### Heading Component
 
-When heading data is available:
+When heading data is available (either supplied or estimated from neighbors):
 
 ```
 P_heading = e^(-heading_difference / heading_scale)  [if heading_difference ≤ cutoff]
@@ -122,13 +145,12 @@ P_heading = 0                                          [if heading_difference > 
 ```
 
 Where:
-- `heading_difference` = minimum angular difference between GNSS heading and netelement heading at the projection point
-- Accounts for 180° equivalence (opposite orientation, same path)
+- `heading_difference` = angular difference between GNSS heading and netelement heading at the projection point, with bidirectional track equivalence (a heading and its opposite are both considered aligned), range [0, 90]
 - `heading_scale` = tunable parameter controlling decay rate
-- `cutoff` = configurable threshold (default: 5 degrees)
+- `cutoff` = configurable threshold in [0, 90] (default: 5 degrees)
 
 **Special Cases:**
-- No heading data available → P_heading = 1.0 (no heading constraint)
+- No heading data available (neither supplied nor estimable from neighbors) → P_heading = 1.0 (no heading constraint)
 - Heading difference > cutoff → P_heading = 0 (hard reject)
 
 ### Output

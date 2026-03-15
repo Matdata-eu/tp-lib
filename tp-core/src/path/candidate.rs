@@ -7,6 +7,11 @@ use crate::errors::ProjectionError;
 use crate::models::{GnssPosition, Netelement};
 use geo::{LineString, Point};
 
+/// Candidates with intrinsic coordinate closer than this to 0.0 or 1.0 are
+/// rejected.  Projections at the geometric endpoints indicate the GNSS point
+/// is more likely located on an adjacent netelement.
+const EDGE_INTRINSIC_THRESHOLD: f64 = 1e-6;
+
 /// A candidate netelement for a GNSS position
 #[derive(Debug, Clone)]
 pub struct CandidateNetElement {
@@ -62,6 +67,21 @@ pub fn find_candidate_netelements(
                 projected_point: proj_point,
             });
         }
+    }
+
+    // Prefer interior projections over edge projections (intrinsic at 0 or 1).
+    // Edge projections indicate the GNSS point is past the netelement boundary
+    // and may belong to an adjacent netelement.  If at least one non-edge
+    // candidate exists, remove edge candidates.
+    let has_interior = candidates.iter().any(|c| {
+        c.intrinsic_coordinate >= EDGE_INTRINSIC_THRESHOLD
+            && c.intrinsic_coordinate <= 1.0 - EDGE_INTRINSIC_THRESHOLD
+    });
+    if has_interior {
+        candidates.retain(|c| {
+            c.intrinsic_coordinate >= EDGE_INTRINSIC_THRESHOLD
+                && c.intrinsic_coordinate <= 1.0 - EDGE_INTRINSIC_THRESHOLD
+        });
     }
 
     // Sort by distance (closest first)
@@ -178,22 +198,103 @@ pub fn calculate_heading_at_point(
         }
     }
 
-    // Get segment direction
+    // Get segment direction using haversine bearing (correctly accounts
+    // for the cos(latitude) scaling of longitude at any latitude).
     let p1 = coords[closest_segment_idx];
     let p2 = coords[closest_segment_idx + 1];
 
-    // Calculate bearing in degrees
-    let lat_diff = p2.y() - p1.y();
-    let lon_diff = p2.x() - p1.x();
-    let bearing = (lon_diff.atan2(lat_diff).to_degrees() + 360.0) % 360.0;
+    let (lat1, lon1) = (p1.y().to_radians(), p1.x().to_radians());
+    let (lat2, lon2) = (p2.y().to_radians(), p2.x().to_radians());
+    let dlon = lon2 - lon1;
+    let x = dlon.sin() * lat2.cos();
+    let y = lat1.cos() * lat2.sin() - lat1.sin() * lat2.cos() * dlon.cos();
+    let bearing = (x.atan2(y).to_degrees() + 360.0) % 360.0;
 
     Ok(bearing)
 }
 
-/// Calculate the difference between two headings
+/// Estimate headings from neighboring GNSS positions.
 ///
-/// Considers the circular nature of headings (180° is same as -180°).
-/// Returns value in range [0, 180] representing the smaller angle between the two headings.
+/// For each interior position `x`, computes the haversine bearing from position
+/// `x-1` to `x+1`.  The estimate is discarded when:
+/// - `x` is the first or last position (no symmetric neighbors),
+/// - the distances `x-1 → x` and `x → x+1` differ by ≥ 20% of the larger,
+/// - consecutive estimated headings change by ≥ 10° (continuity check).
+///
+/// Returns a `Vec` with the same length as `positions`; entries that fail any
+/// guard are `None`.
+pub fn estimate_headings_from_neighbors(positions: &[&GnssPosition]) -> Vec<Option<f64>> {
+    let n = positions.len();
+    let mut headings: Vec<Option<f64>> = vec![None; n];
+
+    if n < 3 {
+        return headings;
+    }
+
+    // Pass 1: compute raw estimated headings for interior positions.
+    for x in 1..n - 1 {
+        let prev = Point::new(positions[x - 1].longitude, positions[x - 1].latitude);
+        let curr = Point::new(positions[x].longitude, positions[x].latitude);
+        let next = Point::new(positions[x + 1].longitude, positions[x + 1].latitude);
+
+        let d_prev = haversine_distance(&prev, &curr);
+        let d_next = haversine_distance(&curr, &next);
+
+        // Distance symmetry guard: reject if ratio difference ≥ 20%.
+        let max_d = d_prev.max(d_next);
+        if max_d < 1e-9 {
+            continue; // degenerate (coincident points)
+        }
+        if (d_prev - d_next).abs() / max_d >= 0.20 {
+            continue;
+        }
+
+        headings[x] = Some(haversine_bearing(&prev, &next));
+    }
+
+    // Pass 2: heading-continuity check (< 10° between consecutive estimates).
+    // Compare each heading against its immediate neighbor's raw (pre-rejection)
+    // heading to avoid cascading rejections.
+    let raw_headings = headings.clone();
+    for x in 2..n - 1 {
+        if let Some(h) = headings[x] {
+            if let Some(prev_h) = raw_headings[x - 1] {
+                if heading_difference(h, prev_h) >= 10.0 {
+                    headings[x] = None;
+                }
+            }
+        }
+    }
+
+    headings
+}
+
+/// Haversine distance between two WGS-84 points, in metres.
+fn haversine_distance(a: &Point<f64>, b: &Point<f64>) -> f64 {
+    let (lat1, lon1) = (a.y().to_radians(), a.x().to_radians());
+    let (lat2, lon2) = (b.y().to_radians(), b.x().to_radians());
+    let dlat = lat2 - lat1;
+    let dlon = lon2 - lon1;
+    let h = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
+    2.0 * 6_371_000.0 * h.sqrt().asin()
+}
+
+/// Haversine initial bearing from point `a` to point `b`, in degrees [0, 360).
+fn haversine_bearing(a: &Point<f64>, b: &Point<f64>) -> f64 {
+    let (lat1, lon1) = (a.y().to_radians(), a.x().to_radians());
+    let (lat2, lon2) = (b.y().to_radians(), b.x().to_radians());
+    let dlon = lon2 - lon1;
+    let x = dlon.sin() * lat2.cos();
+    let y = lat1.cos() * lat2.sin() - lat1.sin() * lat2.cos() * dlon.cos();
+    (x.atan2(y).to_degrees() + 360.0) % 360.0
+}
+
+/// Calculate the difference between two headings on a bidirectional track.
+///
+/// Railway tracks can be traveled in either direction, so a heading and its
+/// opposite (180° apart) are considered equivalent.  Returns a value in
+/// [0, 90] where 0 = perfectly aligned (same or opposite direction) and
+/// 90 = perpendicular.
 ///
 /// # Arguments
 ///
@@ -202,13 +303,16 @@ pub fn calculate_heading_at_point(
 ///
 /// # Returns
 ///
-/// Angular difference in degrees (0-180)
+/// Angular difference in degrees (0-90)
 pub fn heading_difference(heading1: f64, heading2: f64) -> f64 {
-    let diff = (heading1 - heading2).abs();
+    let diff = (heading1 - heading2).abs() % 360.0;
 
-    // Return the smaller angle (considering 360° wrap-around)
-    if diff > 180.0 {
-        360.0 - diff
+    // Smallest circular angle in [0, 180]
+    let diff = if diff > 180.0 { 360.0 - diff } else { diff };
+
+    // Bidirectional equivalence: 0° ↔ 180° are both "aligned"
+    if diff > 90.0 {
+        180.0 - diff
     } else {
         diff
     }
@@ -227,8 +331,9 @@ mod tests {
 
     #[test]
     fn test_heading_difference_opposite_direction() {
+        // Opposite direction is equivalent on a bidirectional track
         let diff = heading_difference(0.0, 180.0);
-        assert_eq!(diff, 180.0);
+        assert_eq!(diff, 0.0);
     }
 
     #[test]
@@ -242,6 +347,13 @@ mod tests {
     fn test_heading_difference_perpendicular() {
         let diff = heading_difference(0.0, 90.0);
         assert_eq!(diff, 90.0);
+    }
+
+    #[test]
+    fn test_heading_difference_near_opposite() {
+        // 170° difference from north → only 10° from the opposite direction
+        let diff = heading_difference(0.0, 170.0);
+        assert_eq!(diff, 10.0);
     }
 
     #[test]
@@ -328,5 +440,204 @@ mod tests {
 
         // Should return at most 2 candidates
         assert!(candidates.len() <= 2);
+    }
+
+    // ── Edge rejection tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_edge_projection_at_start_kept_as_fallback() {
+        // Linestring running east.  GNSS point placed exactly at the start
+        // (lat/lon matching the first coordinate) → intrinsic ≈ 0.0.
+        // With no interior candidates, the edge candidate is kept as fallback.
+        let linestring = LineString::from(vec![(4.350, 50.850), (4.360, 50.850)]);
+        let netelement =
+            Netelement::new("NE_EDGE".to_string(), linestring, "EPSG:4326".to_string()).unwrap();
+
+        let gnss = GnssPosition::new(
+            50.850,
+            4.350,
+            chrono::Utc::now().into(),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap();
+
+        let candidates = find_candidate_netelements(&gnss, &[netelement], 500.0, 10).unwrap();
+        assert_eq!(
+            candidates.len(),
+            1,
+            "Edge candidate kept as fallback when no interior candidates exist"
+        );
+    }
+
+    #[test]
+    fn test_edge_projection_at_end_kept_as_fallback() {
+        // GNSS point placed exactly at the end of the linestring → intrinsic ≈ 1.0
+        // With no interior candidates, the edge candidate is kept as fallback.
+        let linestring = LineString::from(vec![(4.350, 50.850), (4.360, 50.850)]);
+        let netelement =
+            Netelement::new("NE_EDGE".to_string(), linestring, "EPSG:4326".to_string()).unwrap();
+
+        let gnss = GnssPosition::new(
+            50.850,
+            4.360,
+            chrono::Utc::now().into(),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap();
+
+        let candidates = find_candidate_netelements(&gnss, &[netelement], 500.0, 10).unwrap();
+        assert_eq!(
+            candidates.len(),
+            1,
+            "Edge candidate kept as fallback when no interior candidates exist"
+        );
+    }
+
+    #[test]
+    fn test_mid_range_projection_accepted() {
+        // GNSS point near the midpoint of the linestring → intrinsic ≈ 0.5 → accepted.
+        let linestring = LineString::from(vec![(4.350, 50.850), (4.360, 50.850)]);
+        let netelement =
+            Netelement::new("NE_MID".to_string(), linestring, "EPSG:4326".to_string()).unwrap();
+
+        let gnss = GnssPosition::new(
+            50.850,
+            4.355,
+            chrono::Utc::now().into(),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap();
+
+        let candidates = find_candidate_netelements(&gnss, &[netelement], 500.0, 10).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert!(
+            candidates[0].intrinsic_coordinate > 0.1 && candidates[0].intrinsic_coordinate < 0.9,
+            "Midpoint candidate should have intrinsic near 0.5"
+        );
+    }
+
+    #[test]
+    fn test_edge_candidate_removed_when_interior_exists() {
+        // Two netelements: one projects to the midpoint (interior), one to its
+        // endpoint (edge).  The edge candidate is removed.
+        let ne_interior = Netelement::new(
+            "NE_INT".to_string(),
+            LineString::from(vec![(4.350, 50.850), (4.360, 50.850)]),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap();
+        let ne_edge = Netelement::new(
+            "NE_EDGE".to_string(),
+            LineString::from(vec![(4.353, 50.851), (4.355, 50.851)]),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap();
+
+        // GNSS at midpoint of NE_INT, but past the end of NE_EDGE
+        let gnss = GnssPosition::new(
+            50.850,
+            4.355,
+            chrono::Utc::now().into(),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap();
+
+        let candidates =
+            find_candidate_netelements(&gnss, &[ne_interior, ne_edge], 500.0, 10).unwrap();
+        assert!(
+            candidates.iter().all(|c| c.netelement_id != "NE_EDGE"
+                || (c.intrinsic_coordinate > 1e-6 && c.intrinsic_coordinate < 1.0 - 1e-6)),
+            "Edge candidates should be removed when interior candidates exist"
+        );
+    }
+
+    // ── Heading estimation tests ─────────────────────────────────────────
+
+    fn make_gnss(lat: f64, lon: f64) -> GnssPosition {
+        GnssPosition::new(lat, lon, chrono::Utc::now().into(), "EPSG:4326".to_string()).unwrap()
+    }
+
+    #[test]
+    fn test_estimate_headings_straight_north() {
+        // Three points along the same meridian heading due north, equally spaced.
+        let positions = vec![
+            make_gnss(50.000, 4.000),
+            make_gnss(50.001, 4.000),
+            make_gnss(50.002, 4.000),
+        ];
+        let refs: Vec<&GnssPosition> = positions.iter().collect();
+        let headings = estimate_headings_from_neighbors(&refs);
+
+        assert!(headings[0].is_none(), "First position should be None");
+        assert!(headings[2].is_none(), "Last position should be None");
+        let h = headings[1].expect("Middle position should have estimated heading");
+        // Bearing from position 0 to position 2 should be ≈ 0° (north)
+        assert!(h < 1.0 || h > 359.0, "Expected ~0° north, got {h}");
+    }
+
+    #[test]
+    fn test_estimate_headings_straight_east() {
+        // Three points along the same latitude heading due east, equally spaced.
+        let positions = vec![
+            make_gnss(50.000, 4.000),
+            make_gnss(50.000, 4.001),
+            make_gnss(50.000, 4.002),
+        ];
+        let refs: Vec<&GnssPosition> = positions.iter().collect();
+        let headings = estimate_headings_from_neighbors(&refs);
+
+        let h = headings[1].expect("Middle position should have estimated heading");
+        assert!(
+            (h - 90.0).abs() < 1.0,
+            "Expected ~90° east, got {h}"
+        );
+    }
+
+    #[test]
+    fn test_estimate_headings_endpoints_none() {
+        let positions = vec![
+            make_gnss(50.000, 4.000),
+            make_gnss(50.001, 4.000),
+        ];
+        let refs: Vec<&GnssPosition> = positions.iter().collect();
+        let headings = estimate_headings_from_neighbors(&refs);
+        assert!(headings.iter().all(|h| h.is_none()), "With < 3 positions all should be None");
+    }
+
+    #[test]
+    fn test_estimate_headings_unequal_spacing() {
+        // Distance from p0→p1 is much larger than p1→p2 → ratio > 20% → None
+        let positions = vec![
+            make_gnss(50.000, 4.000),
+            make_gnss(50.010, 4.000), // ~1.1 km north
+            make_gnss(50.0101, 4.000), // ~11 m further north
+        ];
+        let refs: Vec<&GnssPosition> = positions.iter().collect();
+        let headings = estimate_headings_from_neighbors(&refs);
+        assert!(
+            headings[1].is_none(),
+            "Unequal spacing should reject estimated heading"
+        );
+    }
+
+    #[test]
+    fn test_estimate_headings_continuity_rejection() {
+        // Five points: first three go north, then a sharp 90° turn east.
+        // The position after the turn should fail the 10° continuity check.
+        let positions = vec![
+            make_gnss(50.000, 4.000),
+            make_gnss(50.001, 4.000), // heading calc: bearing from 0→2 ≈ north
+            make_gnss(50.002, 4.000), // heading calc: bearing from 1→3 ≈ NE (sharp change)
+            make_gnss(50.002, 4.001), // heading calc: bearing from 2→4 ≈ east
+            make_gnss(50.002, 4.002),
+        ];
+        let refs: Vec<&GnssPosition> = positions.iter().collect();
+        let headings = estimate_headings_from_neighbors(&refs);
+
+        // Position 1: should have a heading (north)
+        assert!(headings[1].is_some(), "Position 1 heading should be valid");
+        // Positions 2 or 3 should have None due to the sharp turn
+        let has_rejection = headings[2].is_none() || headings[3].is_none();
+        assert!(has_rejection, "Sharp turn should cause at least one heading rejection");
     }
 }
