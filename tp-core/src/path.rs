@@ -706,7 +706,7 @@ pub fn calculate_train_path(
         calculate_heading_probability,
     };
     use crate::path::selection::{average_bidirectional_probability, select_best_path};
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
     // Basic input validation
     if netelements.is_empty() {
@@ -899,7 +899,10 @@ pub fn calculate_train_path(
     // Track intrinsic coordinate range per netelement for coverage-based probability.
     // A wider intrinsic range means more of the netelement's length was covered by the
     // GPS track, giving higher confidence that it was traversed.
+    // Also track first/last GNSS intrinsic (by position order) for direction inference
+    // used in the start/end netelement coverage adjustment.
     let mut intrinsic_ranges: HashMap<usize, (f64, f64)> = HashMap::new();
+    let mut intrinsic_endpoints: HashMap<usize, (f64, f64)> = HashMap::new();
     for candidates in &position_candidates {
         for candidate in candidates {
             if let Some(&ne_idx) = netelement_index.get(&candidate.netelement_id) {
@@ -915,6 +918,32 @@ pub fn calculate_train_path(
                         }
                     })
                     .or_insert((ic, ic));
+                intrinsic_endpoints
+                    .entry(ne_idx)
+                    .and_modify(|(_, last_ic)| {
+                        *last_ic = ic;
+                    })
+                    .or_insert((ic, ic));
+            }
+        }
+    }
+
+    // Identify start/end netelement candidates for coverage adjustment.
+    // GNSS recording naturally starts/ends partway through a netelement, so
+    // the coverage denominator is reduced to only the actively-traversed portion.
+    let mut start_ne_indices: HashSet<usize> = HashSet::new();
+    let mut end_ne_indices: HashSet<usize> = HashSet::new();
+    if !position_candidates.is_empty() {
+        for candidate in &position_candidates[0] {
+            if let Some(&ne_idx) = netelement_index.get(&candidate.netelement_id) {
+                start_ne_indices.insert(ne_idx);
+            }
+        }
+        if let Some(last_candidates) = position_candidates.last() {
+            for candidate in last_candidates {
+                if let Some(&ne_idx) = netelement_index.get(&candidate.netelement_id) {
+                    end_ne_indices.insert(ne_idx);
+                }
             }
         }
     }
@@ -949,6 +978,45 @@ pub fn calculate_train_path(
             .unwrap_or(0.0);
         let length_m = netelements[*netelement_idx].geometry.haversine_length();
         let covered_meters = coverage * length_m;
+        // For start/end netelements, reduce the reference denominator to the
+        // actively-traversed portion so partial coverage is not penalised.
+        let effective_reference = if start_ne_indices.contains(netelement_idx)
+            || end_ne_indices.contains(netelement_idx)
+        {
+            if let Some(&(first_ic, last_ic)) = intrinsic_endpoints.get(netelement_idx) {
+                if (last_ic - first_ic).abs() < f64::EPSILON {
+                    // Single position or no direction discernible → standard reference
+                    REFERENCE_COVERAGE_METERS
+                } else {
+                    let is_start = start_ne_indices.contains(netelement_idx);
+                    let is_end = end_ne_indices.contains(netelement_idx);
+                    let moving_0_to_1 = last_ic > first_ic;
+
+                    let active_length = if is_start && is_end {
+                        // Both start and end (short trip): active portion between first and last
+                        (last_ic - first_ic).abs() * length_m
+                    } else if is_start {
+                        if moving_0_to_1 {
+                            (1.0 - first_ic) * length_m
+                        } else {
+                            first_ic * length_m
+                        }
+                    } else {
+                        // is_end
+                        if moving_0_to_1 {
+                            last_ic * length_m
+                        } else {
+                            (1.0 - last_ic) * length_m
+                        }
+                    };
+                    REFERENCE_COVERAGE_METERS.min(active_length)
+                }
+            } else {
+                REFERENCE_COVERAGE_METERS
+            }
+        } else {
+            REFERENCE_COVERAGE_METERS
+        };
         // Coverage-adjusted probability used for BFS comparison and path selection only.
         // coverage_factor rewards netelements with large absolute GPS coverage
         // (e.g. 880 m on a 1024 m segment) over short traversals (e.g. 135 m).
@@ -956,7 +1024,7 @@ pub fn calculate_train_path(
         // while still providing a relative measure to compare candidates.
         // NOTE: this value is NOT used as the netelement_map insertion threshold;
         // that uses avg_prob (above).  See netelement_map construction below.
-        let coverage_factor = (covered_meters / REFERENCE_COVERAGE_METERS)
+        let coverage_factor = (covered_meters / effective_reference)
             .max(*count as f64 / total_gnss_count)
             .min(1.0);
         *total_prob = if avg_prob >= MIN_QUALITY {

@@ -189,34 +189,69 @@ This represents the mean individual probability across all positions that consid
 
 ```
 covered_meters = (max_intrinsic − min_intrinsic) × netelement_length
-C_coverage     = max(covered_meters / R, N / T).min(1.0)
+C_coverage     = max(covered_meters / R_eff, N / T).min(1.0)
 ```
 
 Where:
 - `max_intrinsic`, `min_intrinsic` = maximum and minimum intrinsic coordinates of all GNSS projections onto the netelement (range over [0, 1])
 - `netelement_length` = Haversine length of the netelement geometry in metres
-- `R` = 500 m (reference coverage length — a netelement covered by 500 m of GNSS track receives full score)
+- `R_eff` = effective reference length (see **Start/End Netelement Adjustment** below)
 - `N` = number of GNSS positions associated with this netelement
 - `T` = total number of GNSS positions in the working set
 
+For **middle netelements** (not start or end): `R_eff = R = 500 m` (the standard reference coverage length).
+
 **Two-term max ensures fair scoring in both regimes:**
-- `covered_meters / R` rewards netelements with large absolute GNSS footprint (e.g., 880 m on a 1 024 m segment → 1.0)
+- `covered_meters / R_eff` rewards netelements with large absolute GNSS footprint (e.g., 880 m on a 1 024 m segment → 1.0)
 - `N / T` provides a proportional fallback for isolated single-point associations where the intrinsic range is zero
+
+#### Start/End Netelement Adjustment
+
+GNSS recording begins and ends at arbitrary positions along a netelement. The portions of the start netelement before the first GNSS position and the end netelement after the last GNSS position were never expected to have GNSS coverage. To avoid penalizing these netelements, the reference denominator `R_eff` is reduced to the **active length** — the portion of the netelement that GNSS data was expected to cover.
+
+**Direction inference:**
+
+For each netelement, direction is determined by comparing the intrinsic coordinate of the earliest GNSS position (by index) to the latest GNSS position (by index) projected on that netelement:
+- `start_ic` = intrinsic coordinate of the earliest GNSS position on this netelement
+- `end_ic` = intrinsic coordinate of the latest GNSS position on this netelement
+- If `end_ic > start_ic` → train is moving from 0 to 1
+- If `end_ic < start_ic` → train is moving from 1 to 0
+
+**Active length calculation:**
+
+| NE role | Direction (0→1) | Direction (1→0) |
+|---------|-----------------|-----------------|
+| **Start NE** | `active = (1.0 − start_ic) × NE_length` | `active = start_ic × NE_length` |
+| **End NE** | `active = end_ic × NE_length` | `active = (1.0 − end_ic) × NE_length` |
+
+Where `start_ic` and `end_ic` refer to the intrinsic coordinates of the first and last GNSS positions of the *entire working set* on that netelement (not the min/max intrinsic of the netelement's candidate range).
+
+**Effective reference:**
+```
+R_eff = min(R, active_length)
+```
+
+For netelements that are **both** start and end (very short trips where all GNSS positions are on the same netelement), the active length equals the span between the first and last GNSS intrinsic coordinates.
+
+For netelements with a **single GNSS position** (direction cannot be determined), `covered_meters = 0` and the `N / T` fallback dominates, so no adjustment is needed.
 
 **Examples:**
 
-| Scenario | NE Length | GNSS count (N) | Total GNSS (T) | covered_meters | C_coverage | Reasoning |
-|----------|-----------|----------------|----------------|---------------|------------|-----------|
-| Full-length coverage | 1000m | 50 | 50 | 950m | 1.00 | Exceeds 500m reference |
-| Good coverage | 1000m | 20 | 40 | 600m | 1.00 | Exceeds 500m reference |
-| Partial coverage | 1000m | 10 | 40 | 300m | max(0.60, 0.25) = 0.60 | covered_meters term dominates |
-| Short netelement | 135m | 2 | 6 | 130m | max(0.26, 0.33) = 0.33 | count term dominates |
-| Single position | 100m | 1 | 6 | 0m | max(0.00, 0.17) = 0.17 | count term prevents zero |
+| Scenario | NE Length | GNSS count (N) | Total GNSS (T) | covered_meters | R_eff | C_coverage | Reasoning |
+|----------|-----------|----------------|----------------|---------------|-------|------------|-----------|
+| Full-length coverage | 1000m | 50 | 50 | 950m | 500m | 1.00 | Exceeds 500m reference |
+| Good coverage | 1000m | 20 | 40 | 600m | 500m | 1.00 | Exceeds 500m reference |
+| Partial coverage | 1000m | 10 | 40 | 300m | 500m | max(0.60, 0.25) = 0.60 | covered_meters term dominates |
+| Short netelement | 135m | 2 | 6 | 130m | 500m | max(0.26, 0.33) = 0.33 | count term dominates |
+| Single position | 100m | 1 | 6 | 0m | 500m | max(0.00, 0.17) = 0.17 | count term prevents zero |
+| Start NE (0→1) | 1000m | 15 | 40 | 360m | min(500, 380) = 380m | max(0.95, 0.38) = 0.95 | active_length caps denominator |
+| End NE (0→1) | 1000m | 10 | 40 | 280m | min(500, 300) = 300m | max(0.93, 0.25) = 0.93 | active_length caps denominator |
 
 **Purpose:**
 - Rewards netelements with large absolute GNSS coverage over those that were only briefly observed
 - The `N / T` fallback ensures isolated points are not silently dropped when comparing junction branches
 - Decoupling from netelement length means a short 135 m segment and a long 1 024 m segment are evaluated on the same absolute scale
+- Start/end adjustment ensures the first and last netelements are not penalized for expected partial coverage
 
 ### Output
 For each netelement: `P_avg` (for threshold check in Phase 4) and `coverage_prob` (for junction selection in Phases 4–5).
