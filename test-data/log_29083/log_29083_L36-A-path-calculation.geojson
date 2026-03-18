@@ -305,11 +305,11 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 877,
+        "end_intrinsic": 0.9987701768442563,
+        "gnss_end_index": 416,
         "gnss_start_index": 0,
         "netelement_id": "88_L_5916",
-        "probability": 0.6286356760765802,
+        "probability": 1.0,
         "start_intrinsic": 0.0
       }
     },
@@ -357,12 +357,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 0,
-        "gnss_start_index": 0,
+        "end_intrinsic": 0.08133744784872331,
+        "gnss_end_index": 417,
+        "gnss_start_index": 417,
         "netelement_id": "88_L_2026",
         "probability": 1.0,
-        "start_intrinsic": 0.0
+        "start_intrinsic": 0.08133744784872331
       }
     },
     {
@@ -933,12 +933,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 877,
-        "gnss_start_index": 0,
+        "end_intrinsic": 0.999280060821792,
+        "gnss_end_index": 572,
+        "gnss_start_index": 430,
         "netelement_id": "88_L_42",
-        "probability": 0.6668455229581867,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.023774930216524034
       }
     },
     {
@@ -1501,12 +1501,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 877,
-        "gnss_start_index": 0,
+        "end_intrinsic": 0.9819737365948821,
+        "gnss_end_index": 714,
+        "gnss_start_index": 573,
         "netelement_id": "88_L_111",
-        "probability": 0.7122866298739362,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.0066191835485521905
       }
     },
     {
@@ -2021,17 +2021,17 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
+        "end_intrinsic": 0.945704371335159,
         "gnss_end_index": 877,
-        "gnss_start_index": 0,
+        "gnss_start_index": 715,
         "netelement_id": "88_L_155",
-        "probability": 0.8416773476032497,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.014199013429673848
       }
     }
   ],
   "properties": {
     "calculated_at": "2022-03-15T09:10:26.200+00:00",
-    "overall_probability": 0.735156511839915
+    "overall_probability": 0.4684852042336281
   }
 }

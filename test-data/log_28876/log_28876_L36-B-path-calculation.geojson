@@ -165,12 +165,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 1133,
+        "end_intrinsic": 0.9558781300245262,
+        "gnss_end_index": 354,
         "gnss_start_index": 0,
         "netelement_id": "88_L_3842",
-        "probability": 0.8968975777358321,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.002319155601756161
       }
     },
     {
@@ -625,12 +625,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 1133,
-        "gnss_start_index": 0,
+        "end_intrinsic": 0.9997010574430767,
+        "gnss_end_index": 663,
+        "gnss_start_index": 355,
         "netelement_id": "88_L_5900",
-        "probability": 0.8551548256750005,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.002838724451415692
       }
     },
     {
@@ -1349,12 +1349,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 1133,
-        "gnss_start_index": 0,
+        "end_intrinsic": 0.9998848792762448,
+        "gnss_end_index": 1009,
+        "gnss_start_index": 664,
         "netelement_id": "88_L_11648",
-        "probability": 0.7664661363214078,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.004187777861278614
       }
     },
     {
@@ -1377,12 +1377,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 1133,
-        "gnss_start_index": 0,
+        "end_intrinsic": 0.8962156444809718,
+        "gnss_end_index": 1012,
+        "gnss_start_index": 1010,
         "netelement_id": "88_L_127",
-        "probability": 0.026832120761312025,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.024148440813076693
       }
     },
     {
@@ -1645,17 +1645,17 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 1133,
-        "gnss_start_index": 0,
+        "end_intrinsic": 0.9915523557329546,
+        "gnss_end_index": 1131,
+        "gnss_start_index": 1013,
         "netelement_id": "88_L_9748",
-        "probability": 0.7326409731719005,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.003577970553244078
       }
     }
   ],
   "properties": {
     "calculated_at": "2022-02-25T09:32:54.400+00:00",
-    "overall_probability": 0.8968975777358321
+    "overall_probability": 0.789382130416575
   }
 }
