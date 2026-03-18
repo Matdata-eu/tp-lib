@@ -144,7 +144,7 @@ A developer troubleshooting path calculation issues exports intermediate results
 
 1. **Given** debug export mode is enabled, **When** path calculation runs, **Then** the system exports files showing all candidate paths with their probability scores
 2. **Given** intermediate result files, **When** examined, **Then** they show for each GNSS coordinate which track segments were considered and their calculated probabilities
-3. **Given** debug output of path candidates, **When** reviewed, **Then** it shows both forward and backward path calculations with the probability averaging that led to final path selection
+3. **Given** debug output of path candidates, **When** reviewed, **Then** it shows the Viterbi decoding trace including sub-sequence count, per-state log-probabilities, bridge netelements, and overall path probability
 
 ---
 
@@ -158,7 +158,7 @@ A developer troubleshooting path calculation issues exports intermediate results
 - Q: When a pre-calculated train path is provided as input (FR-041), what format should the system expect? → A: Same format as path-only export: CSV or GeoJSON with ordered AssociatedNetElements
 - Q: When the system encounters invalid netrelations (e.g., elementA equals elementB, or references to non-existent netelement IDs), how should it proceed? → A: Skip invalid netrelations, log warnings, and continue processing with remaining valid topology
 - Q: How are netelements and netrelations structured in the network GeoJSON file? → A: Single feature collection where features have a "type" property with value "netelement" or "netrelation"
-- Q: How should netelement probability be calculated considering GNSS position coverage? → A: Two values are derived. The **threshold probability** (`P_avg`) is the simple average of all associated GNSS position probabilities; it is used to decide whether a netelement enters the candidate map at all. The **selection probability** (`coverage_prob = C_coverage × P_avg`) adds a coverage factor `C_coverage = max(covered_meters / 500, N / T).min(1.0)` where `covered_meters` is the intrinsic spread of GNSS projections multiplied by the netelement length, `N` is the count of associated positions, and `T` is the total working GNSS count. `coverage_prob` is used for junction comparison and BFS candidate ranking.
+- Q: How should netelement probability be calculated considering GNSS position coverage? → A: *(Superseded)* The original coverage-factor approach was replaced by an HMM/Viterbi algorithm (Newson & Krumm 2009). Per-position emission probabilities (distance × heading) feed into a log-space Viterbi decoder; connection decisions are governed by transition probabilities based on shortest-path vs. great-circle distance rather than aggregate coverage scores.
 - Q: What is the assumed sensor accuracy for heading data? → A: Less than 2° typical error (not 5°)
 - Q: What constitutes good continuous coverage of a netelement? → A: Coverage above 90% (C_distance > 0.90) is considered good quality
 
@@ -166,7 +166,7 @@ A developer troubleshooting path calculation issues exports intermediate results
 
 ### Session 2026-03-15
 
-- Q: When no heading data is supplied in GNSS input, should the system estimate heading from adjacent positions? → A: Yes. For position x (not first or last), estimate heading as the haversine bearing from position x-1 to position x+1, subject to three guard conditions: (1) x is not an endpoint, (2) distance symmetry — the ratio difference between dist(x-1,x) and dist(x,x+1) must be < 20%, (3) heading continuity — heading change between consecutive estimated headings must be < 10°. Positions failing any guard retain heading = None (P_heading = 1.0).
+- Q: When no heading data is supplied in GNSS input, should the system estimate heading from adjacent positions? → A: Yes. For position x (not first or last), estimate heading as the haversine bearing from position x-1 to position x+1, subject to four guard conditions: (1) x is not an endpoint, (2) distance symmetry — the ratio difference between dist(x-1,x) and dist(x,x+1) must be < 20%, (3) heading continuity — heading change between consecutive estimated headings must be < 5°, (4) bearing deviation — the forward bearing (x-1→x) and backward bearing (x→x+1) must not diverge by more than 5°. Positions failing any guard retain heading = None (P_heading = 1.0).
 - Q: Should candidate netelements be rejected if the GNSS projection falls at the very edge (start or end) of the netelement? → A: Yes. Reject candidates where intrinsic coordinate < 1×10⁻⁶ or > 1 − 1×10⁻⁶. Edge projections indicate the GNSS point is more likely on an adjacent track segment; including them risks linking positions to already-passed or not-yet-reached tracks.
 
 ---
@@ -219,19 +219,19 @@ A developer troubleshooting path calculation issues exports intermediate results
 - **FR-018**: System MUST only consider netelements within a configurable cutoff distance (default 50 meters) from each GNSS coordinate
 - **FR-018a**: System MUST exclude from output any GNSS coordinates that are more than the cutoff distance from all track segments in the calculated path
 - **FR-019**: System MUST calculate probability for each candidate netelement using inverse exponential decay for both distance (e.g., e^(-distance/distance_scale)) and heading alignment (e.g., e^(-heading_difference/heading_scale)), with the overall probability being the product of distance and heading probability factors
-- **FR-020**: System MUST set probability to 0 when heading difference between GNSS coordinate and netelement exceeds configurable cutoff (default 5 degrees), overriding exponential decay calculation
+- **FR-020**: System MUST set probability to 0 when heading difference between GNSS coordinate and netelement exceeds configurable cutoff (default 10 degrees), overriding exponential decay calculation
 - **FR-021**: When calculating heading for a netelement at a projection point, system MUST consider the heading at that specific location on the linear geometry
 - **FR-022**: System MUST recognize that netelement heading and GNSS heading can be 180° apart and still be aligned (opposite orientation but same path)
-- **FR-023**: System MUST derive two probability values for each netelement: (a) **threshold probability** `P_avg` = average of probabilities from all associated GNSS positions; and (b) **selection probability** `coverage_prob = C_coverage × P_avg` where `C_coverage = max(covered_meters / 500, N / T).min(1.0)`, `covered_meters = (max_intrinsic − min_intrinsic) × netelement_length`, `N` = number of associated positions, and `T` = total working GNSS position count. `P_avg` is used for the map-insertion threshold in FR-026; `coverage_prob` is used for junction selection and BFS candidate ranking.
-- **FR-024**: System MUST perform path calculation in forward direction starting from the most probable netelement at the beginning
-- **FR-025**: System MUST perform path calculation in backward direction starting from the most probable netelement at the end
-- **FR-026**: System MUST only include netelements in a path that are both navigable (per netrelations) and have `P_avg` (threshold probability, see FR-023) above the minimum probability threshold (default 25%); `coverage_prob` (selection probability) is used for BFS ranking and junction choice but does NOT gate map insertion
-- **FR-027**: System MUST allow navigable netelements below probability threshold only when it is the only navigable option
-- **FR-028**: System MUST assign probability 0 to any path that terminates before reaching the end of the GNSS coordinate sequence
-- **FR-029**: System MUST calculate path probability as the length-weighted average of constituent netelement probabilities
-- **FR-030**: System MUST calculate path probability as the average of forward and backward path probabilities: P(path) = [P_forward(path) + P_backward(path)] / 2
-- **FR-031**: For paths that exist in only one direction, system MUST use 0 as the probability for the missing direction when calculating the average (e.g., if only forward path exists: P(path) = P_forward(path) / 2)
-- **FR-032**: System MUST select the path with the highest final probability as the train path; if multiple paths have identical probability, the first path found during calculation is selected
+- **FR-023**: System MUST build a directed topology graph from netelements and netrelations, with netelement-side nodes and haversine-length-weighted internal edges (connection edges weighted 0.0), to enable shortest-path routing via Dijkstra
+- **FR-024**: System MUST calculate transition probability between consecutive candidate netelements using the formula `exp(-|d_route - d_gc| / β)` where `d_route` = shortest-path distance through the topology graph, `d_gc` = great-circle distance between projected points, and `β` = configurable scale parameter (default 50.0 meters)
+- **FR-025**: System MUST implement an edge-zone optimization: candidates whose projected point is farther than the configured `edge_zone_distance` (default 50.0 meters) from the nearest netelement endpoint are classified as interior; interior candidates on different netelements receive transition probability 0.0 (candidates on the same netelement receive 1.0)
+- **FR-026**: System MUST decode the globally optimal netelement sequence using a log-space Viterbi algorithm, combining emission probabilities (from FR-019) and transition probabilities (from FR-024) at each time-step
+- **FR-027**: System MUST detect Viterbi breaks (time-steps where all transition scores are −∞) and immediately reinitialize a new sub-sequence from emission-only probabilities at the same time-step
+- **FR-028**: System MUST cache shortest-path distances to avoid redundant Dijkstra computations for recurring origin–destination pairs
+- **FR-029**: System MUST insert bridge netelements (not directly observed by GNSS) between consecutive Viterbi states on non-adjacent netelements by tracing Dijkstra predecessors to ensure path continuity
+- **FR-030**: System MUST calculate overall path probability as the exponentiated average log-probability per Viterbi state, clamped to [0, 1]
+- **FR-031**: System MUST produce a single optimal path (the Viterbi-decoded sequence with bridge insertions) rather than multiple candidate paths
+- **FR-032**: System MUST select the Viterbi-decoded path as the train path; if no Viterbi states are produced (all candidates have zero emission probability), the system falls back to FR-044
 
 #### Performance Optimization
 
@@ -323,10 +323,13 @@ A developer troubleshooting path calculation issues exports intermediate results
 
 The following configuration parameters are referenced in the requirements with default values:
 
-- **Max nearest netelements**: Default 3 - maximum number of candidate track segments considered for each GNSS coordinate
-- **Distance cutoff**: Default 50 meters - maximum distance from GNSS coordinate to consider a track segment as candidate
-- **Heading difference cutoff**: Default 5 degrees - maximum heading misalignment before probability is set to 0
-- **Minimum probability threshold**: Default 25% - minimum probability for including a netelement in path (unless it's the only navigable option)
-- **Resampling distance**: Default 10 meters - target spacing between GNSS coordinates used for path calculation
+- **Max nearest netelements**: Default 3 — maximum number of candidate track segments considered for each GNSS coordinate
+- **Distance cutoff**: Default 50 meters — maximum distance from GNSS coordinate to consider a track segment as candidate
+- **Heading difference cutoff**: Default 10 degrees — maximum heading misalignment before emission probability is set to 0
+- **Minimum probability threshold**: Default 2% — minimum emission probability for segment inclusion
+- **Resampling distance**: Default 10 meters — target spacing between GNSS coordinates used for path calculation
+- **Beta (β)**: Default 50.0 meters — transition probability scale parameter (Newson & Krumm). Controls tolerance for mismatch between route distance and great-circle distance.
+- **Edge-zone distance**: Default 50.0 meters — distance threshold from projected point to nearest netelement endpoint. Interior candidates on different netelements receive transition probability 0.
+- **Turn-angle penalty scale**: Default 30.0 degrees — controls how aggressively sharp turns at netelement connections are penalised in transition probability (`exp(-turn_angle / turn_scale)`).
 
 These parameters should be exposed through configuration or command-line arguments to allow tuning for different operational scenarios.

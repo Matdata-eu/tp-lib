@@ -296,7 +296,7 @@ mod tests {
             heading_scale: 2.0,
             cutoff_distance: 50.0,
             heading_cutoff: 5.0,
-            probability_threshold: 0.25,
+            probability_threshold: 0.02,
             resampling_distance: None,
             fallback_mode: false,
             candidate_paths_evaluated: 5,

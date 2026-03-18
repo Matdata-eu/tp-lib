@@ -138,57 +138,63 @@ impl PathResult {
 /// Collected when `PathConfig::debug_mode` is enabled.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DebugInfo {
-    /// Candidate paths evaluated during path construction
+    /// Viterbi path subsequences evaluated during path calculation
     pub candidate_paths: Vec<CandidatePath>,
 
     /// Candidates considered for each GNSS position
     pub position_candidates: Vec<PositionCandidates>,
 
-    /// Decision tree showing path selection process
+    /// Viterbi decision trace showing state selection per timestep
     pub decision_tree: Vec<PathDecision>,
 
-    /// Netelement-level aggregated probabilities (populated after Phase 3)
+    /// Netelement probability information (emission probs + Viterbi membership)
     pub netelement_probabilities: Vec<NetelementProbabilityInfo>,
+
+    /// Transition probabilities between consecutive candidates (HMM state transitions)
+    pub transition_probabilities: Vec<TransitionProbabilityEntry>,
 }
 
-/// Aggregated probability information for a single netelement
+/// Probability information for a single netelement in the Viterbi result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetelementProbabilityInfo {
     /// Netelement ID
     pub netelement_id: String,
 
-    /// Coverage-adjusted probability (used for BFS/path selection)
-    pub coverage_probability: f64,
+    /// Average emission probability across positions that matched this netelement
+    pub avg_emission_probability: f64,
 
-    /// Raw average per-position probability
-    pub avg_probability: f64,
-
-    /// Number of GNSS positions that matched this netelement
+    /// Number of GNSS positions where this netelement was a candidate
     pub position_count: usize,
 
     /// Geometry coordinates as Vec of [lon, lat] pairs
     pub geometry_coords: Vec<Vec<f64>>,
 
-    /// Whether this netelement was included in the netelement_map (passed threshold)
-    pub in_netelement_map: bool,
+    /// Whether this netelement appears in the final Viterbi path
+    pub in_viterbi_path: bool,
+
+    /// Whether this netelement is a bridge (inserted during post-processing)
+    pub is_bridge: bool,
 }
 
 /// Information about a candidate path evaluated during calculation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CandidatePath {
-    /// Unique identifier for this candidate path
+    /// Unique identifier for this candidate path (e.g., "viterbi_0")
     pub id: String,
 
-    /// Direction of path construction (forward/backward)
+    /// Source of this path (e.g., "viterbi")
     pub direction: String,
 
     /// Netelement IDs in this candidate path
     pub segment_ids: Vec<String>,
 
+    /// Per-segment probabilities, parallel to segment_ids
+    pub segment_probabilities: Vec<f64>,
+
     /// Overall probability score for this path
     pub probability: f64,
 
-    /// Whether this path was selected as the best path
+    /// Whether this path was selected as the final result
     pub selected: bool,
 }
 
@@ -242,25 +248,42 @@ pub struct CandidateInfo {
     pub projected_lon: f64,
 }
 
-/// A decision point in the path selection process
+/// A single transition probability between two candidates at consecutive GNSS positions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransitionProbabilityEntry {
+    /// Position index of the preceding observation
+    pub from_step: usize,
+    /// Position index of the current observation
+    pub to_step: usize,
+    /// Netelement of the preceding candidate
+    pub from_netelement_id: String,
+    /// Netelement of the current candidate
+    pub to_netelement_id: String,
+    /// Linear-scale transition probability \[0, 1\]
+    pub transition_probability: f64,
+    /// True if this (from, to) pair was chosen by the Viterbi algorithm
+    pub is_viterbi_chosen: bool,
+}
+
+/// A decision point in the Viterbi path decoding process
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathDecision {
-    /// Step number in the decision process
+    /// Step number (position index in the GNSS sequence)
     pub step: usize,
 
-    /// Type of decision (e.g., "forward_extend", "backward_extend", "path_selection")
+    /// Type of decision (e.g., "viterbi_transition", "viterbi_break", "viterbi_init")
     pub decision_type: String,
 
-    /// Current netelement ID
+    /// Netelement chosen at this step
     pub current_segment: String,
 
-    /// Available options at this decision point
+    /// Candidate netelements considered at this step
     pub options: Vec<String>,
 
-    /// Probabilities for each option
+    /// Log-probabilities for each candidate at this step
     pub option_probabilities: Vec<f64>,
 
-    /// Which option was chosen
+    /// Which netelement was chosen (best Viterbi state)
     pub chosen_option: String,
 
     /// Reason for the choice
@@ -357,6 +380,23 @@ pub struct PathConfig {
     /// If true, collect and return debug information about path calculation (US7: T152)
     /// Includes candidate paths, position candidates, and decision tree
     pub debug_mode: bool,
+
+    /// Transition probability scale parameter (meters, Newson & Krumm β)
+    /// Controls tolerance for mismatch between route distance and great-circle distance.
+    /// Higher values are more forgiving of detours.
+    pub beta: f64,
+
+    /// Edge-zone distance threshold (meters)
+    /// Candidates whose projected point is farther than this from the nearest
+    /// netelement endpoint are considered interior and cannot transition to a
+    /// different netelement (transition probability = 0).
+    pub edge_zone_distance: f64,
+
+    /// Turn-angle scale parameter (degrees)
+    /// Penalises transitions that require a direction change at a netelement connection.
+    /// The penalty factor is exp(-turn_angle / turn_scale).
+    /// Lower values penalise turns more aggressively.
+    pub turn_scale: f64,
 }
 
 impl PathConfig {
@@ -372,6 +412,9 @@ impl PathConfig {
         max_candidates: usize,
         path_only: bool,
         debug_mode: bool,
+        beta: f64,
+        edge_zone_distance: f64,
+        turn_scale: f64,
     ) -> Result<Self, ProjectionError> {
         let config = Self {
             distance_scale,
@@ -383,6 +426,9 @@ impl PathConfig {
             max_candidates,
             path_only,
             debug_mode,
+            beta,
+            edge_zone_distance,
+            turn_scale,
         };
 
         config.validate()?;
@@ -435,6 +481,24 @@ impl PathConfig {
             ));
         }
 
+        if self.beta <= 0.0 {
+            return Err(ProjectionError::InvalidGeometry(
+                "beta must be positive".to_string(),
+            ));
+        }
+
+        if self.edge_zone_distance <= 0.0 {
+            return Err(ProjectionError::InvalidGeometry(
+                "edge_zone_distance must be positive".to_string(),
+            ));
+        }
+
+        if self.turn_scale <= 0.0 {
+            return Err(ProjectionError::InvalidGeometry(
+                "turn_scale must be positive".to_string(),
+            ));
+        }
+
         Ok(())
     }
 
@@ -451,23 +515,29 @@ impl Default for PathConfig {
     /// - `distance_scale`: 10.0 meters (exponential decay)
     /// - `heading_scale`: 2.0 degrees (exponential decay)
     /// - `cutoff_distance`: 50.0 meters
-    /// - `heading_cutoff`: 5.0 degrees
-    /// - `probability_threshold`: 0.25 (25%)
+    /// - `heading_cutoff`: 10.0 degrees
+    /// - `probability_threshold`: 0.02 (2%)
     /// - `resampling_distance`: None (disabled)
     /// - `max_candidates`: 3 netelements per position
     /// - `path_only`: false (calculate path and project positions)
     /// - `debug_mode`: false (no debug output)
+    /// - `beta`: 50.0 meters (transition probability scale)
+    /// - `edge_zone_distance`: 50.0 meters (edge-zone optimization threshold)
+    /// - `turn_scale`: 30.0 degrees (turn-angle penalty scale)
     fn default() -> Self {
         Self {
             distance_scale: 10.0,
             heading_scale: 2.0,
             cutoff_distance: 50.0,
-            heading_cutoff: 5.0,
-            probability_threshold: 0.25,
+            heading_cutoff: 10.0,
+            probability_threshold: 0.02,
             resampling_distance: None,
             max_candidates: 3,
             path_only: false,
             debug_mode: false,
+            beta: 50.0,
+            edge_zone_distance: 50.0,
+            turn_scale: 30.0,
         }
     }
 }
@@ -503,6 +573,9 @@ pub struct PathConfigBuilder {
     max_candidates: usize,
     path_only: bool,
     debug_mode: bool,
+    beta: f64,
+    edge_zone_distance: f64,
+    turn_scale: f64,
 }
 
 impl Default for PathConfigBuilder {
@@ -518,6 +591,9 @@ impl Default for PathConfigBuilder {
             max_candidates: defaults.max_candidates,
             path_only: defaults.path_only,
             debug_mode: defaults.debug_mode,
+            beta: defaults.beta,
+            edge_zone_distance: defaults.edge_zone_distance,
+            turn_scale: defaults.turn_scale,
         }
     }
 }
@@ -577,6 +653,24 @@ impl PathConfigBuilder {
         self
     }
 
+    /// Set transition probability scale (β, meters)
+    pub fn beta(mut self, value: f64) -> Self {
+        self.beta = value;
+        self
+    }
+
+    /// Set edge-zone distance threshold (meters)
+    pub fn edge_zone_distance(mut self, value: f64) -> Self {
+        self.edge_zone_distance = value;
+        self
+    }
+
+    /// Set turn-angle scale parameter (degrees)
+    pub fn turn_scale(mut self, value: f64) -> Self {
+        self.turn_scale = value;
+        self
+    }
+
     /// Build and validate the PathConfig
     pub fn build(self) -> Result<PathConfig, ProjectionError> {
         PathConfig::new(
@@ -589,31 +683,36 @@ impl PathConfigBuilder {
             self.max_candidates,
             self.path_only,
             self.debug_mode,
+            self.beta,
+            self.edge_zone_distance,
+            self.turn_scale,
         )
     }
 }
 
 pub mod candidate;
-pub mod construction;
 pub mod debug;
 pub mod graph;
 pub mod probability;
-pub mod selection;
 pub mod spacing;
+pub mod viterbi;
 
 #[cfg(test)]
 mod tests;
 
 // Re-exports
 pub use candidate::*;
-pub use construction::*;
 pub use debug::{
-    export_all_debug_info, export_candidate_paths, export_decision_tree, export_position_candidates,
+    export_all_debug_info,
+    export_hmm_candidate_netelements,
+    export_hmm_emission_probabilities,
+    export_hmm_selected_path,
+    export_hmm_viterbi_trace,
 };
-pub use graph::{build_topology_graph, validate_netrelation_references, NetelementSide};
+pub use graph::{build_topology_graph, cached_shortest_path_distance, shortest_path_distance, shortest_path_route, validate_netrelation_references, NetelementSide, ShortestPathCache};
 pub use probability::*;
-pub use selection::*;
 pub use spacing::{calculate_mean_spacing, select_resampled_subset};
+pub use viterbi::{build_path_from_viterbi, viterbi_decode, ViterbiResult, ViterbiSubsequence};
 
 // Re-export configuration types
 pub use PathCalculationMode::{FallbackIndependent, TopologyBased};
@@ -646,19 +745,18 @@ pub use PathCalculationMode::{FallbackIndependent, TopologyBased};
 /// # Algorithm
 ///
 /// 1. **Candidate Selection**: Find candidate netelements within cutoff_distance for each GNSS position
-/// 2. **Probability Calculation**: Calculate probability for each candidate using distance and heading
-/// 3. **Netelement Assignment**: Assign each GNSS position to best candidate netelements
-/// 4. **Path Construction**: Build continuous path by traversing network using topology constraints
-/// 5. **Bidirectional Validation**: Calculate path from both directions and validate consistency
-/// 6. **Path Selection**: Return highest probability path from multiple candidates
+/// 2. **Emission Probability**: Calculate per-candidate probability using distance and heading alignment
+/// 3. **Viterbi Decoding**: Decode the globally optimal netelement sequence using log-space Viterbi
+/// 4. **Bridge Insertion**: Insert intermediate netelements between non-adjacent Viterbi states
+/// 5. **Path Assembly**: Return the assembled TrainPath with overall probability score
 ///
 /// # Configuration Impact
 ///
 /// - `distance_scale`: Decay rate for distance probability (default 10.0m)
 /// - `heading_scale`: Decay rate for heading probability (default 2.0°)
 /// - `cutoff_distance`: Maximum distance for candidate selection (default 50.0m)
-/// - `heading_cutoff`: Maximum heading difference, rejects if exceeded (default 5.0°)
-/// - `probability_threshold`: Minimum probability for segment inclusion (default 0.25)
+/// - `heading_cutoff`: Maximum heading difference, rejects if exceeded (default 10.0°)
+/// - `probability_threshold`: Minimum probability for segment inclusion (default 0.02)
 /// - `max_candidates`: Maximum candidates to evaluate per GNSS position
 ///
 /// # Example
@@ -696,17 +794,12 @@ pub fn calculate_train_path(
     netrelations: &[crate::models::NetRelation],
     config: &PathConfig,
 ) -> Result<PathResult, crate::errors::ProjectionError> {
-    use crate::models::AssociatedNetElement;
     use crate::path::candidate::find_candidate_netelements;
-    use crate::path::construction::{
-        construct_backward_path, construct_forward_path, validate_bidirectional_agreement,
-    };
     use crate::path::probability::{
         calculate_combined_probability, calculate_distance_probability,
         calculate_heading_probability,
     };
-    use crate::path::selection::{average_bidirectional_probability, select_best_path};
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     // Basic input validation
     if netelements.is_empty() {
@@ -798,10 +891,7 @@ pub fn calculate_train_path(
 
             // Heading probability: prefer supplied heading, fall back to
             // estimated heading from neighbors, default to 1.0 (no constraint).
-            let (effective_heading, heading_is_estimated) = match gnss.heading {
-                Some(h) => (Some(h), false),
-                None => (estimated_headings[pos_idx], true),
-            };
+            let effective_heading = gnss.heading.or(estimated_headings[pos_idx]);
 
             let heading_diff_value = if let Some(gnss_heading) = effective_heading {
                 use crate::path::candidate::{calculate_heading_at_point, heading_difference};
@@ -814,16 +904,7 @@ pub fn calculate_train_path(
             };
 
             let heading_prob = if let Some(heading_diff) = heading_diff_value {
-                // Estimated headings (from chord geometry) skip the hard cutoff
-                // because the chord-to-tangent deviation on curves can exceed
-                // the cutoff even for correctly-aligned candidates.  The
-                // exponential decay still penalises large mismatches.
-                let cutoff = if heading_is_estimated {
-                    90.0 // no practical cutoff (max possible diff is 90°)
-                } else {
-                    config.heading_cutoff
-                };
-                calculate_heading_probability(heading_diff, config.heading_scale, cutoff)
+                calculate_heading_probability(heading_diff, config.heading_scale, config.heading_cutoff)
             } else {
                 1.0 // No heading data, assume heading match
             };
@@ -875,473 +956,245 @@ pub fn calculate_train_path(
         position_probabilities.push(probs);
     }
 
-    // Phase 3: Netelement-Level Probability (T058-T064)
-    // Aggregate probabilities for each netelement across all GNSS positions
-    let mut netelement_probabilities: HashMap<usize, f64> = HashMap::new();
+    // Phase 3-5 (HMM): Viterbi decoding replaces netelement aggregation,
+    // greedy construction, and bidirectional selection.
 
-    for prob_map in &position_probabilities {
-        for (&netelement_idx, &prob) in prob_map {
-            netelement_probabilities
-                .entry(netelement_idx)
-                .and_modify(|total| *total += prob)
-                .or_insert(prob);
-        }
-    }
+    // Build per-candidate emission probabilities for the Viterbi algorithm.
+    // position_probabilities is Vec<HashMap<netelement_idx, f64>> (keyed by NE index).
+    // Viterbi expects Vec<Vec<f64>> indexed by candidate within position_candidates[t].
+    let emission_probs: Vec<Vec<f64>> = position_candidates
+        .iter()
+        .enumerate()
+        .map(|(t, cands)| {
+            cands
+                .iter()
+                .map(|c| {
+                    netelement_index
+                        .get(&c.netelement_id)
+                        .and_then(|idx| position_probabilities[t].get(idx))
+                        .copied()
+                        .unwrap_or(0.0)
+                })
+                .collect()
+        })
+        .collect();
 
-    // Average probabilities by number of positions assigned
-    let mut position_counts: HashMap<usize, usize> = HashMap::new();
-    for prob_map in &position_probabilities {
-        for &netelement_idx in prob_map.keys() {
-            *position_counts.entry(netelement_idx).or_insert(0) += 1;
-        }
-    }
+    // Build topology graph with distance-weighted edges.
+    let (topo_graph, node_map) =
+        crate::path::graph::build_topology_graph(netelements, netrelations)?;
+    let mut sp_cache = crate::path::graph::ShortestPathCache::new();
 
-    // Track intrinsic coordinate range per netelement for coverage-based probability.
-    // A wider intrinsic range means more of the netelement's length was covered by the
-    // GPS track, giving higher confidence that it was traversed.
-    // Also track first/last GNSS intrinsic (by position order) for direction inference
-    // used in the start/end netelement coverage adjustment.
-    let mut intrinsic_ranges: HashMap<usize, (f64, f64)> = HashMap::new();
-    let mut intrinsic_endpoints: HashMap<usize, (f64, f64)> = HashMap::new();
-    for candidates in &position_candidates {
-        for candidate in candidates {
-            if let Some(&ne_idx) = netelement_index.get(&candidate.netelement_id) {
-                let ic = candidate.intrinsic_coordinate;
-                intrinsic_ranges
-                    .entry(ne_idx)
-                    .and_modify(|(mn, mx)| {
-                        if ic < *mn {
-                            *mn = ic;
-                        }
-                        if ic > *mx {
-                            *mx = ic;
-                        }
-                    })
-                    .or_insert((ic, ic));
-                intrinsic_endpoints
-                    .entry(ne_idx)
-                    .and_modify(|(_, last_ic)| {
-                        *last_ic = ic;
-                    })
-                    .or_insert((ic, ic));
-            }
-        }
-    }
+    // Run Viterbi decoding.
+    let viterbi_result = crate::path::viterbi::viterbi_decode(
+        &position_candidates,
+        &emission_probs,
+        netelements,
+        &netelement_index,
+        &topo_graph,
+        &node_map,
+        &mut sp_cache,
+        config,
+    )?;
 
-    // Identify start/end netelement candidates for coverage adjustment.
-    // GNSS recording naturally starts/ends partway through a netelement, so
-    // the coverage denominator is reduced to only the actively-traversed portion.
-    let mut start_ne_indices: HashSet<usize> = HashSet::new();
-    let mut end_ne_indices: HashSet<usize> = HashSet::new();
-    if !position_candidates.is_empty() {
-        for candidate in &position_candidates[0] {
-            if let Some(&ne_idx) = netelement_index.get(&candidate.netelement_id) {
-                start_ne_indices.insert(ne_idx);
-            }
-        }
-        if let Some(last_candidates) = position_candidates.last() {
-            for candidate in last_candidates {
-                if let Some(&ne_idx) = netelement_index.get(&candidate.netelement_id) {
-                    end_ne_indices.insert(ne_idx);
-                }
-            }
-        }
-    }
+    // Build path segments from Viterbi output (with bridge insertion).
+    let path_segments = crate::path::viterbi::build_path_from_viterbi(
+        &viterbi_result,
+        &position_candidates,
+        netelements,
+        &netelement_index,
+        &topo_graph,
+        &node_map,
+        &mut sp_cache,
+    )?;
 
-    use geo::HaversineLength;
-    // Normalisation constant for covered metres.  A netelement with at least
-    // this many metres of GPS coverage gets a coverage factor of 1.0; shorter
-    // coverage scales linearly below 1.0.
-    const REFERENCE_COVERAGE_METERS: f64 = 500.0;
-    // Minimum average per-position match quality.  Filters netelements that
-    // were within the spatial cutoff but are geometrically far from the GPS
-    // track (e.g. a distant parallel infrastructure element).
-    const MIN_QUALITY: f64 = 0.05;
-
-    let total_gnss_count = working_positions.len() as f64;
-
-    // Build avg_prob map for threshold decisions (uses raw average quality).
-    // This respects the caller's probability_threshold regardless of coverage,
-    // ensuring that test fixtures with few GNSS points are not unfairly excluded.
-    let mut avg_prob_cache: HashMap<usize, f64> = HashMap::new();
-    for (&netelement_idx, &total_prob) in &netelement_probabilities {
-        let count = *position_counts.get(&netelement_idx).unwrap_or(&1);
-        avg_prob_cache.insert(netelement_idx, total_prob / count as f64);
-    }
-
-    for (netelement_idx, total_prob) in netelement_probabilities.iter_mut() {
-        let count = position_counts.get(netelement_idx).unwrap_or(&1);
-        let avg_prob = *total_prob / *count as f64;
-        let coverage = intrinsic_ranges
-            .get(netelement_idx)
-            .map(|(mn, mx)| mx - mn)
-            .unwrap_or(0.0);
-        let length_m = netelements[*netelement_idx].geometry.haversine_length();
-        let covered_meters = coverage * length_m;
-        // For start/end netelements, reduce the reference denominator to the
-        // actively-traversed portion so partial coverage is not penalised.
-        let effective_reference = if start_ne_indices.contains(netelement_idx)
-            || end_ne_indices.contains(netelement_idx)
-        {
-            if let Some(&(first_ic, last_ic)) = intrinsic_endpoints.get(netelement_idx) {
-                if (last_ic - first_ic).abs() < f64::EPSILON {
-                    // Single position or no direction discernible → standard reference
-                    REFERENCE_COVERAGE_METERS
-                } else {
-                    let is_start = start_ne_indices.contains(netelement_idx);
-                    let is_end = end_ne_indices.contains(netelement_idx);
-                    let moving_0_to_1 = last_ic > first_ic;
-
-                    let active_length = if is_start && is_end {
-                        // Both start and end (short trip): active portion between first and last
-                        (last_ic - first_ic).abs() * length_m
-                    } else if is_start {
-                        if moving_0_to_1 {
-                            (1.0 - first_ic) * length_m
-                        } else {
-                            first_ic * length_m
-                        }
-                    } else {
-                        // is_end
-                        if moving_0_to_1 {
-                            last_ic * length_m
-                        } else {
-                            (1.0 - last_ic) * length_m
-                        }
-                    };
-                    REFERENCE_COVERAGE_METERS.min(active_length)
-                }
-            } else {
-                REFERENCE_COVERAGE_METERS
-            }
-        } else {
-            REFERENCE_COVERAGE_METERS
-        };
-        // Coverage-adjusted probability used for BFS comparison and path selection only.
-        // coverage_factor rewards netelements with large absolute GPS coverage
-        // (e.g. 880 m on a 1024 m segment) over short traversals (e.g. 135 m).
-        // The gnss_fraction fallback handles single-point (zero-range) cases
-        // while still providing a relative measure to compare candidates.
-        // NOTE: this value is NOT used as the netelement_map insertion threshold;
-        // that uses avg_prob (above).  See netelement_map construction below.
-        let coverage_factor = (covered_meters / effective_reference)
-            .max(*count as f64 / total_gnss_count)
-            .min(1.0);
-        *total_prob = if avg_prob >= MIN_QUALITY {
-            coverage_factor * avg_prob
+    // Compute overall path probability from Viterbi log-probability.
+    let path_probability = if viterbi_result.subsequences.is_empty() {
+        0.0
+    } else {
+        // Use the average log-probability per state, exponentiated, clamped to [0, 1].
+        let total_log: f64 = viterbi_result
+            .subsequences
+            .iter()
+            .map(|s| s.log_probability)
+            .sum();
+        let total_states: usize = viterbi_result
+            .subsequences
+            .iter()
+            .map(|s| s.states.len())
+            .sum();
+        if total_states > 0 {
+            (total_log / total_states as f64).exp().min(1.0)
         } else {
             0.0
-        };
-    }
+        }
+    };
 
-    // Debug: Collect netelement-level probability info after Phase 3
+    let final_path = if path_segments.is_empty() {
+        None
+    } else {
+        Some((path_segments, path_probability))
+    };
+
+    // T157: Populate Viterbi debug info
     if let Some(ref mut debug) = debug_info {
-        for (&netelement_idx, &coverage_prob) in &netelement_probabilities {
-            let avg_prob = avg_prob_cache.get(&netelement_idx).copied().unwrap_or(0.0);
-            let count = *position_counts.get(&netelement_idx).unwrap_or(&1);
-            let netelement = &netelements[netelement_idx];
-            let coords: Vec<Vec<f64>> = netelement
-                .geometry
-                .points()
-                .map(|p| vec![p.x(), p.y()])
-                .collect();
+        // Collect the set of netelement IDs directly selected by Viterbi states
+        let mut viterbi_state_ne_ids: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        for subseq in &viterbi_result.subsequences {
+            for &(t, c_idx) in &subseq.states {
+                viterbi_state_ne_ids
+                    .insert(position_candidates[t][c_idx].netelement_id.clone());
+            }
+        }
+
+        // Collect all NE IDs in the final path; bridge NEs are those in the
+        // path but not directly selected by any Viterbi state.
+        let mut final_path_ne_ids: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        if let Some((ref segments, _)) = final_path {
+            for seg in segments {
+                final_path_ne_ids.insert(seg.netelement_id.clone());
+            }
+        }
+
+        // Build netelement probability info for all candidate netelements
+        let mut ne_emission_sums: HashMap<String, (f64, usize)> = HashMap::new();
+        for (t, cands) in position_candidates.iter().enumerate() {
+            for (c_idx, cand) in cands.iter().enumerate() {
+                let emission = emission_probs[t][c_idx];
+                let entry = ne_emission_sums
+                    .entry(cand.netelement_id.clone())
+                    .or_insert((0.0, 0));
+                entry.0 += emission;
+                entry.1 += 1;
+            }
+        }
+
+        for (ne_id, (sum, count)) in &ne_emission_sums {
+            let geometry_coords: Vec<Vec<f64>> = netelements
+                .iter()
+                .find(|ne| ne.id == *ne_id)
+                .map(|ne| {
+                    ne.geometry
+                        .0
+                        .iter()
+                        .map(|c| vec![c.x, c.y])
+                        .collect()
+                })
+                .unwrap_or_default();
+
             debug.netelement_probabilities.push(NetelementProbabilityInfo {
-                netelement_id: netelement.id.clone(),
-                coverage_probability: coverage_prob,
-                avg_probability: avg_prob,
-                position_count: count,
-                geometry_coords: coords,
-                in_netelement_map: false, // Will be updated after Phase 4
-            });
-        }
-    }
-
-    // Phase 4: Path Construction (T065-T074)
-    // Build netelement map for path construction.
-    // Insertion threshold uses avg_prob (raw positional quality) so that short
-    // segments with few GNSS points are not incorrectly excluded.
-    // The stored probability is the coverage-adjusted score (coverage_prob), which
-    // is used for BFS candidate comparison and junction selection.
-    let mut netelement_map: HashMap<String, (f64, AssociatedNetElement)> = HashMap::new();
-
-    for (&netelement_idx, &coverage_prob) in &netelement_probabilities {
-        let avg_prob = avg_prob_cache.get(&netelement_idx).copied().unwrap_or(0.0);
-        if avg_prob >= config.probability_threshold || netelement_map.is_empty() {
-            let netelement = &netelements[netelement_idx];
-            // Create basic AssociatedNetElement (simplified for now)
-            let segment = AssociatedNetElement::new(
-                netelement.id.clone(),
-                coverage_prob,
-                0.0,
-                1.0, // Full intrinsic range
-                0,
-                working_positions.len() - 1, // GNSS range based on working set
-            )?;
-            netelement_map.insert(netelement.id.clone(), (coverage_prob, segment));
-        }
-    }
-
-    // Debug: Mark which netelements made it into the netelement_map
-    if let Some(ref mut debug) = debug_info {
-        for entry in &mut debug.netelement_probabilities {
-            if netelement_map.contains_key(&entry.netelement_id) {
-                entry.in_netelement_map = true;
-            }
-        }
-    }
-
-    // Find highest probability netelements at start and end
-    let start_netelement = position_probabilities
-        .first()
-        .and_then(|probs| probs.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap()))
-        .map(|(&idx, _)| &netelements[idx].id);
-
-    let end_netelement = position_probabilities
-        .last()
-        .and_then(|probs| probs.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap()))
-        .map(|(&idx, _)| &netelements[idx].id);
-
-    // Construct paths bidirectionally
-    let forward_path = if let Some(start_id) = start_netelement {
-        construct_forward_path(
-            start_id,
-            &netelement_map,
-            netrelations,
-            config.probability_threshold,
-        )
-        .ok()
-    } else {
-        None
-    };
-
-    let backward_path = if let Some(end_id) = end_netelement {
-        construct_backward_path(
-            end_id,
-            &netelement_map,
-            netrelations,
-            config.probability_threshold,
-        )
-        .ok()
-    } else {
-        None
-    };
-
-    // T157: Record candidate paths in debug info
-    if let Some(ref mut debug) = debug_info {
-        let mut step = 1;
-
-        // Record forward path as candidate
-        if let Some(ref fwd) = forward_path {
-            debug.add_candidate_path(CandidatePath {
-                id: "forward".to_string(),
-                direction: "forward".to_string(),
-                segment_ids: fwd
-                    .segments
-                    .iter()
-                    .map(|s| s.netelement_id.clone())
-                    .collect(),
-                probability: fwd.probability,
-                selected: false, // Will update after selection
-            });
-
-            debug.add_decision(PathDecision {
-                step,
-                decision_type: "forward_construction".to_string(),
-                current_segment: start_netelement.cloned().unwrap_or_default(),
-                options: fwd
-                    .segments
-                    .iter()
-                    .map(|s| s.netelement_id.clone())
-                    .collect(),
-                option_probabilities: fwd.segments.iter().map(|s| s.probability).collect(),
-                chosen_option: fwd
-                    .segments
-                    .last()
-                    .map(|s| s.netelement_id.clone())
-                    .unwrap_or_default(),
-                reason: format!(
-                    "Forward path constructed with {} segments, probability {:.4}",
-                    fwd.segments.len(),
-                    fwd.probability
-                ),
-            });
-            step += 1;
-        } else {
-            debug.add_decision(PathDecision {
-                step,
-                decision_type: "forward_construction_failed".to_string(),
-                current_segment: start_netelement.cloned().unwrap_or_default(),
-                options: vec![],
-                option_probabilities: vec![],
-                chosen_option: String::new(),
-                reason: "No forward path could be constructed".to_string(),
-            });
-            step += 1;
-        }
-
-        // Record backward path as candidate
-        if let Some(ref bwd) = backward_path {
-            debug.add_candidate_path(CandidatePath {
-                id: "backward".to_string(),
-                direction: "backward".to_string(),
-                segment_ids: bwd
-                    .segments
-                    .iter()
-                    .map(|s| s.netelement_id.clone())
-                    .collect(),
-                probability: bwd.probability,
-                selected: false, // Will update after selection
-            });
-
-            debug.add_decision(PathDecision {
-                step,
-                decision_type: "backward_construction".to_string(),
-                current_segment: end_netelement.cloned().unwrap_or_default(),
-                options: bwd
-                    .segments
-                    .iter()
-                    .map(|s| s.netelement_id.clone())
-                    .collect(),
-                option_probabilities: bwd.segments.iter().map(|s| s.probability).collect(),
-                chosen_option: bwd
-                    .segments
-                    .first()
-                    .map(|s| s.netelement_id.clone())
-                    .unwrap_or_default(),
-                reason: format!(
-                    "Backward path constructed with {} segments, probability {:.4}",
-                    bwd.segments.len(),
-                    bwd.probability
-                ),
-            });
-            // step is intentionally not incremented here (end of construction phase)
-        } else {
-            debug.add_decision(PathDecision {
-                step,
-                decision_type: "backward_construction_failed".to_string(),
-                current_segment: end_netelement.cloned().unwrap_or_default(),
-                options: vec![],
-                option_probabilities: vec![],
-                chosen_option: String::new(),
-                reason: "No backward path could be constructed".to_string(),
-            });
-        }
-    }
-
-    // Phase 5: Path Selection (T075-T088)
-    let (final_path, selected_direction) = match (&forward_path, &backward_path) {
-        (Some(fwd), Some(bwd)) => {
-            // Validate bidirectional agreement
-            let agreement = validate_bidirectional_agreement(fwd, bwd);
-            if agreement {
-                // Average probabilities
-                let avg_prob =
-                    average_bidirectional_probability(Some(fwd.probability), Some(bwd.probability));
-                (Some((fwd.segments.clone(), avg_prob)), Some("both"))
-            } else {
-                // Select best path by probability
-                let probabilities = vec![fwd.probability, bwd.probability];
-                let reaches_end = vec![true, true]; // Simplified: assume both reach end
-                let best_idx = select_best_path(&probabilities, &reaches_end)?;
-                if best_idx == 0 {
-                    (
-                        Some((fwd.segments.clone(), fwd.probability)),
-                        Some("forward"),
-                    )
+                netelement_id: ne_id.clone(),
+                avg_emission_probability: if *count > 0 {
+                    sum / *count as f64
                 } else {
-                    (
-                        Some((bwd.segments.clone(), bwd.probability)),
-                        Some("backward"),
-                    )
-                }
+                    0.0
+                },
+                position_count: *count,
+                geometry_coords,
+                in_viterbi_path: final_path_ne_ids.contains(ne_id),
+                is_bridge: final_path_ne_ids.contains(ne_id)
+                    && !viterbi_state_ne_ids.contains(ne_id),
+            });
+        }
+
+        // Also add bridge-only NEs (in final path but never a candidate)
+        for ne_id in &final_path_ne_ids {
+            if !ne_emission_sums.contains_key(ne_id) {
+                let geometry_coords: Vec<Vec<f64>> = netelements
+                    .iter()
+                    .find(|ne| ne.id == *ne_id)
+                    .map(|ne| {
+                        ne.geometry
+                            .0
+                            .iter()
+                            .map(|c| vec![c.x, c.y])
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                debug.netelement_probabilities.push(NetelementProbabilityInfo {
+                    netelement_id: ne_id.clone(),
+                    avg_emission_probability: 0.0,
+                    position_count: 0,
+                    geometry_coords,
+                    in_viterbi_path: true,
+                    is_bridge: true,
+                });
             }
         }
-        (Some(fwd), None) => (
-            Some((fwd.segments.clone(), fwd.probability)),
-            Some("forward"),
-        ),
-        (None, Some(bwd)) => (
-            Some((bwd.segments.clone(), bwd.probability)),
-            Some("backward"),
-        ),
-        (None, None) => (None, None),
-    };
 
-    // T157: Record final path selection decision
-    if let Some(ref mut debug) = debug_info {
-        let step = debug.decision_tree.len() + 1;
-
-        match (&forward_path, &backward_path, selected_direction) {
-            (Some(fwd), Some(bwd), Some(dir)) => {
-                let agreement = validate_bidirectional_agreement(fwd, bwd);
-                let avg_prob =
-                    average_bidirectional_probability(Some(fwd.probability), Some(bwd.probability));
-
-                debug.add_decision(PathDecision {
-                    step,
-                    decision_type: "path_selection".to_string(),
-                    current_segment: String::new(),
-                    options: vec!["forward".to_string(), "backward".to_string()],
-                    option_probabilities: vec![fwd.probability, bwd.probability],
-                    chosen_option: dir.to_string(),
-                    reason: if agreement {
-                        format!(
-                            "Bidirectional agreement: averaged probability = {:.4}",
-                            avg_prob
-                        )
-                    } else {
-                        format!(
-                            "No agreement: selected {} path with higher probability",
-                            dir
-                        )
-                    },
-                });
-
-                // Mark the selected path(s)
-                for candidate in debug.candidate_paths.iter_mut() {
-                    candidate.selected = dir == "both" || candidate.direction == dir;
+        // Add candidate paths for each Viterbi subsequence
+        for (sub_idx, subseq) in viterbi_result.subsequences.iter().enumerate() {
+            // Deduplicate consecutive netelement IDs from the Viterbi states
+            let mut segment_ids: Vec<String> = Vec::new();
+            let mut segment_probs: Vec<f64> = Vec::new();
+            for &(t, c_idx) in &subseq.states {
+                let ne_id = &position_candidates[t][c_idx].netelement_id;
+                let emission = emission_probs[t][c_idx];
+                if segment_ids.last().map_or(true, |last| last != ne_id) {
+                    segment_ids.push(ne_id.clone());
+                    segment_probs.push(emission);
                 }
             }
-            (Some(_), None, Some(_)) => {
+
+            debug.add_candidate_path(CandidatePath {
+                id: format!("viterbi_{}", sub_idx),
+                direction: "viterbi".to_string(),
+                segment_ids,
+                segment_probabilities: segment_probs,
+                probability: subseq.log_probability.exp().min(1.0),
+                selected: true,
+            });
+        }
+
+        // Add Viterbi decision trace
+        for subseq in &viterbi_result.subsequences {
+            for (state_idx, &(t, c_idx)) in subseq.states.iter().enumerate() {
+                let chosen_ne = &position_candidates[t][c_idx].netelement_id;
+                let options: Vec<String> = position_candidates[t]
+                    .iter()
+                    .map(|c| c.netelement_id.clone())
+                    .collect();
+                let option_probs: Vec<f64> = emission_probs[t].clone();
+
+                let decision_type = if state_idx == 0 {
+                    "viterbi_init".to_string()
+                } else {
+                    "viterbi_transition".to_string()
+                };
+
                 debug.add_decision(PathDecision {
-                    step,
-                    decision_type: "path_selection".to_string(),
-                    current_segment: String::new(),
-                    options: vec!["forward".to_string()],
-                    option_probabilities: vec![forward_path.as_ref().unwrap().probability],
-                    chosen_option: "forward".to_string(),
-                    reason: "Only forward path available".to_string(),
-                });
-                for candidate in debug.candidate_paths.iter_mut() {
-                    candidate.selected = candidate.direction == "forward";
-                }
-            }
-            (None, Some(_), Some(_)) => {
-                debug.add_decision(PathDecision {
-                    step,
-                    decision_type: "path_selection".to_string(),
-                    current_segment: String::new(),
-                    options: vec!["backward".to_string()],
-                    option_probabilities: vec![backward_path.as_ref().unwrap().probability],
-                    chosen_option: "backward".to_string(),
-                    reason: "Only backward path available".to_string(),
-                });
-                for candidate in debug.candidate_paths.iter_mut() {
-                    candidate.selected = candidate.direction == "backward";
-                }
-            }
-            _ => {
-                // No valid paths (None, None case or any unexpected combination)
-                debug.add_decision(PathDecision {
-                    step,
-                    decision_type: "path_selection_failed".to_string(),
-                    current_segment: String::new(),
-                    options: vec![],
-                    option_probabilities: vec![],
-                    chosen_option: String::new(),
-                    reason: "No valid paths available for selection".to_string(),
+                    step: t,
+                    decision_type,
+                    current_segment: chosen_ne.clone(),
+                    options,
+                    option_probabilities: option_probs,
+                    chosen_option: chosen_ne.clone(),
+                    reason: format!(
+                        "Viterbi best state (log_prob: {:.4})",
+                        subseq.log_probability
+                    ),
                 });
             }
+        }
+
+        // Add transition probabilities
+        let chosen_pairs: std::collections::HashSet<(usize, usize, usize, usize)> =
+            viterbi_result.subsequences.iter()
+                .flat_map(|subseq| subseq.states.windows(2))
+                .map(|w| (w[0].0, w[0].1, w[1].0, w[1].1))
+                .collect();
+
+        for &(from_t, from_idx, to_t, to_idx, prob) in &viterbi_result.transition_records {
+            debug.transition_probabilities.push(TransitionProbabilityEntry {
+                from_step: from_t,
+                to_step: to_t,
+                from_netelement_id: position_candidates[from_t][from_idx].netelement_id.clone(),
+                to_netelement_id: position_candidates[to_t][to_idx].netelement_id.clone(),
+                transition_probability: prob,
+                is_viterbi_chosen: chosen_pairs.contains(&(from_t, from_idx, to_t, to_idx)),
+            });
         }
     }
 
@@ -1375,16 +1228,13 @@ pub fn calculate_train_path(
     // US6 T140-T145: Fallback to independent projection when path calculation fails
     if train_path.is_none() {
         warnings.push("No continuous path found using topology-based calculation".to_string());
-        if forward_path.is_none() && backward_path.is_none() {
-            warnings.push("Both forward and backward path construction failed".to_string());
-        }
+        warnings.push("Viterbi decoding produced no valid path".to_string());
 
         // T146: Log fallback trigger event
         tracing::warn!(
             gnss_count = gnss_positions.len(),
             netelement_count = netelements.len(),
-            forward_succeeded = forward_path.is_some(),
-            backward_succeeded = backward_path.is_some(),
+            viterbi_subsequences = viterbi_result.subsequences.len(),
             "Path calculation failed, falling back to independent projection"
         );
 

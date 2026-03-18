@@ -68,8 +68,8 @@ This feature implements probabilistic train path calculation through a rail netw
 
 **Scale/Scope**: 
 - 5 new data models (NetRelation, AssociatedNetElement, TrainPath, extended GnssPosition)
-- 6 core algorithm modules (candidate selection, probability calculation, path construction, validation)
-- ~2000 lines of implementation code + ~1500 lines of tests
+- 6 core algorithm modules (candidate selection, emission probability, transition probability, graph, viterbi decoding, debug output)
+- ~3000 lines of implementation code + ~2000 lines of tests
 - Extends existing tp-core with new path module, preserves existing projection module
 
 ## Constitution Check
@@ -180,13 +180,14 @@ tp-core/
 │   │   ├── netrelation.rs    # NEW - topology connections
 │   │   ├── train_path.rs     # NEW - path + associated netelements
 │   │   └── result.rs         # Existing
-│   ├── path.rs               # NEW - path calculation public API
+│   ├── path.rs               # NEW - path calculation public API + PathConfig
 │   ├── path/
 │   │   ├── candidate.rs      # NEW - Phase 1: candidate selection
-│   │   ├── probability.rs    # NEW - Phase 2-3: probability calculations
-│   │   ├── construction.rs   # NEW - Phase 4: path construction
-│   │   ├── selection.rs      # NEW - Phase 5: path selection
-│   │   └── graph.rs          # NEW - network topology graph representation
+│   │   ├── probability.rs    # NEW - Phase 2: emission + transition probability
+│   │   ├── viterbi.rs        # NEW - Phase 3: log-space Viterbi decoding & path reconstruction
+│   │   ├── graph.rs          # NEW - network topology graph (DiGraph with haversine weights)
+│   │   ├── spacing.rs        # NEW - GNSS resampling
+│   │   └── debug.rs          # NEW - debug output export
 │   ├── projection.rs         # Existing (unchanged)
 │   ├── projection/
 │   │   ├── geom.rs           # Existing - REUSE for projection onto path

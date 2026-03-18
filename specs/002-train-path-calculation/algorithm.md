@@ -1,8 +1,8 @@
 # Train Path Calculation Algorithm
 
 **Feature**: Continuous Train Path Calculation with Network Topology  
-**Document Version**: 1.0  
-**Last Updated**: January 8, 2026
+**Document Version**: 2.0  
+**Last Updated**: June 2025
 
 - [Train Path Calculation Algorithm](#train-path-calculation-algorithm)
   - [Overview](#overview)
@@ -11,34 +11,29 @@
     - [Objective](#objective)
     - [Process](#process)
     - [Output](#output)
-  - [Phase 2: Individual Position Probability](#phase-2-individual-position-probability)
+  - [Phase 2: Emission Probability](#phase-2-emission-probability)
     - [Objective](#objective-1)
     - [Formula](#formula)
     - [Distance Component](#distance-component)
     - [Heading Estimation from Adjacent Positions](#heading-estimation-from-adjacent-positions)
     - [Heading Component](#heading-component)
     - [Output](#output-1)
-  - [Phase 3: Aggregate Netelement Probability](#phase-3-aggregate-netelement-probability)
+  - [Phase 3: Viterbi Decoding and Path Reconstruction](#phase-3-viterbi-decoding-and-path-reconstruction)
     - [Objective](#objective-2)
-    - [Formula](#formula-1)
-    - [Average Position Probability (P\_avg)](#average-position-probability-p_avg)
-    - [Coverage Factor (C\_coverage)](#coverage-factor-c_coverage)
-    - [Output](#output-2)
-  - [Phase 4: Path Construction](#phase-4-path-construction)
-    - [Objective](#objective-3)
-    - [Forward Path Construction](#forward-path-construction)
-    - [Backward Path Construction](#backward-path-construction)
-    - [Path Validation](#path-validation)
-    - [Output](#output-3)
-  - [Phase 5: Path Selection](#phase-5-path-selection)
-    - [Objective](#objective-4)
+    - [Topology Graph Construction](#topology-graph-construction)
+    - [Transition Probability](#transition-probability)
+    - [Edge-Zone Optimization](#edge-zone-optimization)
+    - [Log-Space Viterbi Algorithm](#log-space-viterbi-algorithm)
+    - [Penalty Carry-Forward (No Viterbi Breaks)](#penalty-carry-forward-no-viterbi-breaks)
+    - [Backtrace](#backtrace)
+    - [Bridge Netelement Insertion](#bridge-netelement-insertion)
     - [Path Probability Calculation](#path-probability-calculation)
-    - [Selection](#selection)
+    - [Output](#output-2)
   - [Fallback Behavior](#fallback-behavior)
     - [Conditions for Fallback](#conditions-for-fallback)
     - [Fallback Strategy](#fallback-strategy)
   - [Performance Optimization: Resampling](#performance-optimization-resampling)
-    - [Objective](#objective-5)
+    - [Objective](#objective-3)
     - [Process](#process-1)
   - [Configuration Parameters](#configuration-parameters)
   - [Algorithm Properties](#algorithm-properties)
@@ -50,17 +45,15 @@
 
 ## Overview
 
-This document describes the probabilistic algorithm for calculating a continuous train path through a rail network based on GNSS coordinate data. The algorithm determines the most likely sequence of track segments (netelements) that the train traversed, considering network topology constraints, spatial proximity, and directional alignment.
+This document describes the HMM-based map matching algorithm for calculating a continuous train path through a rail network based on GNSS coordinate data. The algorithm uses a Hidden Markov Model (HMM) with Viterbi decoding (Newson & Krumm, 2009) to determine the **globally optimal** sequence of track segments (netelements) that the train traversed, considering network topology constraints, spatial proximity, directional alignment, and route plausibility.
 
 ## Algorithm Phases
 
-The path calculation consists of five main phases:
+The path calculation consists of three main phases:
 
-1. **Candidate Selection** - Identify potential track segments for each GNSS coordinate
-2. **Individual Position Probability** - Calculate likelihood that each GNSS position was on each candidate segment
-3. **Aggregate Netelement Probability** - Calculate overall probability for each track segment across all positions
-4. **Path Construction** - Build candidate paths following navigability rules
-5. **Path Selection** - Choose the optimal path based on probability scores
+1. **Candidate Selection** — Identify potential track segments for each GNSS coordinate
+2. **Emission Probability** — Calculate the likelihood that each GNSS position was on each candidate segment (HMM emission model)
+3. **Viterbi Decoding & Path Reconstruction** — Decode the globally optimal netelement sequence using a log-space Viterbi algorithm with transition probabilities derived from shortest-path routing, then insert bridge netelements to produce the final continuous path
 
 ---
 
@@ -79,24 +72,26 @@ For each GNSS coordinate, identify the track segments that could plausibly conta
 4. Project the GNSS coordinate onto each candidate to determine the exact location on the linear geometry
 5. **Reject edge projections**: Remove candidates where the projection falls at the very start or end of the netelement (intrinsic coordinate < 1×10⁻⁶ or > 1 − 1×10⁻⁶). Projections at the geometric endpoints indicate the GNSS point is more likely located on an adjacent netelement; including them risks linking positions to already-passed or not-yet-reached tracks.
 
+   **Fallback**: If *all* candidates for a position are edge projections (no interior candidate exists), none are removed. This prevents the position from having zero candidates when the GNSS point sits exactly at a netelement connection boundary.
+
 ### Output
 A mapping of each GNSS coordinate to its candidate netelements with projection points.
 
 ---
 
-## Phase 2: Individual Position Probability
+## Phase 2: Emission Probability
 
 ### Objective
-Calculate the probability that each GNSS coordinate was located on each of its candidate netelements.
+Calculate the emission probability that each GNSS coordinate was located on each of its candidate netelements. In HMM terms, this models how likely the observed GNSS measurement is given the hidden state (true netelement).
 
 ### Formula
 
 **For each GNSS coordinate and its candidate netelement:**
 
-The probability that the GNSS position was on the netelement is calculated as:
+The emission probability is:
 
 ```
-P(position on netelement) = P_distance × P_heading
+P_emission(position on netelement) = P_distance × P_heading
 ```
 
 ### Distance Component
@@ -131,7 +126,12 @@ estimated_heading(x) = haversine_bearing(position[x-1], position[x+1])
    |dist(x-1, x) − dist(x, x+1)| / max(dist(x-1, x), dist(x, x+1)) < 0.20
    ```
    A ratio difference ≥ 20% indicates the position may be at a curve apex or the spacing is irregular, making the two-neighbor azimuth unreliable.
-3. **Heading continuity**: The change between consecutive estimated headings must be < 10°. If the heading change between `estimated_heading(x)` and `estimated_heading(x-1)` exceeds 10°, discard `estimated_heading(x)` (set to `None`). This rejects implausible heading jumps that a train cannot physically produce between consecutive positions.
+3. **Heading continuity**: The change between consecutive estimated headings must be < 5°. If the heading change between `estimated_heading(x)` and `estimated_heading(x-1)` exceeds 5°, discard `estimated_heading(x)` (set to `None`). This rejects implausible heading jumps that a train cannot physically produce between consecutive positions.
+4. **Bearing deviation guard**: The forward bearing (from `x-1 → x`) and backward bearing (from `x → x+1`) must not diverge by more than 5°. Specifically:
+   ```
+   |haversine_bearing(x-1, x) − haversine_bearing(x, x+1)| ≤ 5°
+   ```
+   When the two half-bearings diverge (≥ 5°), the midpoint azimuth is unreliable (e.g. at a curve apex), and the estimated heading is discarded (set to `None`).
 
 Estimated headings are computed once for the entire working position set before Phase 2 probability calculation begins.
 
@@ -147,7 +147,7 @@ P_heading = 0                                          [if heading_difference > 
 Where:
 - `heading_difference` = angular difference between GNSS heading and netelement heading at the projection point, with bidirectional track equivalence (a heading and its opposite are both considered aligned), range [0, 90]
 - `heading_scale` = tunable parameter controlling decay rate
-- `cutoff` = configurable threshold in [0, 90] (default: 5 degrees)
+- `cutoff` = configurable threshold in [0, 90] (default: 10 degrees)
 
 **Special Cases:**
 - No heading data available (neither supplied nor estimable from neighbors) → P_heading = 1.0 (no heading constraint)
@@ -158,204 +158,130 @@ For each GNSS position-netelement pair: a probability score between 0 and 1.
 
 ---
 
-## Phase 3: Aggregate Netelement Probability
+## Phase 3: Viterbi Decoding and Path Reconstruction
 
 ### Objective
-Calculate the overall probability that each netelement was part of the actual train path by aggregating evidence from all associated GNSS positions.
+Decode the globally optimal sequence of netelements using the Viterbi algorithm on a Hidden Markov Model. 
 
-### Formula
+### Topology Graph Construction
 
-**For each netelement, two probability values are computed with different roles:**
+Before Viterbi decoding, a directed graph is built from the rail network:
 
-```
-P_avg     = (Σ P(position_i on netelement)) / N      ← used for threshold insertion
-coverage_prob = C_coverage × P_avg                   ← used for junction selection / BFS
-```
+**Graph Structure:**
+- **Nodes** = netelement sides. Each netelement has two sides: start (intrinsic = 0) and end (intrinsic = 1).
+- **Internal edges**: Connect start → end and end → start of the same netelement, weighted with the **haversine length** of the netelement geometry (in meters).
+- **Connection edges**: Derived from netrelations, connecting the appropriate sides of adjacent netelements based on `positionOnA`/`positionOnB` and navigability. These edges have weight **0.0** (zero cost to cross a netelement connection).
 
-- `P_avg` (raw average quality) is used to decide whether the netelement is **inserted** into the candidate map at all. Using the raw average preserves the original threshold behaviour and avoids unfairly excluding short segments that have only a few GNSS associations.
-- `coverage_prob` (coverage-adjusted quality) is used when **comparing** competing netelements at junctions and during BFS candidate ranking. It rewards segments with extensive absolute GNSS coverage.
+This graph representation enables Dijkstra shortest-path queries between any two netelement sides.
 
-### Average Position Probability (P_avg)
+**Implementation**: `DiGraph<NetelementSide, f64>` from the petgraph crate. A `node_map: HashMap<NetelementSide, NodeIndex>` provides O(1) lookup.
 
-```
-P_avg = (Σ P(position_i on netelement)) / N
-```
+### Transition Probability
 
-Where N = number of GNSS positions associated with this netelement.
-
-This represents the mean individual probability across all positions that considered this netelement as a candidate.
-
-### Coverage Factor (C_coverage)
+The transition probability models how plausible it is for the train to move from one candidate netelement to another between consecutive GNSS observations. It follows the formulation of Newson & Krumm (2009):
 
 ```
-covered_meters = (max_intrinsic − min_intrinsic) × netelement_length
-C_coverage     = max(covered_meters / R_eff, N / T).min(1.0)
+P_transition(i → j) = exp(-|d_route - d_gc| / β)  ×  exp(-turn_angle / turn_scale)
 ```
 
 Where:
-- `max_intrinsic`, `min_intrinsic` = maximum and minimum intrinsic coordinates of all GNSS projections onto the netelement (range over [0, 1])
-- `netelement_length` = Haversine length of the netelement geometry in metres
-- `R_eff` = effective reference length (see **Start/End Netelement Adjustment** below)
-- `N` = number of GNSS positions associated with this netelement
-- `T` = total number of GNSS positions in the working set
+- `d_route` = shortest-path distance through the topology graph from the projected point on candidate `i` to the projected point on candidate `j` (computed via Dijkstra)
+- `d_gc` = great-circle (haversine) distance between the two projected points
+- `β` = scale parameter (default: 50.0 meters); higher values tolerate larger detours
+- `turn_angle` = directional heading difference (0–180°) between the exit heading from candidate `i`'s netelement and the entry heading into candidate `j`'s netelement at the connection point
+- `turn_scale` = turn-angle penalty scale (default: 30.0 degrees); smaller values penalise sharper turns more aggressively
 
-For **middle netelements** (not start or end): `R_eff = R = 500 m` (the standard reference coverage length).
+**Route direction**: For each transition, all four (from_side, to_side) combinations are evaluated, and the combination with the highest combined probability (route distance + turn angle) is kept. The exit heading is derived from the last segment of the from-netelement in the direction of travel, and the entry heading from the first segment of the to-netelement in the direction of travel.
 
-**Two-term max ensures fair scoring in both regimes:**
-- `covered_meters / R_eff` rewards netelements with large absolute GNSS footprint (e.g., 880 m on a 1 024 m segment → 1.0)
-- `N / T` provides a proportional fallback for isolated single-point associations where the intrinsic range is zero
+**Properties:**
+- When `d_route ≈ d_gc` (direct route) and the connection is straight-through, P_transition ≈ 1.0
+- When `d_route ≫ d_gc` (large detour), P_transition → 0
+- Same netelement → P_transition = 1.0 (no route needed)
+- Sharp turn at a connection (high `turn_angle`) → P_transition reduced by the turn-angle factor
 
-#### Start/End Netelement Adjustment
+**Shortest-path caching**: Results are cached in a `ShortestPathCache: HashMap<(String, u8, String, u8), Option<f64>>` keyed by `(from_ne_id, from_side, to_ne_id, to_side)`. This avoids redundant Dijkstra runs for recurring origin-destination pairs.
 
-GNSS recording begins and ends at arbitrary positions along a netelement. The portions of the start netelement before the first GNSS position and the end netelement after the last GNSS position were never expected to have GNSS coverage. To avoid penalizing these netelements, the reference denominator `R_eff` is reduced to the **active length** — the portion of the netelement that GNSS data was expected to cover.
+### Edge-Zone Optimization
 
-**Direction inference:**
+To reduce unnecessary Dijkstra computations on long netelements where the train is clearly in the interior (far from any netelement connection), an edge-zone check is applied:
 
-For each netelement, direction is determined by comparing the intrinsic coordinate of the earliest GNSS position (by index) to the latest GNSS position (by index) projected on that netelement:
-- `start_ic` = intrinsic coordinate of the earliest GNSS position on this netelement
-- `end_ic` = intrinsic coordinate of the latest GNSS position on this netelement
-- If `end_ic > start_ic` → train is moving from 0 to 1
-- If `end_ic < start_ic` → train is moving from 1 to 0
+A candidate is **near a netelement edge** if the haversine distance from its projected point to the nearest endpoint of the netelement geometry is ≤ `edge_zone_distance` (default: 50.0 meters).
 
-**Active length calculation:**
+**Optimization rules:**
+- If both candidates `i` and `j` are on the **same netelement** → P_transition = 1.0 (skip Dijkstra)
+- If both candidates are on **different netelements** and both are in the **interior** (not near an edge) → P_transition = 0.0 (impossible to transition without passing through a netelement connection)
+- Otherwise → compute P_transition via Dijkstra normally
 
-| NE role | Direction (0→1) | Direction (1→0) |
-|---------|-----------------|-----------------|
-| **Start NE** | `active = (1.0 − start_ic) × NE_length` | `active = start_ic × NE_length` |
-| **End NE** | `active = end_ic × NE_length` | `active = (1.0 − end_ic) × NE_length` |
+### Log-Space Viterbi Algorithm
 
-Where `start_ic` and `end_ic` refer to the intrinsic coordinates of the first and last GNSS positions of the *entire working set* on that netelement (not the min/max intrinsic of the netelement's candidate range).
+The Viterbi algorithm operates in **log-space** to prevent numerical underflow on long GNSS sequences. All probabilities are stored as natural logarithms.
 
-**Effective reference:**
+**Trellis construction:**
+
+For each time-step `t` and each candidate `j`:
+
 ```
-R_eff = min(R, active_length)
+log_V[t][j] = max_i { log_V[t-1][i] + ln(P_transition(i → j)) + ln(P_emission(t, j)) }
+backptr[t][j] = argmax_i { ... }
 ```
 
-For netelements that are **both** start and end (very short trips where all GNSS positions are on the same netelement), the active length equals the span between the first and last GNSS intrinsic coordinates.
+**Initialization (t = 0):**
+```
+log_V[0][j] = ln(P_emission(0, j))
+backptr[0][j] = None
+```
 
-For netelements with a **single GNSS position** (direction cannot be determined), `covered_meters = 0` and the `N / T` fallback dominates, so no adjustment is needed.
+The algorithm processes each time-step sequentially, computing the best predecessor for each current candidate based on the sum of (1) the previous best log-probability, (2) the log-transition probability, and (3) the log-emission probability.
 
-**Examples:**
+### Penalty Carry-Forward (No Viterbi Breaks)
 
-| Scenario | NE Length | GNSS count (N) | Total GNSS (T) | covered_meters | R_eff | C_coverage | Reasoning |
-|----------|-----------|----------------|----------------|---------------|-------|------------|-----------|
-| Full-length coverage | 1000m | 50 | 50 | 950m | 500m | 1.00 | Exceeds 500m reference |
-| Good coverage | 1000m | 20 | 40 | 600m | 500m | 1.00 | Exceeds 500m reference |
-| Partial coverage | 1000m | 10 | 40 | 300m | 500m | max(0.60, 0.25) = 0.60 | covered_meters term dominates |
-| Short netelement | 135m | 2 | 6 | 130m | 500m | max(0.26, 0.33) = 0.33 | count term dominates |
-| Single position | 100m | 1 | 6 | 0m | 500m | max(0.00, 0.17) = 0.17 | count term prevents zero |
-| Start NE (0→1) | 1000m | 15 | 40 | 360m | min(500, 380) = 380m | max(0.95, 0.38) = 0.95 | active_length caps denominator |
-| End NE (0→1) | 1000m | 10 | 40 | 280m | min(500, 300) = 300m | max(0.93, 0.25) = 0.93 | active_length caps denominator |
+When **all** transition scores at a time-step `t` are `-∞` (no feasible transition from any previous state to any current candidate), the algorithm does **not** create a Viterbi break. Instead, it uses **penalty carry-forward** to maintain a single continuous chain:
 
-**Purpose:**
-- Rewards netelements with large absolute GNSS coverage over those that were only briefly observed
-- The `N / T` fallback ensures isolated points are not silently dropped when comparing junction branches
-- Decoupling from netelement length means a short 135 m segment and a long 1 024 m segment are evaluated on the same absolute scale
-- Start/end adjustment ensures the first and last netelements are not penalized for expected partial coverage
+1. Find the best previous candidate `i*` (highest `log_V[t-1][i*]`)
+2. Compute a carry-forward score: `carry_score = log_V[t-1][i*] + NO_TRANSITION_PENALTY` where `NO_TRANSITION_PENALTY = ln(1×10⁻¹⁰) ≈ −23`
+3. For each current candidate `j` with non-zero emission: `log_V[t][j] = carry_score + ln(P_emission(t, j))`
+4. Set `backptr[t][j] = i*` so the backtrace follows the best previous state
 
-### Output
-For each netelement: `P_avg` (for threshold check in Phase 4) and `coverage_prob` (for junction selection in Phases 4–5).
+This produces a **single unbroken subsequence** for all GNSS input (the GNSS data represents one continuous drive). The heavy penalty ensures that carry-forward transitions are strongly disfavoured relative to genuine topological transitions, but the chain is never severed.
 
----
+**Important**: Because carry-forward preserves chain continuity, the backtrace always yields exactly one subsequence covering the entire GNSS timeline.
 
-## Phase 4: Path Construction
+### Backtrace
 
-### Objective
-Build candidate paths through the network that satisfy continuity and navigability constraints.
+After the forward pass, the single subsequence is decoded via standard backtrace:
 
-### Forward Path Construction
+1. Find the candidate with the highest `log_V[t_end][j]` in the final time-step
+2. Follow `backptr[t][j]` backwards to the start of the sequence
+3. Collect `(position_index, candidate_index)` pairs for each time-step
 
-**Starting Point:**
-- Begin with the netelement having the highest probability among candidates for the **first GNSS position**
+The result is a `ViterbiResult` containing one `ViterbiSubsequence`.
 
-**Iterative Process:**
+### Bridge Netelement Insertion
 
-For each position along the candidate path:
-
-1. **Current Segment:** Track the current netelement and its orientation
-2. **Find Connections:** Query netrelations where:
-   - `elementA` or `elementB` matches the current netelement
-   - `positionOnA` or `positionOnB` matches the current netelement's end position (forward traversal)
-3. **Filter by Navigability:**
-   - Check if the netrelation allows traversal in the direction of travel
-   - Navigability values: `"both"`, `"AB"`, `"BA"`, `"none"`
-4. **Filter by Probability:**
-   - Check if the connected netelement has `P_avg` ≥ minimum threshold (default: 25%)
-   - **Exception:** If it's the only navigable connection, include it regardless of probability
-5. **Bridge BFS for topology gaps:**
-   - If a direct neighbour is **not** in the probability map (no GNSS evidence), perform a bounded BFS (up to 10 hops) through topology-only netelements to find the nearest mapped netelement
-   - Bridge netelements (no GNSS evidence) are inserted with probability 1.0 (topologically certain) to avoid artificially reducing overall path probability
-   - At junctions where multiple mapped candidates exist at the same BFS hop distance, the one with the highest `coverage_prob` is selected
-6. **Handle Branching:**
-   - If multiple valid next segments exist → select the one with the highest `coverage_prob`
-7. **Termination:**
-   - Path continues until reaching coverage of the last GNSS position
-   - Path assigned probability = 0 if it terminates prematurely
-
-### Backward Path Construction
-
-**Starting Point:**
-- Begin with the netelement having the highest probability among candidates for the **last GNSS position**
+Viterbi states represent only the netelements that had GNSS candidates. When consecutive Viterbi states are on **non-adjacent** netelements, the intervening netelements (bridges) must be recovered:
 
 **Process:**
-- Identical to forward construction but traverse in reverse direction
-- Follow netrelations in the opposite navigability direction
-- Construct path from last to first GNSS position
+For each pair of consecutive Viterbi states `(NE_A, NE_B)`:
+1. If `NE_A == NE_B` → no bridge needed
+2. If `NE_A` and `NE_B` are directly connected via a netrelation → no bridge needed
+3. Otherwise, use the Dijkstra predecessor map to trace the intermediate netelements along the shortest path from `NE_A` to `NE_B`
+4. Insert the bridge netelements between the two states in the final path
 
-**Reversal for Comparison:**
-Before comparing with the forward path, the backward path must be reversed:
-1. **Reverse segment order**: [D, C, B, A] → [A, B, C, D]
-2. **Swap intrinsic coordinates** for each AssociatedNetElement:
-   - Original: `start_intrinsic=0.2, end_intrinsic=0.8`
-   - Reversed: `start_intrinsic=0.8, end_intrinsic=0.2`
-
-This ensures the backward path represents the same physical traversal as the forward path for proper comparison.
-
-### Path Validation
-
-A path is considered **valid** if:
-1. It exists in at least one direction (forward or backward construction)
-2. All connections respect navigability constraints
-3. The path spans from first to last GNSS position
-
-**Note:** Paths existing in only one direction are still valid but will have reduced probability (see Phase 5).
-
-### Output
-A set of valid candidate paths, each with forward and/or backward probability scores.
-
----
-
-## Phase 5: Path Selection
-
-### Objective
-Select the single optimal path from all valid candidates based on probability scores.
+Bridge netelements are **not** hidden Viterbi states — they are purely a post-processing step to ensure path continuity.
 
 ### Path Probability Calculation
 
-For each valid candidate path:
+The overall path probability is derived from the Viterbi log-probabilities:
 
 ```
-P(path) = [ P_forward(path) + P_backward(path) ] / 2
+avg_log_prob = (Σ log_probability of all subsequences) / (total number of Viterbi states)
+path_probability = min(exp(avg_log_prob), 1.0)
 ```
 
-Where:
+This represents the geometric mean of per-state probabilities, clamped to [0, 1].
 
-```
-P_forward(path) = Σ(P(netelement_i) × length_i) / Σ(length_i)
-P_backward(path) = Σ(P(netelement_i) × length_i) / Σ(length_i)
-```
-
-- Length-weighted average of constituent netelement probabilities
-- Longer segments have more influence on path probability
-- Computed separately for forward and backward constructions
-- **If path exists in only one direction, use 0 for the missing direction**
-  - Example: Path only exists forward → P(path) = P_forward(path) / 2
-  - This is equivalent to having the path in both directions where one direction has 0 probability
-- Final path probability is always the average of both directions (existing and/or 0)
-
-### Selection
-
-The path with the **highest final probability** is selected as the train path.
+### Output
+A single optimal `TrainPath` consisting of an ordered list of `AssociatedNetElement` segments with intrinsic coordinate ranges, plus an overall probability score.
 
 ---
 
@@ -413,11 +339,14 @@ The algorithm exposes several tunable parameters:
 |-----------|---------|---------|
 | Max nearest netelements | 3 | Limits candidate segments per GNSS position |
 | Distance cutoff | 50 meters | Maximum distance to consider a segment candidate |
-| Heading difference cutoff | 5 degrees | Hard threshold for heading alignment |
-| Minimum probability threshold | 25% | Minimum probability to include segment in path |
+| Heading difference cutoff | 10 degrees | Hard threshold for heading alignment |
+| Minimum probability threshold | 2% | Minimum emission probability for segment inclusion |
 | Resampling distance | 10 meters | Target spacing for performance optimization |
 | Distance scale | 10.0 meters | Controls distance probability decay rate (exponential decay) |
 | Heading scale | 2.0 degrees | Controls heading probability decay rate (exponential decay) |
+| Beta (β) | 50.0 meters | Transition probability scale (Newson & Krumm). Controls tolerance for mismatch between route distance and great-circle distance. Higher values are more forgiving of detours. |
+| Edge-zone distance | 50.0 meters | Distance threshold from projected point to nearest netelement endpoint. Candidates farther than this from any endpoint are considered interior and cannot transition to a different netelement (transition probability = 0). |
+| Turn-angle penalty scale | 30.0 degrees | Controls how aggressively sharp turns at netelement connections are penalised. `exp(-turn_angle / turn_scale)`: smaller values yield stronger penalty for the same angle. |
 
 ---
 
@@ -425,10 +354,11 @@ The algorithm exposes several tunable parameters:
 
 ### Strengths
 
-- **Topology-Aware:** Respects rail network structure and navigability rules
-- **Robust:** Handles noisy GNSS data through probabilistic smoothing
-- **Bidirectional:** Forward/backward validation ensures path consistency
-- **Coverage-Sensitive:** Distance correction favors segments with continuous GNSS coverage
+- **Globally Optimal:** Viterbi decoding finds the most probable netelement sequence across the entire journey, avoiding locally greedy decisions at individual netelement connections
+- **Topology-Aware:** Transition probabilities incorporate actual route distances through the rail network graph
+- **Robust to Noise:** The HMM formulation naturally smooths noisy GNSS data by combining emission and transition evidence
+- **Handles Gaps:** Penalty carry-forward keeps the Viterbi chain continuous even through disconnected network regions; bridge insertion recovers intervening netelements
+- **Scalable:** Edge-zone optimization and shortest-path caching prevent redundant Dijkstra runs, keeping performance practical on large networks
 - **Graceful Degradation:** Fallback mode ensures output even when optimal path cannot be determined
 
 ### Limitations
@@ -436,22 +366,21 @@ The algorithm exposes several tunable parameters:
 - **Assumes Single Traversal:** Cannot handle loops where the same segment is traversed multiple times
 - **Offline Only:** Not designed for real-time streaming processing
 - **Requires Quality Topology:** Network data must be accurate and complete
-- **Parameter Sensitivity:** Performance depends on appropriate configuration for operational context
+- **Parameter Sensitivity:** The β parameter and edge-zone distance require tuning for different network geometries
 
 ### Complexity
 
-- **Time:** O(N × M × B) where:
-  - N = number of GNSS positions
-  - M = average number of candidate netelements per position
-  - B = average branching factor in path construction
-- **Space:** O(P × L) where:
-  - P = number of candidate paths
-  - L = average path length in segments
+- **Time:** O(N × M² × D) where:
+  - N = number of GNSS positions (after resampling)
+  - M = average number of candidate netelements per position (typically 3)
+  - D = average cost of a Dijkstra shortest-path query (amortised by caching)
+- **Space:** O(N × M) for the Viterbi trellis, plus O(E) for the topology graph where E = edges in the network
 
 ---
 
 ## References
 
+- Newson, P. & Krumm, J. (2009). "Hidden Markov Map Matching Through Noise and Sparseness." *ACM SIGSPATIAL GIS 2009*. [PDF](https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-through-noise-and-sparseness/)
 - Feature Specification: [spec.md](spec.md)
 - Functional Requirements: FR-013 through FR-032
 - Configuration Parameters: See spec.md Configuration Parameters section

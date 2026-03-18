@@ -17,16 +17,12 @@
     - [Probability Examples](#probability-examples)
     - [Properties Validation](#properties-validation)
     - [Alternatives Considered](#alternatives-considered-1)
-  - [3. Path Construction Algorithm: Bidirectional Validation](#3-path-construction-algorithm-bidirectional-validation)
-    - [Decision](#decision-2)
-    - [Rationale](#rationale-2)
-    - [Alternatives Considered](#alternatives-considered-2)
-    - [Graph Traversal Implementation](#graph-traversal-implementation)
-  - [4. Distance Coverage Correction Factor](#4-distance-coverage-correction-factor)
-    - [Decision](#decision-3)
-    - [Rationale](#rationale-3)
-    - [Example Scenario](#example-scenario)
-    - [Alternatives Considered](#alternatives-considered-3)
+  - [3. Path Construction Algorithm: Bidirectional Validation *(Superseded)*](#3-path-construction-algorithm-bidirectional-validation-superseded)
+  - [3b. HMM / Viterbi Map-Matching Migration](#3b-hmm--viterbi-map-matching-migration)
+    - [Decision](#decision-2b)
+    - [Rationale](#rationale-2b)
+    - [Reference](#reference-2b)
+  - [4. Distance Coverage Correction Factor *(Superseded)*](#4-distance-coverage-correction-factor-superseded)
   - [5. Reusing Existing Codebase Functions](#5-reusing-existing-codebase-functions)
     - [Functions to Reuse](#functions-to-reuse)
       - [Spatial Indexing (projection/spatial.rs)](#spatial-indexing-projectionspatialrs)
@@ -77,12 +73,12 @@ Use **petgraph** crate (MIT OR Apache-2.0 license) with a directed graph where:
 - **Edges = two types:**
   1. **Internal edges**: Connect start side to end side of the same netelement (representing traversal along the track segment)
   2. **Connection edges**: Netrelations connecting specific sides of different netelements (via positionOnA/positionOnB)
-- Edge weights = unused (navigability is binary: allowed or not)
+- **Edge weights**: Internal edges carry `haversine_length` (meters); connection edges carry weight `0.0`. Weights are used by Dijkstra to compute shortest-path distances for the HMM transition probability (see Section 3b).
 
 ### Rationale
 - **Accurate topology**: NetRelations connect to specific ends of netelements (positionOnA/positionOnB = 0 or 1), so nodes must represent these connection points
 - **Proper directionality**: A train traverses a netelement from one side to the other, and can enter/exit at either end
-- **Enables complex junctions**: Multiple netelements can connect to the same side (e.g., three tracks converging at a switch)
+- **Enables complex netelement connections**: Multiple netelements can connect to the same side (e.g., three tracks converging at a switch)
 - **Established library**: petgraph is the de facto standard for graph algorithms in Rust (>7M downloads)
 - **Rich API**: Provides traversal algorithms (DFS, BFS), topological operations, and path finding
 - **Zero-copy construction**: Can build graph from indices without duplicating netelement data
@@ -228,105 +224,47 @@ Default scale parameters:
 
 ---
 
-## 3. Path Construction Algorithm: Bidirectional Validation
+## 3. Path Construction Algorithm: Bidirectional Validation *(Superseded)*
 
-### Decision
-Implement **forward and backward path construction** with consistency validation:
+> **Note**: This section documents the *original* research decision. The bidirectional greedy approach was replaced by an HMM / Viterbi decoder in Section 3b. Kept for historical context.
 
-**Forward Construction:**
-1. Start from netelement with highest probability at first GNSS position
-2. For each subsequent position, select next netelement that is:
-   - Navigable (connected via netrelations graph)
-   - Above probability threshold (default 25%)
-   - Spatially progressing (avoid backtracking)
-3. Build ordered path: [A, B, C, D]
-
-**Backward Construction:**
-1. Start from netelement with highest probability at last GNSS position
-2. For each previous position, select previous netelement (reverse navigation)
-3. Build path in backward direction: [D, C, B, A]
-4. **Reverse the path** for comparison:
-   - Reverse segment order: [D, C, B, A] → [A, B, C, D]
-   - Swap start/end intrinsics for each segment: if segment had start=0.2, end=0.8 → becomes start=0.8, end=0.2
-
-**Validation:**
-- Compare reversed backward path with forward path
-- Accept path if forward == backward (same segment sequence and intrinsic ranges)
-- If forward != backward: path probability = (P_forward + 0) / 2 (unidirectional path)
-- If path terminates early (no navigable connection): probability = 0
-
-### Rationale
-- **Bidirectional validation**: Ensures path consistency; reduces false positives from noisy data
-- **Handles ambiguity**: When multiple paths exist, bidirectional agreement increases confidence
-- **Graceful degradation**: Unidirectional paths still valid but penalized (50% probability reduction)
-- **Prevents dead ends**: Early termination detection avoids incomplete paths
-
-### Alternatives Considered
-1. **Forward only**: Faster but less robust; may select wrong path at ambiguous junctions
-2. **All-paths search**: Exponential complexity; impractical for large networks
-
-### Graph Traversal Implementation
-Use petgraph's `neighbors()` for O(1) edge lookup:
-```rust
-// Forward: find netelements navigable FROM current segment
-let candidates = graph.neighbors(current_node)
-    .filter(|&next| meets_probability_threshold(next, position));
-
-// Backward: find netelements navigable TO current segment (reverse edges)
-let candidates = graph.neighbors_directed(current_node, Direction::Incoming)
-    .filter(|&prev| meets_probability_threshold(prev, position));
-```
+The original design used forward and backward greedy path construction with consistency validation, averaging both directions' probabilities. Limitations — locally optimal connection decisions, sensitivity to ordering — motivated the migration to a globally optimal Viterbi algorithm.
 
 ---
 
-## 4. Coverage Correction Factor
+## 3b. HMM / Viterbi Map-Matching Migration
 
 ### Decision
-Calculate an **absolute coverage score** for each netelement using two probability roles:
+Replace the bidirectional greedy path construction (Section 3) and coverage-factor aggregation (Section 4) with a **Hidden Markov Model (HMM) map-matching** algorithm decoded via the **Viterbi algorithm**, following Newson & Krumm (2009).
 
-```rust
-// For netelement with N associated GNSS positions out of T total working positions:
-let max_intrinsic = positions.iter().map(|p| p.intrinsic).fold(f64::MIN, f64::max);
-let min_intrinsic = positions.iter().map(|p| p.intrinsic).fold(f64::MAX, f64::min);
-let covered_meters = (max_intrinsic - min_intrinsic) * netelement_length;
-const REFERENCE_COVERAGE_METERS: f64 = 500.0;
-let coverage_factor = (covered_meters / REFERENCE_COVERAGE_METERS)
-    .max(n as f64 / total_gnss_count as f64)
-    .min(1.0);
-
-// Threshold probability — used for candidate map insertion only:
-let avg_prob = total_prob / n as f64;
-// Selection probability — used for junction comparison and BFS ranking:
-let coverage_prob = coverage_factor * avg_prob;
-```
-
-**Two-role design**: `avg_prob` governs whether a netelement enters the path candidate map (preserving the original 25% threshold behaviour regardless of coverage). `coverage_prob` governs which branch is selected when the topology offers multiple options at a junction.
+The three-phase pipeline:
+1. **Candidate Selection** — same as before (spatial index lookup per GNSS position)
+2. **Emission Probability** — same exponential-decay formula (distance × heading)
+3. **Viterbi Decoding & Path Reconstruction** — replaces old Phases 3–5:
+   - Build a topology graph with haversine-length edge weights
+   - Compute transition probability: `exp(-|d_route - d_gc| / β)` where `d_route` = Dijkstra shortest path, `d_gc` = great-circle distance
+   - Apply edge-zone optimisation to skip Dijkstra for interior candidates on different netelements
+   - Run a single-pass log-space Viterbi to find the globally optimal netelement sequence
+   - Detect breaks (all transitions −∞) and immediately reinitialise a new sub-sequence
+   - Back-trace the optimal state sequence from the Viterbi trellis
+   - Insert bridge netelements via Dijkstra predecessor backtracking for continuity
+   - Compute path probability as `min(exp(avg_log_prob_per_state), 1.0)`
 
 ### Rationale
-- **Absolute scale**: Normalising against a fixed 500 m reference instead of the netelement's own length rewards long segments with genuine coverage (880 m on a 1 024 m segment → factor 1.0) over short segments that happened to be visited (135 m → factor 0.27). This correctly biases junction selection toward the more-traversed branch.
-- **Count fallback**: `N / T` ensures isolated single-point candidates still receive a meaningful score when the intrinsic range is zero, preventing silent ties at junctions.
-- **Threshold independence**: Decoupling the insertion threshold from coverage means sparse test data with few GNSS points (e.g., 2 GNSS positions on a short netelement) still passes the 25% threshold as long as `avg_prob` is sufficient.
+- **Global optimality**: Viterbi considers all candidates at every time-step simultaneously, avoiding the locally optimal connection decisions of the greedy approach
+- **Single-pass**: No need for separate forward and backward construction, averaging, or BFS bridge search
+- **Eliminates coverage factor**: Transition probability naturally penalises netelements that require long or tortuous routes, removing the need for the ad-hoc coverage-factor heuristic
+- **Well-studied**: HMM map matching is the standard approach in the literature (Newson & Krumm 2009, Lou et al. 2009)
+- **Efficient**: Edge-zone optimisation and shortest-path caching keep Dijkstra calls manageable; overall complexity is O(T × C² × E) where T = time-steps, C = max candidates, E = graph edges (dominated by Dijkstra)
 
-### Example Scenario
-```
-Junction: netelement 88_L_127 connects to 88_L_126 (135 m) and 88_L_9748 (1024 m).
-Total working GNSS: 6 positions.
+### Reference
+Newson, P. & Krumm, J. (2009). *Hidden Markov Map Matching Through Noise and Sparseness.* Proceedings of the 17th ACM SIGSPATIAL International Conference on Advances in Geographic Information Systems, pp. 336–343.
 
-88_L_126:  2 GNSS, avg_prob = 0.24, covered = 130 m
-  coverage_factor = max(130/500, 2/6) = max(0.26, 0.33) = 0.33
-  coverage_prob   = 0.33 × 0.24 = 0.079
+---
 
-88_L_9748: 5 GNSS, avg_prob = 0.95, covered = 880 m
-  coverage_factor = max(880/500, 5/6) = max(1.0, 0.83) = 1.0  (capped)
-  coverage_prob   = 1.0 × 0.95 = 0.95
+## 4. Distance Coverage Correction Factor *(Superseded)*
 
-BFS selects 88_L_9748 (higher coverage_prob) — correct branch.
-```
-
-### Alternatives Considered
-1. **Consecutive-distance ratio** (original design): `consecutive_distances / netelement_length`; biased against long netelements with sparse GNSS, and produces zero for single-point associations.
-2. **Simple average**: P = mean(all position probabilities); ignores how much of the netelement was actually traversed.
-3. **Count-based**: P = P_avg × (N / T); correct direction but does not account for the spatial spread of GNSS projections along the netelement.
+> **Note**: This section documents the *original* research decision. The coverage-factor heuristic was eliminated by the HMM / Viterbi migration (Section 3b). Transition probability now handles connection selection via shortest-path routing, making the explicit coverage factor unnecessary. Kept for historical context.
 
 ---
 
@@ -516,7 +454,7 @@ When path calculation fails (no navigable path found):
 #### Integration Tests (`tests/integration/`)
 - **End-to-end scenarios**:
   1. Simple linear path: 10 GNSS positions, 5 segments, single path
-  2. Branch junction: Path splits, correct branch selected based on probability
+  2. Branch netelement connection: Path splits, correct branch selected based on probability
   3. Missing connection: Navigability gap triggers fallback
   4. Ambiguous path: Multiple paths, highest probability wins
   5. Sparse GNSS data: Large gaps between positions
@@ -576,8 +514,8 @@ tp-cli \
   --distance-scale 10.0 \
   --heading-scale 2.0 \
   --cutoff-distance 50.0 \
-  --heading-cutoff 5.0 \
-  --probability-threshold 0.25 \
+  --heading-cutoff 10.0 \
+  --probability-threshold 0.02 \
   --resampling-distance 10.0 \
   --max-candidates 3
 
@@ -637,10 +575,10 @@ tp-cli simple-projection \
 ## Summary of Research Outcomes
 
 ### Technical Decisions Finalized
-1. ✅ Network topology: petgraph directed graph
-2. ✅ Probability formula: Negative exponential decay for distance and heading
-3. ✅ Path construction: Bidirectional validation with consistency check
-4. ✅ Coverage correction: Consecutive position distance weighting
+1. ✅ Network topology: petgraph directed graph with haversine-length edge weights
+2. ✅ Probability formula: Negative exponential decay for distance and heading (emission probability)
+3. ✅ Path decoding: HMM / Viterbi algorithm (Newson & Krumm 2009) — *replaced bidirectional greedy*
+4. ✅ Connection selection: Transition probability via shortest-path routing — *replaced coverage factor*
 5. ✅ Code reuse: NetworkIndex, projection functions, I/O infrastructure
 6. ✅ Performance: Configurable resampling for high-frequency GNSS data
 7. ✅ Error handling: Extend ProjectionError, graceful fallback to independent projection
@@ -649,10 +587,10 @@ tp-cli simple-projection \
 10. ✅ Dependencies: petgraph (Apache-2.0 compatible)
 
 ### Unknowns Resolved
-- ~~How to represent network topology~~ → petgraph directed graph
+- ~~How to represent network topology~~ → petgraph directed graph with haversine-length weights
 - ~~Probability formula details~~ → Exponential decay with scale parameters
-- ~~Path validation approach~~ → Bidirectional construction with consistency check
-- ~~Coverage correction calculation~~ → Consecutive position distance ratio
+- ~~Path decoding approach~~ → HMM / Viterbi (replaced bidirectional greedy)
+- ~~Connection selection~~ → Transition probability (replaced coverage factor)
 - ~~Resampling strategy~~ → Configurable distance-based resampling
 - ~~License compatibility~~ → All dependencies Apache-2.0 compatible
 

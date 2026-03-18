@@ -210,8 +210,8 @@ These parameters control the path calculation algorithm. The defaults work well 
 | `--distance-scale` | `10.0` | Distance exponential decay scale (meters) |
 | `--heading-scale` | `2.0` | Heading exponential decay scale (degrees) |
 | `--cutoff-distance` | `50.0` | Maximum distance for candidate selection (meters) |
-| `--heading-cutoff` | `5.0` | Maximum heading difference before rejection (degrees) |
-| `--probability-threshold` | `0.25` | Minimum probability for path segment inclusion |
+| `--heading-cutoff` | `10.0` | Maximum heading difference before rejection (degrees) |
+| `--probability-threshold` | `0.02` | Minimum probability for path segment inclusion |
 | `--max-candidates` | `3` | Maximum candidate netelements per GNSS position |
 | `--resampling-distance` | _(none)_ | Resample GNSS data at this interval (meters) |
 

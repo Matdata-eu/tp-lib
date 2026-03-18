@@ -49,10 +49,10 @@ pub struct PathConfig {
     /// Maximum distance for candidate selection (default: 50.0 meters)
     pub cutoff_distance: f64,
     
-    /// Maximum heading difference before rejection (default: 5.0 degrees)
+    /// Maximum heading difference before rejection (default: 10.0 degrees)
     pub heading_cutoff: f64,
     
-    /// Minimum probability threshold for path inclusion (default: 0.25)
+    /// Minimum probability threshold for path inclusion (default: 0.02)
     pub probability_threshold: f64,
     
     /// Resampling distance for high-frequency GNSS data (default: None)
@@ -70,8 +70,8 @@ impl Default for PathConfig {
             distance_scale: 10.0,
             heading_scale: 2.0,
             cutoff_distance: 50.0,
-            heading_cutoff: 5.0,
-            probability_threshold: 0.25,
+            heading_cutoff: 10.0,
+            probability_threshold: 0.02,
             resampling_distance: None,
             max_candidates: 3,
         }
@@ -142,8 +142,8 @@ impl PathConfigBuilder {
             distance_scale: self.distance_scale.unwrap_or(10.0),
             heading_scale: self.heading_scale.unwrap_or(2.0),
             cutoff_distance: self.cutoff_distance.unwrap_or(50.0),
-            heading_cutoff: self.heading_cutoff.unwrap_or(5.0),
-            probability_threshold: self.probability_threshold.unwrap_or(0.25),
+            heading_cutoff: self.heading_cutoff.unwrap_or(10.0),
+            probability_threshold: self.probability_threshold.unwrap_or(0.02),
             resampling_distance: self.resampling_distance.flatten(),
             max_candidates: self.max_candidates.unwrap_or(3),
         };

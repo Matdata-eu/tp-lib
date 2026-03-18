@@ -1,145 +1,85 @@
-//! Debug information export utilities for path calculation (US7)
+﻿//! Debug information export utilities for path calculation (US7)
 //!
-//! This module provides functions to export intermediate calculation results
+//! This module provides functions to export intermediate HMM calculation results
 //! for troubleshooting and parameter tuning.
-
+//!
+//! Output files are numbered by phase:
+//! 1. `01_emission_probabilities.geojson` â€“ Emission probabilities: links from each GNSS
+//!    position to its candidate netelements with distance / heading probabilities.
+//! 2. `02_transition_probabilities.geojson` â€“ Transition probabilities between every
+//!    feasible (non-zero) candidate pair across consecutive GNSS steps.
+//! 3. `03_viterbi_trace.geojson` â€“ Viterbi decoding trace: the netelement selected at
+//!    each observation step.
+//! 4. `04_candidate_netelements.geojson` â€“ All candidate netelements with aggregate
+//!    emission probabilities and Viterbi membership flag.
+//! 5. `05_selected_path.geojson` â€“ Only the netelements that form the final Viterbi
+//!    path (including bridge segments).
 use crate::errors::ProjectionError;
 use crate::path::DebugInfo;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-/// Export candidate paths to a JSON file (T154)
+/// Export all HMM debug information to numbered GeoJSON files (T158)
 ///
-/// Writes all candidate paths evaluated during path construction to a JSON file.
-///
-/// # Arguments
-///
-/// * `debug_info` - Debug info containing candidate paths
-/// * `output_path` - Path to write the JSON file
-///
-/// # Returns
-///
-/// Ok(()) if export succeeds, Err if file writing fails
-pub fn export_candidate_paths<P: AsRef<Path>>(
-    debug_info: &DebugInfo,
-    output_path: P,
-) -> Result<(), ProjectionError> {
-    let json = serde_json::to_string_pretty(&debug_info.candidate_paths).map_err(|e| {
-        ProjectionError::InvalidGeometry(format!("Failed to serialize candidate paths: {}", e))
-    })?;
-
-    let mut file = File::create(output_path.as_ref())?;
-    file.write_all(json.as_bytes())?;
-
-    Ok(())
-}
-
-/// Export position candidates to a JSON file (T155)
-///
-/// Writes candidate netelements and probabilities for each GNSS coordinate.
-///
-/// # Arguments
-///
-/// * `debug_info` - Debug info containing position candidates
-/// * `output_path` - Path to write the JSON file
-///
-/// # Returns
-///
-/// Ok(()) if export succeeds, Err if file writing fails
-pub fn export_position_candidates<P: AsRef<Path>>(
-    debug_info: &DebugInfo,
-    output_path: P,
-) -> Result<(), ProjectionError> {
-    let json = serde_json::to_string_pretty(&debug_info.position_candidates).map_err(|e| {
-        ProjectionError::InvalidGeometry(format!("Failed to serialize position candidates: {}", e))
-    })?;
-
-    let mut file = File::create(output_path.as_ref())?;
-    file.write_all(json.as_bytes())?;
-
-    Ok(())
-}
-
-/// Export decision tree to a JSON file (T156)
-///
-/// Writes the path selection decision tree showing bidirectional averaging
-/// and final path selection reasoning.
-///
-/// # Arguments
-///
-/// * `debug_info` - Debug info containing decision tree
-/// * `output_path` - Path to write the JSON file
-///
-/// # Returns
-///
-/// Ok(()) if export succeeds, Err if file writing fails
-pub fn export_decision_tree<P: AsRef<Path>>(
-    debug_info: &DebugInfo,
-    output_path: P,
-) -> Result<(), ProjectionError> {
-    let json = serde_json::to_string_pretty(&debug_info.decision_tree).map_err(|e| {
-        ProjectionError::InvalidGeometry(format!("Failed to serialize decision tree: {}", e))
-    })?;
-
-    let mut file = File::create(output_path.as_ref())?;
-    file.write_all(json.as_bytes())?;
-
-    Ok(())
-}
-
-/// Export all debug information to separate files (T158)
-///
-/// Convenience function that exports all debug info to a directory:
-/// - candidates.json - All candidate paths with probabilities
-/// - positions.json - Position candidates per GNSS coordinate  
-/// - decisions.json - Decision tree showing path selection
-///
-/// # Arguments
-///
-/// * `debug_info` - Debug info to export
-/// * `output_dir` - Directory to write files to
-///
-/// # Returns
-///
-/// Ok(()) if all exports succeed, Err if any fails
+/// Writes five phase-numbered files to `output_dir`:
+/// - `01_emission_probabilities.geojson`
+/// - `02_transition_probabilities.geojson`
+/// - `03_viterbi_trace.geojson`
+/// - `04_candidate_netelements.geojson`
+/// - `05_selected_path.geojson`
 pub fn export_all_debug_info<P: AsRef<Path>>(
     debug_info: &DebugInfo,
     output_dir: P,
 ) -> Result<(), ProjectionError> {
     let dir = output_dir.as_ref();
-
-    // Create directory if it doesn't exist
     std::fs::create_dir_all(dir)?;
 
-    // Export each component
-    if !debug_info.candidate_paths.is_empty() {
-        export_candidate_paths(debug_info, dir.join("candidates.json"))?;
-    }
-
     if !debug_info.position_candidates.is_empty() {
-        export_position_candidates(debug_info, dir.join("positions.json"))?;
-        export_phase2_geojson(debug_info, dir.join("phase2_candidates.geojson"))?;
+        export_hmm_emission_probabilities(
+            debug_info,
+            dir.join("01_emission_probabilities.geojson"),
+        )?;
     }
 
     if !debug_info.decision_tree.is_empty() {
-        export_decision_tree(debug_info, dir.join("decisions.json"))?;
+        export_hmm_viterbi_trace(debug_info, dir.join("03_viterbi_trace.geojson"))?;
     }
 
     if !debug_info.netelement_probabilities.is_empty() {
-        export_phase3_geojson(debug_info, dir.join("phase3_netelements.geojson"))?;
-        export_phase4_geojson(debug_info, dir.join("phase4_netelement_map.geojson"))?;
+        export_hmm_candidate_netelements(
+            debug_info,
+            dir.join("04_candidate_netelements.geojson"),
+        )?;
+        export_hmm_selected_path(debug_info, dir.join("05_selected_path.geojson"))?;
+    }
+
+    if !debug_info.transition_probabilities.is_empty() {
+        export_hmm_transition_probabilities(
+            debug_info,
+            dir.join("02_transition_probabilities.geojson"),
+        )?;
     }
 
     Ok(())
 }
 
-/// Export Phase 2 (GNSS-level probability) debug data as GeoJSON
+/// Export Phase 1 â€“ HMM emission probabilities as GeoJSON
 ///
-/// Produces a FeatureCollection with:
-/// - Point features for each GNSS position
-/// - LineString features from each GNSS position to its candidate projections
-pub fn export_phase2_geojson<P: AsRef<Path>>(
+/// Produces a FeatureCollection with one LineString per GNSS-position Ã— candidate
+/// netelement pair, recording the emission probability components so that the HMM
+/// observation model can be inspected spatially.
+///
+/// Properties per feature:
+/// - `step`                   â€“ GNSS position index (0-based)
+/// - `netelement_id`          â€“ candidate netelement
+/// - `emission_probability`   â€“ combined (distance Ã— heading) emission probability
+/// - `distance_probability`   â€“ distance component
+/// - `distance_m`             â€“ absolute distance in metres
+/// - `heading_probability`    â€“ heading component (omitted when unavailable)
+/// - `heading_difference_deg` â€“ absolute heading difference in degrees (omitted when unavailable)
+/// - `status`                 â€“ `"selected"`, `"candidate"`, or `"rejected"`
+pub fn export_hmm_emission_probabilities<P: AsRef<Path>>(
     debug_info: &DebugInfo,
     output_path: P,
 ) -> Result<(), ProjectionError> {
@@ -149,70 +89,39 @@ pub fn export_phase2_geojson<P: AsRef<Path>>(
     let mut features = Vec::new();
 
     for pos in &debug_info.position_candidates {
-        // Point feature for the GNSS position
-        let point_geom = Geometry::new(Value::Point(vec![pos.coordinates.1, pos.coordinates.0]));
-        let mut props = Map::new();
-        props.insert("feature_type".to_string(), JsonValue::from("gnss_position"));
-        props.insert(
-            "position_index".to_string(),
-            JsonValue::from(pos.position_index as i64),
-        );
-        props.insert(
-            "timestamp".to_string(),
-            JsonValue::from(pos.timestamp.clone()),
-        );
-        if let Some(ref sel) = pos.selected_netelement {
-            props.insert(
-                "selected_netelement".to_string(),
-                JsonValue::from(sel.clone()),
-            );
-        }
-        features.push(Feature {
-            bbox: None,
-            geometry: Some(point_geom),
-            id: None,
-            properties: Some(props),
-            foreign_members: None,
-        });
-
-        // LineString features from GNSS to each candidate projection
         for candidate in &pos.candidates {
             let line_geom = Geometry::new(Value::LineString(vec![
                 vec![pos.coordinates.1, pos.coordinates.0],
                 vec![candidate.projected_lon, candidate.projected_lat],
             ]));
-            let mut line_props = Map::new();
-            line_props.insert(
-                "feature_type".to_string(),
-                JsonValue::from("projection_line"),
-            );
-            line_props.insert(
-                "position_index".to_string(),
+            let mut props = Map::new();
+            props.insert(
+                "step".to_string(),
                 JsonValue::from(pos.position_index as i64),
             );
-            line_props.insert(
+            props.insert(
                 "netelement_id".to_string(),
                 JsonValue::from(candidate.netelement_id.clone()),
             );
-            line_props.insert(
-                "distance".to_string(),
-                JsonValue::from(candidate.distance),
+            props.insert(
+                "emission_probability".to_string(),
+                JsonValue::from(candidate.combined_probability),
             );
-            if let Some(hd) = candidate.heading_difference {
-                line_props.insert("heading_difference".to_string(), JsonValue::from(hd));
-            }
-            line_props.insert(
+            props.insert(
                 "distance_probability".to_string(),
                 JsonValue::from(candidate.distance_probability),
             );
+            props.insert("distance_m".to_string(), JsonValue::from(candidate.distance));
             if let Some(hp) = candidate.heading_probability {
-                line_props.insert("heading_probability".to_string(), JsonValue::from(hp));
+                props.insert("heading_probability".to_string(), JsonValue::from(hp));
             }
-            line_props.insert(
-                "combined_probability".to_string(),
-                JsonValue::from(candidate.combined_probability),
-            );
-            line_props.insert(
+            if let Some(hd) = candidate.heading_difference {
+                props.insert(
+                    "heading_difference_deg".to_string(),
+                    JsonValue::from(hd),
+                );
+            }
+            props.insert(
                 "status".to_string(),
                 JsonValue::from(candidate.status.clone()),
             );
@@ -220,30 +129,158 @@ pub fn export_phase2_geojson<P: AsRef<Path>>(
                 bbox: None,
                 geometry: Some(line_geom),
                 id: None,
-                properties: Some(line_props),
+                properties: Some(props),
                 foreign_members: None,
             });
         }
     }
 
+    let mut fc_members = serde_json::Map::new();
+    fc_members.insert("phase".to_string(), JsonValue::from(1i64));
+    fc_members.insert(
+        "description".to_string(),
+        JsonValue::from(
+            "HMM emission probabilities: links from each GNSS position to its candidate netelements",
+        ),
+    );
+
     let fc = FeatureCollection {
         bbox: None,
         features,
-        foreign_members: None,
+        foreign_members: Some(fc_members),
     };
     let json = serde_json::to_string_pretty(&fc).map_err(|e| {
-        ProjectionError::InvalidGeometry(format!("Failed to serialize phase2 GeoJSON: {}", e))
+        ProjectionError::InvalidGeometry(format!(
+            "Failed to serialize emission probabilities GeoJSON: {}",
+            e
+        ))
     })?;
     let mut file = File::create(output_path.as_ref())?;
     file.write_all(json.as_bytes())?;
     Ok(())
 }
 
-/// Export Phase 3 (netelement-level probability) debug data as GeoJSON
+/// Export Phase 3 â€“ Viterbi decoding trace as GeoJSON
 ///
-/// Produces a FeatureCollection with LineString features for every netelement
-/// that had a non-zero probability, with aggregated probability properties.
-pub fn export_phase3_geojson<P: AsRef<Path>>(
+/// Produces a FeatureCollection with one LineString feature per HMM decoding step
+/// (one per GNSS observation), linking the raw GNSS point to the projected point on
+/// the netelement chosen by the Viterbi algorithm at that step.  Features with no
+/// matching candidate are emitted with `null` geometry so they still appear in
+/// attribute tables.
+///
+/// Properties per feature:
+/// - `step`                 â€" observation index (0-based)
+/// - `netelement_id`        â€" the netelement chosen at this step
+/// - `decision_type`        â€" type of Viterbi event (`"viterbi_init"` or `"viterbi_transition"`)
+/// - `selected_probability` â€" emission probability of the chosen candidate (when available)
+/// - `alternatives_count`   â€“ number of alternatives considered
+/// - `reason`               â€“ human-readable selection rationale
+pub fn export_hmm_viterbi_trace<P: AsRef<Path>>(
+    debug_info: &DebugInfo,
+    output_path: P,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use serde_json::{Map, Value as JsonValue};
+
+    let pos_lookup: std::collections::HashMap<usize, &crate::path::PositionCandidates> =
+        debug_info
+            .position_candidates
+            .iter()
+            .map(|pc| (pc.position_index, pc))
+            .collect();
+
+    let mut features = Vec::new();
+
+    for decision in &debug_info.decision_tree {
+        let (geometry, selected_probability) = match pos_lookup.get(&decision.step) {
+            Some(pos) => {
+                match pos
+                    .candidates
+                    .iter()
+                    .find(|c| c.netelement_id == decision.chosen_option)
+                {
+                    Some(c) => {
+                        let geom = Geometry::new(Value::LineString(vec![
+                            vec![pos.coordinates.1, pos.coordinates.0],
+                            vec![c.projected_lon, c.projected_lat],
+                        ]));
+                        (Some(geom), Some(c.combined_probability))
+                    }
+                    None => (None, None),
+                }
+            }
+            None => (None, None),
+        };
+
+        let mut props = Map::new();
+        props.insert("step".to_string(), JsonValue::from(decision.step as i64));
+        props.insert(
+            "netelement_id".to_string(),
+            JsonValue::from(decision.chosen_option.clone()),
+        );
+        props.insert(
+            "decision_type".to_string(),
+            JsonValue::from(decision.decision_type.clone()),
+        );
+        if let Some(prob) = selected_probability {
+            props.insert("selected_probability".to_string(), JsonValue::from(prob));
+        }
+        props.insert(
+            "alternatives_count".to_string(),
+            JsonValue::from(decision.options.len() as i64),
+        );
+        props.insert(
+            "reason".to_string(),
+            JsonValue::from(decision.reason.clone()),
+        );
+
+        features.push(Feature {
+            bbox: None,
+            geometry,
+            id: None,
+            properties: Some(props),
+            foreign_members: None,
+        });
+    }
+
+    let mut fc_members = serde_json::Map::new();
+    fc_members.insert("phase".to_string(), JsonValue::from(3i64));
+    fc_members.insert(
+        "description".to_string(),
+        JsonValue::from(
+            "HMM Viterbi decoding trace: links from each GNSS position to the chosen netelement",
+        ),
+    );
+
+    let fc = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: Some(fc_members),
+    };
+    let json = serde_json::to_string_pretty(&fc).map_err(|e| {
+        ProjectionError::InvalidGeometry(format!(
+            "Failed to serialize Viterbi trace GeoJSON: {}",
+            e
+        ))
+    })?;
+    let mut file = File::create(output_path.as_ref())?;
+    file.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Export Phase 4 â€“ All candidate netelements with aggregate probabilities as GeoJSON
+///
+/// Produces a FeatureCollection with LineString features for every netelement that was
+/// considered as an HMM candidate state, annotated with aggregate emission probabilities
+/// and a flag indicating Viterbi path membership.
+///
+/// Properties per feature:
+/// - `netelement_id`            â€“ netelement identifier
+/// - `avg_emission_probability` â€“ average emission probability across matched positions
+/// - `position_count`           â€“ number of GNSS positions for which this was a candidate
+/// - `in_viterbi_path`          â€“ whether this netelement is part of the decoded path
+/// - `is_bridge`                â€“ whether this segment was inserted as a topological bridge
+pub fn export_hmm_candidate_netelements<P: AsRef<Path>>(
     debug_info: &DebugInfo,
     output_path: P,
 ) -> Result<(), ProjectionError> {
@@ -263,21 +300,18 @@ pub fn export_phase3_geojson<P: AsRef<Path>>(
             JsonValue::from(ne.netelement_id.clone()),
         );
         props.insert(
-            "coverage_probability".to_string(),
-            JsonValue::from(ne.coverage_probability),
-        );
-        props.insert(
-            "avg_probability".to_string(),
-            JsonValue::from(ne.avg_probability),
+            "avg_emission_probability".to_string(),
+            JsonValue::from(ne.avg_emission_probability),
         );
         props.insert(
             "position_count".to_string(),
             JsonValue::from(ne.position_count as i64),
         );
         props.insert(
-            "in_netelement_map".to_string(),
-            JsonValue::from(ne.in_netelement_map),
+            "in_viterbi_path".to_string(),
+            JsonValue::from(ne.in_viterbi_path),
         );
+        props.insert("is_bridge".to_string(), JsonValue::from(ne.is_bridge));
         features.push(Feature {
             bbox: None,
             geometry: Some(geom),
@@ -287,24 +321,42 @@ pub fn export_phase3_geojson<P: AsRef<Path>>(
         });
     }
 
+    let mut fc_members = serde_json::Map::new();
+    fc_members.insert("phase".to_string(), JsonValue::from(4i64));
+    fc_members.insert(
+        "description".to_string(),
+        JsonValue::from(
+            "HMM candidate netelements: all states considered during Viterbi decoding",
+        ),
+    );
+
     let fc = FeatureCollection {
         bbox: None,
         features,
-        foreign_members: None,
+        foreign_members: Some(fc_members),
     };
     let json = serde_json::to_string_pretty(&fc).map_err(|e| {
-        ProjectionError::InvalidGeometry(format!("Failed to serialize phase3 GeoJSON: {}", e))
+        ProjectionError::InvalidGeometry(format!(
+            "Failed to serialize candidate netelements GeoJSON: {}",
+            e
+        ))
     })?;
     let mut file = File::create(output_path.as_ref())?;
     file.write_all(json.as_bytes())?;
     Ok(())
 }
 
-/// Export Phase 4 (netelement_map) debug data as GeoJSON
+/// Export Phase 5 â€“ Selected Viterbi path netelements as GeoJSON
 ///
-/// Produces a FeatureCollection with LineString features only for netelements
-/// that passed the probability threshold and were included in the netelement_map.
-pub fn export_phase4_geojson<P: AsRef<Path>>(
+/// Produces a FeatureCollection with LineString features only for the netelements
+/// that appear in the final Viterbi path (including topological bridge segments).
+///
+/// Properties per feature:
+/// - `netelement_id`            â€“ netelement identifier
+/// - `avg_emission_probability` â€“ average emission probability (0 for bridges)
+/// - `position_count`           â€“ number of GNSS positions associated (0 for bridges)
+/// - `is_bridge`                â€“ whether this segment is a topological bridge
+pub fn export_hmm_selected_path<P: AsRef<Path>>(
     debug_info: &DebugInfo,
     output_path: P,
 ) -> Result<(), ProjectionError> {
@@ -314,7 +366,7 @@ pub fn export_phase4_geojson<P: AsRef<Path>>(
     let mut features = Vec::new();
 
     for ne in &debug_info.netelement_probabilities {
-        if !ne.in_netelement_map {
+        if !ne.in_viterbi_path {
             continue;
         }
         if ne.geometry_coords.len() < 2 {
@@ -327,17 +379,14 @@ pub fn export_phase4_geojson<P: AsRef<Path>>(
             JsonValue::from(ne.netelement_id.clone()),
         );
         props.insert(
-            "coverage_probability".to_string(),
-            JsonValue::from(ne.coverage_probability),
-        );
-        props.insert(
-            "avg_probability".to_string(),
-            JsonValue::from(ne.avg_probability),
+            "avg_emission_probability".to_string(),
+            JsonValue::from(ne.avg_emission_probability),
         );
         props.insert(
             "position_count".to_string(),
             JsonValue::from(ne.position_count as i64),
         );
+        props.insert("is_bridge".to_string(), JsonValue::from(ne.is_bridge));
         features.push(Feature {
             bbox: None,
             geometry: Some(geom),
@@ -347,13 +396,138 @@ pub fn export_phase4_geojson<P: AsRef<Path>>(
         });
     }
 
+    let mut fc_members = serde_json::Map::new();
+    fc_members.insert("phase".to_string(), JsonValue::from(5i64));
+    fc_members.insert(
+        "description".to_string(),
+        JsonValue::from(
+            "HMM selected path: netelements in the final Viterbi-decoded path",
+        ),
+    );
+
     let fc = FeatureCollection {
         bbox: None,
         features,
-        foreign_members: None,
+        foreign_members: Some(fc_members),
     };
     let json = serde_json::to_string_pretty(&fc).map_err(|e| {
-        ProjectionError::InvalidGeometry(format!("Failed to serialize phase4 GeoJSON: {}", e))
+        ProjectionError::InvalidGeometry(format!(
+            "Failed to serialize selected path GeoJSON: {}",
+            e
+        ))
+    })?;
+    let mut file = File::create(output_path.as_ref())?;
+    file.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Export Phase 2 â€" HMM transition probabilities as GeoJSON
+///
+/// Produces a FeatureCollection with one LineString feature per feasible
+/// (non-zero) candidate-pair transition across consecutive GNSS observations.
+/// Each feature links the projected point of the preceding candidate to the
+/// projected point of the succeeding candidate, so that connectivity gaps
+/// and long transitions stand out visually.
+///
+/// Only transitions with a non-zero probability are included; impossible
+/// transitions (disconnected network paths, edge-zone constraints) are
+/// omitted.
+///
+/// Properties per feature:
+/// - `from_step`              â€" observation index of the preceding position (0-based)
+/// - `to_step`                â€" observation index of the succeeding position (0-based)
+/// - `from_netelement_id`     â€" netelement of the preceding candidate
+/// - `to_netelement_id`       â€" netelement of the succeeding candidate
+/// - `transition_probability` â€" linear-scale transition probability [0, 1]
+/// - `is_viterbi_chosen`      â€" whether this pair was chosen by the Viterbi algorithm
+pub fn export_hmm_transition_probabilities<P: AsRef<Path>>(
+    debug_info: &DebugInfo,
+    output_path: P,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use serde_json::{Map, Value as JsonValue};
+
+    // Build lookup: (position_index, netelement_id) -> (projected_lon, projected_lat)
+    let mut point_lookup: std::collections::HashMap<(usize, &str), (f64, f64)> =
+        std::collections::HashMap::new();
+    for pos in &debug_info.position_candidates {
+        for c in &pos.candidates {
+            point_lookup.insert(
+                (pos.position_index, c.netelement_id.as_str()),
+                (c.projected_lon, c.projected_lat),
+            );
+        }
+    }
+
+    let mut features = Vec::new();
+
+    for entry in &debug_info.transition_probabilities {
+        let from_pt = point_lookup.get(&(entry.from_step, entry.from_netelement_id.as_str()));
+        let to_pt = point_lookup.get(&(entry.to_step, entry.to_netelement_id.as_str()));
+        let geometry = match (from_pt, to_pt) {
+            (Some(&(from_lon, from_lat)), Some(&(to_lon, to_lat))) => {
+                Some(Geometry::new(Value::LineString(vec![
+                    vec![from_lon, from_lat],
+                    vec![to_lon, to_lat],
+                ])))
+            }
+            _ => None,
+        };
+
+        let mut props = Map::new();
+        props.insert(
+            "from_step".to_string(),
+            JsonValue::from(entry.from_step as i64),
+        );
+        props.insert(
+            "to_step".to_string(),
+            JsonValue::from(entry.to_step as i64),
+        );
+        props.insert(
+            "from_netelement_id".to_string(),
+            JsonValue::from(entry.from_netelement_id.clone()),
+        );
+        props.insert(
+            "to_netelement_id".to_string(),
+            JsonValue::from(entry.to_netelement_id.clone()),
+        );
+        props.insert(
+            "transition_probability".to_string(),
+            JsonValue::from(entry.transition_probability),
+        );
+        props.insert(
+            "is_viterbi_chosen".to_string(),
+            JsonValue::from(entry.is_viterbi_chosen),
+        );
+
+        features.push(Feature {
+            bbox: None,
+            geometry,
+            id: None,
+            properties: Some(props),
+            foreign_members: None,
+        });
+    }
+
+    let mut fc_members = serde_json::Map::new();
+    fc_members.insert("phase".to_string(), JsonValue::from(2i64));
+    fc_members.insert(
+        "description".to_string(),
+        JsonValue::from(
+            "HMM transition probabilities: feasible candidate-pair links across consecutive GNSS steps",
+        ),
+    );
+
+    let fc = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: Some(fc_members),
+    };
+    let json = serde_json::to_string_pretty(&fc).map_err(|e| {
+        ProjectionError::InvalidGeometry(format!(
+            "Failed to serialize transition probabilities GeoJSON: {}",
+            e
+        ))
     })?;
     let mut file = File::create(output_path.as_ref())?;
     file.write_all(json.as_bytes())?;
@@ -363,39 +537,13 @@ pub fn export_phase4_geojson<P: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::path::{CandidateInfo, CandidatePath, PathDecision, PositionCandidates};
+    use crate::path::{
+        CandidateInfo, NetelementProbabilityInfo, PathDecision, PositionCandidates,
+        TransitionProbabilityEntry,
+    };
     use std::io::Read;
 
-    #[test]
-    fn test_export_candidate_paths() {
-        let mut debug_info = DebugInfo::new();
-        debug_info.add_candidate_path(CandidatePath {
-            id: "test_path".to_string(),
-            direction: "forward".to_string(),
-            segment_ids: vec!["NE_A".to_string(), "NE_B".to_string()],
-            probability: 0.85,
-            selected: true,
-        });
-
-        let temp_dir = std::env::temp_dir();
-        let output_path = temp_dir.join("test_candidates.json");
-
-        let result = export_candidate_paths(&debug_info, &output_path);
-        assert!(result.is_ok());
-
-        // Verify file contents
-        let mut file = File::open(&output_path).unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        assert!(contents.contains("test_path"));
-        assert!(contents.contains("NE_A"));
-
-        // Cleanup
-        std::fs::remove_file(&output_path).ok();
-    }
-
-    #[test]
-    fn test_export_position_candidates() {
+    fn make_debug_info() -> DebugInfo {
         let mut debug_info = DebugInfo::new();
         debug_info.add_position_candidates(PositionCandidates {
             position_index: 0,
@@ -414,84 +562,144 @@ mod tests {
             }],
             selected_netelement: Some("NE_A".to_string()),
         });
+        debug_info.add_decision(PathDecision {
+            step: 0,
+            decision_type: "viterbi_transition".to_string(),
+            current_segment: "NE_A".to_string(),
+            options: vec!["NE_A".to_string()],
+            option_probabilities: vec![0.72],
+            chosen_option: "NE_A".to_string(),
+            reason: "Only candidate".to_string(),
+        });
+        debug_info.netelement_probabilities.push(NetelementProbabilityInfo {
+            netelement_id: "NE_A".to_string(),
+            avg_emission_probability: 0.72,
+            position_count: 1,
+            geometry_coords: vec![vec![4.35, 50.85], vec![4.36, 50.86]],
+            in_viterbi_path: true,
+            is_bridge: false,
+        });
+        debug_info.transition_probabilities.push(TransitionProbabilityEntry {
+            from_step: 0,
+            to_step: 1,
+            from_netelement_id: "NE_A".to_string(),
+            to_netelement_id: "NE_B".to_string(),
+            transition_probability: 0.65,
+            is_viterbi_chosen: true,
+        });
+        debug_info
+    }
 
+    #[test]
+    fn test_export_hmm_emission_probabilities() {
+        let debug_info = make_debug_info();
         let temp_dir = std::env::temp_dir();
-        let output_path = temp_dir.join("test_positions.json");
+        let output_path = temp_dir.join("test_hmm_emission.geojson");
 
-        let result = export_position_candidates(&debug_info, &output_path);
+        let result = export_hmm_emission_probabilities(&debug_info, &output_path);
         assert!(result.is_ok());
 
-        // Verify file contents
         let mut file = File::open(&output_path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
-        assert!(contents.contains("position_index"));
         assert!(contents.contains("NE_A"));
+        assert!(contents.contains("emission_probability"));
+        assert!(contents.contains("distance_m"));
+        // Should NOT contain raw gnss_position point features
+        assert!(!contents.contains("gnss_position"));
 
-        // Cleanup
         std::fs::remove_file(&output_path).ok();
     }
 
     #[test]
-    fn test_export_decision_tree() {
-        let mut debug_info = DebugInfo::new();
-        debug_info.add_decision(PathDecision {
-            step: 1,
-            decision_type: "forward_extend".to_string(),
-            current_segment: "NE_A".to_string(),
-            options: vec!["NE_B".to_string()],
-            option_probabilities: vec![0.85],
-            chosen_option: "NE_B".to_string(),
-            reason: "Highest probability".to_string(),
-        });
-
+    fn test_export_hmm_viterbi_trace() {
+        let debug_info = make_debug_info();
         let temp_dir = std::env::temp_dir();
-        let output_path = temp_dir.join("test_decisions.json");
+        let output_path = temp_dir.join("test_hmm_viterbi_trace.geojson");
 
-        let result = export_decision_tree(&debug_info, &output_path);
+        let result = export_hmm_viterbi_trace(&debug_info, &output_path);
         assert!(result.is_ok());
 
-        // Verify file contents
         let mut file = File::open(&output_path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
-        assert!(contents.contains("forward_extend"));
-        assert!(contents.contains("Highest probability"));
+        assert!(contents.contains("NE_A"));
+        assert!(contents.contains("viterbi_transition"));
+        assert!(contents.contains("netelement_id"));
 
-        // Cleanup
+        std::fs::remove_file(&output_path).ok();
+    }
+
+    #[test]
+    fn test_export_hmm_candidate_netelements() {
+        let debug_info = make_debug_info();
+        let temp_dir = std::env::temp_dir();
+        let output_path = temp_dir.join("test_hmm_candidates.geojson");
+
+        let result = export_hmm_candidate_netelements(&debug_info, &output_path);
+        assert!(result.is_ok());
+
+        let mut file = File::open(&output_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert!(contents.contains("NE_A"));
+        assert!(contents.contains("in_viterbi_path"));
+
+        std::fs::remove_file(&output_path).ok();
+    }
+
+    #[test]
+    fn test_export_hmm_selected_path() {
+        let debug_info = make_debug_info();
+        let temp_dir = std::env::temp_dir();
+        let output_path = temp_dir.join("test_hmm_selected_path.geojson");
+
+        let result = export_hmm_selected_path(&debug_info, &output_path);
+        assert!(result.is_ok());
+
+        let mut file = File::open(&output_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert!(contents.contains("NE_A"));
+        assert!(contents.contains("is_bridge"));
+
         std::fs::remove_file(&output_path).ok();
     }
 
     #[test]
     fn test_export_all_debug_info() {
-        let mut debug_info = DebugInfo::new();
-        debug_info.add_candidate_path(CandidatePath {
-            id: "path_1".to_string(),
-            direction: "forward".to_string(),
-            segment_ids: vec!["NE_A".to_string()],
-            probability: 0.9,
-            selected: true,
-        });
-        debug_info.add_decision(PathDecision {
-            step: 1,
-            decision_type: "select".to_string(),
-            current_segment: "NE_A".to_string(),
-            options: vec!["NE_A".to_string()],
-            option_probabilities: vec![0.9],
-            chosen_option: "NE_A".to_string(),
-            reason: "Only option".to_string(),
-        });
-
-        let temp_dir = std::env::temp_dir().join("tp_debug_test");
+        let debug_info = make_debug_info();
+        let temp_dir = std::env::temp_dir().join("tp_hmm_debug_test");
 
         let result = export_all_debug_info(&debug_info, &temp_dir);
         assert!(result.is_ok());
 
-        // Verify files created
-        assert!(temp_dir.join("candidates.json").exists());
-        assert!(temp_dir.join("decisions.json").exists());
+        assert!(temp_dir.join("01_emission_probabilities.geojson").exists());
+        assert!(temp_dir.join("03_viterbi_trace.geojson").exists());
+        assert!(temp_dir.join("04_candidate_netelements.geojson").exists());
+        assert!(temp_dir.join("05_selected_path.geojson").exists());
+        assert!(temp_dir.join("02_transition_probabilities.geojson").exists());
 
-        // Cleanup
         std::fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[test]
+    fn test_export_hmm_transition_probabilities() {
+        let debug_info = make_debug_info();
+        let temp_dir = std::env::temp_dir();
+        let output_path = temp_dir.join("test_hmm_transition_probs.geojson");
+
+        let result = export_hmm_transition_probabilities(&debug_info, &output_path);
+        assert!(result.is_ok());
+
+        let mut file = File::open(&output_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert!(contents.contains("NE_A"));
+        assert!(contents.contains("NE_B"));
+        assert!(contents.contains("transition_probability"));
+        assert!(contents.contains("is_viterbi_chosen"));
+
+        std::fs::remove_file(&output_path).ok();
     }
 }

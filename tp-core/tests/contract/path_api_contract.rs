@@ -16,10 +16,10 @@ mod tests {
         assert_eq!(config.distance_scale, 10.0, "distance_scale default must be 10.0m");
         assert_eq!(config.heading_scale, 2.0, "heading_scale default must be 2.0°");
         assert_eq!(config.cutoff_distance, 50.0, "cutoff_distance default must be 50.0m");
-        assert_eq!(config.heading_cutoff, 5.0, "heading_cutoff default must be 5.0°");
+        assert_eq!(config.heading_cutoff, 10.0, "heading_cutoff default must be 10.0°");
         assert_eq!(
-            config.probability_threshold, 0.25,
-            "probability_threshold default must be 0.25"
+            config.probability_threshold, 0.02,
+            "probability_threshold default must be 0.02"
         );
         assert_eq!(
             config.resampling_distance, None,

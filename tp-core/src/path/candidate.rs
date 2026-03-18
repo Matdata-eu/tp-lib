@@ -73,6 +73,10 @@ pub fn find_candidate_netelements(
     // Edge projections indicate the GNSS point is past the netelement boundary
     // and may belong to an adjacent netelement.  If at least one non-edge
     // candidate exists, remove edge candidates.
+    //
+    // Fallback: if *all* candidates are edge projections, none are removed.
+    // This prevents the position from having zero candidates when the GNSS
+    // point sits exactly at a netelement connection boundary.
     let has_interior = candidates.iter().any(|c| {
         c.intrinsic_coordinate >= EDGE_INTRINSIC_THRESHOLD
             && c.intrinsic_coordinate <= 1.0 - EDGE_INTRINSIC_THRESHOLD
@@ -182,18 +186,39 @@ pub fn calculate_heading_at_point(
         return Ok(0.0);
     }
 
-    // Find the segment containing or closest to the point
+    // Find the segment closest to the point by perpendicular (point-to-segment)
+    // distance, not just distance to the start vertex.
+    let cos_lat = point.y().to_radians().cos();
+    let px = point.x() * 111_320.0 * cos_lat;
+    let py = point.y() * 111_320.0;
+
     let mut closest_segment_idx = 0;
     let mut closest_distance = f64::MAX;
 
-    for (i, segment_start) in coords.iter().enumerate().take(coords.len() - 1) {
-        let lat_diff = (point.y() - segment_start.y()) * 111320.0;
-        let lon_diff =
-            (point.x() - segment_start.x()) * 111320.0 * segment_start.y().to_radians().cos();
-        let distance = (lat_diff * lat_diff + lon_diff * lon_diff).sqrt();
+    for i in 0..coords.len() - 1 {
+        let ax = coords[i].x() * 111_320.0 * cos_lat;
+        let ay = coords[i].y() * 111_320.0;
+        let bx = coords[i + 1].x() * 111_320.0 * cos_lat;
+        let by = coords[i + 1].y() * 111_320.0;
 
-        if distance < closest_distance {
-            closest_distance = distance;
+        let dx = bx - ax;
+        let dy = by - ay;
+        let seg_len_sq = dx * dx + dy * dy;
+
+        // Project point onto the segment, clamped to [0, 1].
+        let t = if seg_len_sq < 1e-18 {
+            0.0
+        } else {
+            ((px - ax) * dx + (py - ay) * dy) / seg_len_sq
+        }
+        .clamp(0.0, 1.0);
+
+        let proj_x = ax + t * dx;
+        let proj_y = ay + t * dy;
+        let dist = ((px - proj_x).powi(2) + (py - proj_y).powi(2)).sqrt();
+
+        if dist < closest_distance {
+            closest_distance = dist;
             closest_segment_idx = i;
         }
     }
@@ -203,14 +228,10 @@ pub fn calculate_heading_at_point(
     let p1 = coords[closest_segment_idx];
     let p2 = coords[closest_segment_idx + 1];
 
-    let (lat1, lon1) = (p1.y().to_radians(), p1.x().to_radians());
-    let (lat2, lon2) = (p2.y().to_radians(), p2.x().to_radians());
-    let dlon = lon2 - lon1;
-    let x = dlon.sin() * lat2.cos();
-    let y = lat1.cos() * lat2.sin() - lat1.sin() * lat2.cos() * dlon.cos();
-    let bearing = (x.atan2(y).to_degrees() + 360.0) % 360.0;
-
-    Ok(bearing)
+    Ok(haversine_bearing(
+        &Point::new(p1.x(), p1.y()),
+        &Point::new(p2.x(), p2.y()),
+    ))
 }
 
 /// Estimate headings from neighboring GNSS positions.
@@ -219,7 +240,9 @@ pub fn calculate_heading_at_point(
 /// `x-1` to `x+1`.  The estimate is discarded when:
 /// - `x` is the first or last position (no symmetric neighbors),
 /// - the distances `x-1 → x` and `x → x+1` differ by ≥ 20% of the larger,
-/// - consecutive estimated headings change by ≥ 10° (continuity check).
+/// - the backward bearing (`x-1` → `x`) and forward bearing (`x` → `x+1`)
+///   diverge by ≥ 5° (lateral-jump / junction guard),
+/// - consecutive estimated headings change by ≥ 5° (continuity check).
 ///
 /// Returns a `Vec` with the same length as `positions`; entries that fail any
 /// guard are `None`.
@@ -249,17 +272,27 @@ pub fn estimate_headings_from_neighbors(positions: &[&GnssPosition]) -> Vec<Opti
             continue;
         }
 
+        // Bearing deviation guard: the backward bearing (x-1 → x) and the
+        // forward bearing (x → x+1) should agree on a stable trajectory.
+        // A divergence ≥ 5° indicates a lateral GNSS jump or a junction turn;
+        // in either case the smoothed heading is unreliable.
+        let h_back = haversine_bearing(&prev, &curr);
+        let h_fwd = haversine_bearing(&curr, &next);
+        if directional_heading_difference(h_back, h_fwd) >= 5.0 {
+            continue;
+        }
+
         headings[x] = Some(haversine_bearing(&prev, &next));
     }
 
-    // Pass 2: heading-continuity check (< 10° between consecutive estimates).
+    // Pass 2: heading-continuity check (< 5° between consecutive estimates).
     // Compare each heading against its immediate neighbor's raw (pre-rejection)
     // heading to avoid cascading rejections.
     let raw_headings = headings.clone();
     for x in 2..n - 1 {
         if let Some(h) = headings[x] {
             if let Some(prev_h) = raw_headings[x - 1] {
-                if heading_difference(h, prev_h) >= 10.0 {
+                if heading_difference(h, prev_h) >= 5.0 {
                     headings[x] = None;
                 }
             }
@@ -280,7 +313,7 @@ fn haversine_distance(a: &Point<f64>, b: &Point<f64>) -> f64 {
 }
 
 /// Haversine initial bearing from point `a` to point `b`, in degrees [0, 360).
-fn haversine_bearing(a: &Point<f64>, b: &Point<f64>) -> f64 {
+pub(crate) fn haversine_bearing(a: &Point<f64>, b: &Point<f64>) -> f64 {
     let (lat1, lon1) = (a.y().to_radians(), a.x().to_radians());
     let (lat2, lon2) = (b.y().to_radians(), b.x().to_radians());
     let dlon = lon2 - lon1;
@@ -316,6 +349,19 @@ pub fn heading_difference(heading1: f64, heading2: f64) -> f64 {
     } else {
         diff
     }
+}
+
+/// Calculate the directional difference between two headings.
+///
+/// Unlike [`heading_difference`], this does NOT apply bidirectional
+/// equivalence: 0° and 180° are considered opposite (difference = 180°).
+/// Returns a value in [0, 180].
+///
+/// Used for turn-angle penalties at netelement connections where the direction of
+/// travel matters (the train cannot make a U-turn).
+pub(crate) fn directional_heading_difference(heading1: f64, heading2: f64) -> f64 {
+    let diff = (heading1 - heading2).abs() % 360.0;
+    if diff > 180.0 { 360.0 - diff } else { diff }
 }
 
 #[cfg(test)]
@@ -623,7 +669,7 @@ mod tests {
     #[test]
     fn test_estimate_headings_continuity_rejection() {
         // Five points: first three go north, then a sharp 90° turn east.
-        // The position after the turn should fail the 10° continuity check.
+        // The position after the turn should fail the 5° continuity check.
         let positions = vec![
             make_gnss(50.000, 4.000),
             make_gnss(50.001, 4.000), // heading calc: bearing from 0→2 ≈ north

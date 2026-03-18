@@ -69,14 +69,14 @@ struct Cli {
     cutoff_distance: f64,
 
     /// Maximum heading difference before rejection (degrees)
-    #[arg(long = "heading-cutoff", value_name = "VALUE", default_value = "5.0")]
+    #[arg(long = "heading-cutoff", value_name = "VALUE", default_value = "10.0")]
     heading_cutoff: f64,
 
     /// Minimum probability for path segment inclusion
     #[arg(
         long = "probability-threshold",
         value_name = "VALUE",
-        default_value = "0.25"
+        default_value = "0.02"
     )]
     probability_threshold: f64,
 
@@ -171,9 +171,9 @@ enum Commands {
         heading_scale: f64,
         #[arg(long = "cutoff-distance", default_value = "50.0")]
         cutoff_distance: f64,
-        #[arg(long = "heading-cutoff", default_value = "5.0")]
+        #[arg(long = "heading-cutoff", default_value = "10.0")]
         heading_cutoff: f64,
-        #[arg(long = "probability-threshold", default_value = "0.25")]
+        #[arg(long = "probability-threshold", default_value = "0.02")]
         probability_threshold: f64,
         #[arg(long = "max-candidates", default_value = "3")]
         max_candidates: usize,
@@ -846,15 +846,17 @@ fn build_path_config(
         .map_err(|e| PipelineError::Validation(format!("Invalid path configuration: {}", e)))
 }
 
-/// Resolve debug output directory from CLI argument, defaulting to the output file's parent directory
+/// Resolve debug output directory from CLI argument, defaulting to a "debug" subdirectory
+/// inside the output file's parent directory
 fn resolve_debug_dir(debug_output_dir: Option<&str>, output_file: &str) -> String {
     match debug_output_dir {
         Some(dir) if !dir.is_empty() => dir.to_string(),
         _ => {
             let path = std::path::Path::new(output_file);
-            path.parent()
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_else(|| ".".to_string())
+            let parent = path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."));
+            parent.join("debug").to_string_lossy().into_owned()
         }
     }
 }

@@ -253,7 +253,7 @@ Expected output:
 3. 88_L_7855 (prob=0.947)
 4. 88_L_7818 (prob=0.771)
 
-Note the low probability on `88_L_2026` — this is the short netelement at the switch junction between the L36 main line and the L36C branch.
+Note the low probability on `88_L_2026` — this is the short netelement at the switch between the L36 main line and the L36C branch.
 
 ![L36-A to L36C-A - Path calculation](log_28554/log_28554_L36-A_to_L36C-A-path.png)
 
@@ -496,7 +496,7 @@ Expected output:
 12. 88_L_2026 (prob=1.000)
 13. 88_L_7855 (prob=0.012)
 
-The very low probabilities on `88_L_7817` (0.181) and `88_L_42` (0.050) are switch-junction connector netelements.
+The very low probabilities on `88_L_7817` (0.181) and `88_L_42` (0.050) are switch connector netelements.
 
 ![L36-B to L36C-B to L25N-A - Path calculation](log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-path.png)
 

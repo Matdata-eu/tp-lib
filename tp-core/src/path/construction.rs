@@ -81,7 +81,7 @@ fn find_bridge_path(
 ) -> Option<(Vec<String>, f64)> {
     // Level-order BFS: explore hop by hop, collecting ALL map members found at
     // the same hop distance, then return the one with the highest probability.
-    // This ensures that at junctions where multiple branches are reachable via a
+    // This ensures that at netelement connections where multiple branches are reachable via a
     // bridge netelement, the most-probable branch is always selected.
     let mut frontier: Vec<(String, Vec<String>)> =
         vec![(start_id.to_string(), vec![start_id.to_string()])];
@@ -199,7 +199,7 @@ impl PathConstruction {
 /// * `start_netelement_id` - ID of netelement at first GNSS position
 /// * `netelement_map` - Map of netelement ID to netelement with probabilities
 /// * `netrelations` - Available navigable connections
-/// * `probability_threshold` - Minimum probability to continue (default 0.25)
+/// * `probability_threshold` - Minimum probability to continue (default 0.02)
 ///
 /// # Returns
 ///

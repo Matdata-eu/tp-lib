@@ -710,11 +710,11 @@ fn test_simple_projection_real_fixture() {
 
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let gnss_file = format!(
-        "{}/../tp-core/tests/fixtures/log_28876_L36-B.csv",
+        "{}/../test-data/log_28876/log_28876_L36-B.csv",
         manifest_dir
     );
     let network_file = format!(
-        "{}/../tp-core/tests/fixtures/test_network_airport.geojson",
+        "{}/../test-data/network_airport.geojson",
         manifest_dir
     );
 

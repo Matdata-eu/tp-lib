@@ -20,8 +20,8 @@ fn test_path_config_defaults() {
     assert_eq!(config.distance_scale, 10.0);
     assert_eq!(config.heading_scale, 2.0);
     assert_eq!(config.cutoff_distance, 50.0);
-    assert_eq!(config.heading_cutoff, 5.0);
-    assert_eq!(config.probability_threshold, 0.25);
+    assert_eq!(config.heading_cutoff, 10.0);
+    assert_eq!(config.probability_threshold, 0.02);
     assert_eq!(config.max_candidates, 3);
     assert!(!config.path_only);
     assert!(!config.debug_mode);
@@ -478,6 +478,7 @@ fn test_candidate_path_creation() {
         id: "path1".to_string(),
         direction: "forward".to_string(),
         segment_ids: vec!["NE1".to_string(), "NE2".to_string()],
+        segment_probabilities: vec![0.92, 0.90],
         probability: 0.92,
         selected: true,
     };

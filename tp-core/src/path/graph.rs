@@ -1,13 +1,47 @@
 //! Network topology graph representation
 //!
 //! Builds a petgraph DiGraph from netelements and netrelations to enable
-//! efficient path traversal and navigability checking.
+//! efficient path traversal, navigability checking, and shortest-path routing.
 
 use crate::errors::ProjectionError;
 use crate::models::{NetRelation, Netelement};
+use geo::HaversineLength;
 use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap};
+
+/// Cache for shortest-path queries between netelement sides.
+///
+/// Stores `(from_ne_id, from_pos, to_ne_id, to_pos) → Option<f64>`.
+/// Lazily populated to avoid recomputing Dijkstra for repeated queries.
+pub type ShortestPathCache = HashMap<(String, u8, String, u8), Option<f64>>;
+
+/// Look up or compute the shortest-path distance between two netelement sides,
+/// caching the result for future queries.
+pub fn cached_shortest_path_distance(
+    cache: &mut ShortestPathCache,
+    graph: &DiGraph<NetelementSide, f64>,
+    node_map: &HashMap<NetelementSide, NodeIndex>,
+    from: &NetelementSide,
+    to: &NetelementSide,
+) -> Option<f64> {
+    let key = (
+        from.netelement_id.clone(),
+        from.position,
+        to.netelement_id.clone(),
+        to.position,
+    );
+
+    if let Some(&cached) = cache.get(&key) {
+        return cached;
+    }
+
+    let result = shortest_path_distance(graph, node_map, from, to);
+    cache.insert(key, result);
+    result
+}
 
 /// Represents one end of a netelement in the topology graph
 ///
@@ -114,7 +148,7 @@ pub fn build_topology_graph(
     netrelations: &[NetRelation],
 ) -> Result<
     (
-        DiGraph<NetelementSide, ()>,
+        DiGraph<NetelementSide, f64>,
         HashMap<NetelementSide, NodeIndex>,
     ),
     ProjectionError,
@@ -135,6 +169,7 @@ pub fn build_topology_graph(
     }
 
     // Step 2: Create internal edges (bidirectional within each netelement)
+    // Weight = netelement's haversine length in meters
     for netelement in netelements {
         let start_side = NetelementSide::new(netelement.id.clone(), 0)?;
         let end_side = NetelementSide::new(netelement.id.clone(), 1)?;
@@ -142,14 +177,17 @@ pub fn build_topology_graph(
         let start_node = node_map[&start_side];
         let end_node = node_map[&end_side];
 
+        let length = netelement.geometry.haversine_length();
+
         // Forward edge: start→end
-        graph.add_edge(start_node, end_node, ());
+        graph.add_edge(start_node, end_node, length);
 
         // Backward edge: end→start
-        graph.add_edge(end_node, start_node, ());
+        graph.add_edge(end_node, start_node, length);
     }
 
     // Step 3: Create external edges from netrelations
+    // Weight = 0.0 (netelement connection crossing has negligible distance)
     for netrelation in netrelations {
         // Validate netrelation
         netrelation.validate()?;
@@ -166,7 +204,6 @@ pub fn build_topology_graph(
 
         // Check if nodes exist in graph (skip if referencing non-existent netelements)
         if !node_map.contains_key(&from_side) || !node_map.contains_key(&to_side) {
-            // This will be caught by validate_netrelation_references() in T026a
             continue;
         }
 
@@ -175,15 +212,169 @@ pub fn build_topology_graph(
 
         // Add edges based on navigability
         if netrelation.is_navigable_forward() {
-            graph.add_edge(from_node, to_node, ());
+            graph.add_edge(from_node, to_node, 0.0);
         }
 
         if netrelation.is_navigable_backward() {
-            graph.add_edge(to_node, from_node, ());
+            graph.add_edge(to_node, from_node, 0.0);
         }
     }
 
     Ok((graph, node_map))
+}
+
+/// Compute the shortest-path distance between two netelement sides.
+///
+/// Uses a direction-aware Dijkstra that prevents consecutive external-edge
+/// (connection) traversals.  At netelement connections, multiple netelement sides
+/// may connect at the same point via zero-weight external edges.  Standard
+/// Dijkstra can "shortcut" through a connection (e.g. NE_B → connection → NE_C)
+/// without traversing the connecting netelement, which would represent a
+/// physically impossible direction reversal for a train.
+///
+/// Returns `None` if no path exists (disconnected components).
+pub fn shortest_path_distance(
+    graph: &DiGraph<NetelementSide, f64>,
+    node_map: &HashMap<NetelementSide, NodeIndex>,
+    from: &NetelementSide,
+    to: &NetelementSide,
+) -> Option<f64> {
+    let &from_idx = node_map.get(from)?;
+    let &to_idx = node_map.get(to)?;
+
+    direction_aware_dijkstra(graph, from_idx, to_idx).map(|(cost, _)| cost)
+}
+
+/// Return the sequence of graph nodes along the shortest direction-aware path.
+///
+/// Used by bridge insertion to recover intermediate netelements.
+pub fn shortest_path_route(
+    graph: &DiGraph<NetelementSide, f64>,
+    node_map: &HashMap<NetelementSide, NodeIndex>,
+    from: &NetelementSide,
+    to: &NetelementSide,
+) -> Option<Vec<NodeIndex>> {
+    let &from_idx = node_map.get(from)?;
+    let &to_idx = node_map.get(to)?;
+
+    direction_aware_dijkstra(graph, from_idx, to_idx).map(|(_, path)| path)
+}
+
+/// Direction-aware Dijkstra that prevents consecutive external-edge traversals.
+///
+/// The state is expanded to `(NodeIndex, arrived_via_external)`.  When
+/// `arrived_via_external` is true, only internal edges (source and target
+/// belong to the same netelement) may be followed.  This forces the algorithm
+/// to traverse the connecting netelement before taking another external edge,
+/// modelling the physical constraint that a train cannot cross from one branch
+/// to another at a netelement connection without traversing the connecting segment.
+fn direction_aware_dijkstra(
+    graph: &DiGraph<NetelementSide, f64>,
+    from_idx: NodeIndex,
+    to_idx: NodeIndex,
+) -> Option<(f64, Vec<NodeIndex>)> {
+    if from_idx == to_idx {
+        return Some((0.0, vec![from_idx]));
+    }
+
+    #[derive(Clone, PartialEq)]
+    struct State {
+        cost: f64,
+        node: NodeIndex,
+        via_external: bool,
+    }
+
+    impl Eq for State {}
+
+    impl PartialOrd for State {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            other.cost.partial_cmp(&self.cost) // min-heap
+        }
+    }
+
+    impl Ord for State {
+        fn cmp(&self, other: &Self) -> Ordering {
+            self.partial_cmp(other).unwrap_or(Ordering::Equal)
+        }
+    }
+
+    type StateKey = (NodeIndex, bool);
+
+    let mut dist: HashMap<StateKey, f64> = HashMap::new();
+    let mut prev: HashMap<StateKey, StateKey> = HashMap::new();
+    let mut heap = BinaryHeap::new();
+
+    let start_key: StateKey = (from_idx, false);
+    dist.insert(start_key, 0.0);
+    heap.push(State {
+        cost: 0.0,
+        node: from_idx,
+        via_external: false,
+    });
+
+    let mut reached_target: Option<(f64, StateKey)> = None;
+
+    while let Some(State {
+        cost,
+        node,
+        via_external,
+    }) = heap.pop()
+    {
+        let key: StateKey = (node, via_external);
+
+        if let Some(&best) = dist.get(&key) {
+            if cost > best {
+                continue;
+            }
+        }
+
+        if node == to_idx {
+            reached_target = Some((cost, key));
+            break;
+        }
+
+        let source_ne = &graph[node].netelement_id;
+
+        for edge in graph.edges_directed(node, petgraph::Direction::Outgoing) {
+            let next = edge.target();
+            let w = *edge.weight();
+            let target_ne = &graph[next].netelement_id;
+            let edge_is_external = source_ne != target_ne;
+
+            // CONSTRAINT: after an external edge, only internal edges allowed.
+            if via_external && edge_is_external {
+                continue;
+            }
+
+            let new_cost = cost + w;
+            let next_key: StateKey = (next, edge_is_external);
+
+            if dist.get(&next_key).map_or(true, |&d| new_cost < d) {
+                dist.insert(next_key, new_cost);
+                prev.insert(next_key, key);
+                heap.push(State {
+                    cost: new_cost,
+                    node: next,
+                    via_external: edge_is_external,
+                });
+            }
+        }
+    }
+
+    let (cost, target_key) = reached_target?;
+
+    // Reconstruct path from predecessor map.
+    let mut path_keys = vec![target_key];
+    let mut current = target_key;
+    while let Some(&predecessor) = prev.get(&current) {
+        path_keys.push(predecessor);
+        current = predecessor;
+    }
+    path_keys.reverse();
+
+    let path: Vec<NodeIndex> = path_keys.iter().map(|(node, _)| *node).collect();
+
+    Some((cost, path))
 }
 
 /// Validate that all netrelations reference existing netelements
@@ -397,5 +588,63 @@ mod tests {
 
         // Should have only 2 internal edges (no external edge added)
         assert_eq!(graph.edge_count(), 2);
+    }
+
+    #[test]
+    fn test_shortest_path_same_netelement() {
+        let netelements = vec![create_test_netelement("NE_A")];
+        let (graph, node_map) = build_topology_graph(&netelements, &[]).unwrap();
+
+        let from = NetelementSide::new("NE_A".to_string(), 0).unwrap();
+        let to = NetelementSide::new("NE_A".to_string(), 1).unwrap();
+
+        let dist = shortest_path_distance(&graph, &node_map, &from, &to);
+        assert!(dist.is_some());
+        assert!(dist.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_shortest_path_across_netelement_connection() {
+        let netelements = vec![
+            create_test_netelement("NE_A"),
+            create_test_netelement("NE_B"),
+        ];
+
+        let netrelation = NetRelation::new(
+            "NR001".to_string(),
+            "NE_A".to_string(),
+            "NE_B".to_string(),
+            1, 0, true, false,
+        )
+        .unwrap();
+
+        let (graph, node_map) = build_topology_graph(&netelements, &[netrelation]).unwrap();
+
+        // Route: NE_A:0 → NE_A:1 → (connection 0.0) → NE_B:0 → NE_B:1
+        let from = NetelementSide::new("NE_A".to_string(), 0).unwrap();
+        let to = NetelementSide::new("NE_B".to_string(), 1).unwrap();
+
+        let dist = shortest_path_distance(&graph, &node_map, &from, &to);
+        assert!(dist.is_some());
+        // Should be length(NE_A) + 0 + length(NE_B) — both have same geometry
+        let ne_a_len = netelements[0].geometry.haversine_length();
+        let ne_b_len = netelements[1].geometry.haversine_length();
+        let expected = ne_a_len + ne_b_len;
+        assert!((dist.unwrap() - expected).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_shortest_path_disconnected() {
+        let netelements = vec![
+            create_test_netelement("NE_A"),
+            create_test_netelement("NE_B"),
+        ];
+        // No netrelation → disconnected
+        let (graph, node_map) = build_topology_graph(&netelements, &[]).unwrap();
+
+        let from = NetelementSide::new("NE_A".to_string(), 0).unwrap();
+        let to = NetelementSide::new("NE_B".to_string(), 0).unwrap();
+
+        assert!(shortest_path_distance(&graph, &node_map, &from, &to).is_none());
     }
 }

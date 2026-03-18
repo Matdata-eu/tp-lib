@@ -579,7 +579,7 @@ pub struct AssociatedNetElement {
     pub netelement_id: String,
     
     /// Aggregate probability score for this segment in the path (0.0 to 1.0)
-    /// Calculated from distance/heading probability and coverage correction
+    /// Calculated from distance/heading emission probability
     pub probability: f64,
     
     /// Intrinsic coordinate where the path enters this segment (0.0 to 1.0)
@@ -745,8 +745,8 @@ pub struct TrainPath {
     pub segments: Vec<AssociatedNetElement>,
     
     /// Overall probability score for this path (0.0 to 1.0)
-    /// Calculated as length-weighted average of segment probabilities,
-    /// averaged between forward and backward path calculations
+    /// Calculated as the exponentiated average log-probability per Viterbi state,
+    /// clamped to [0, 1]
     pub overall_probability: f64,
     
     /// Timestamp when this path was calculated
@@ -779,14 +779,20 @@ pub struct PathMetadata {
     /// Resampling distance applied (meters), None if disabled
     pub resampling_distance: Option<f64>,
     
+    /// Transition probability scale parameter β (meters)
+    pub beta: f64,
+    
+    /// Edge-zone distance for transition optimisation (meters)
+    pub edge_zone_distance: f64,
+    
     /// Whether fallback mode was used
     pub fallback_mode: bool,
     
-    /// Number of candidate paths evaluated
-    pub candidate_paths_evaluated: usize,
+    /// Number of Viterbi sub-sequences (breaks + 1 if no breaks)
+    pub viterbi_subsequences: usize,
     
-    /// Whether path existed in both directions (bidirectional validation)
-    pub bidirectional_path: bool,
+    /// Number of bridge netelements inserted for path continuity
+    pub bridge_netelements: usize,
 }
 
 impl TrainPath {
@@ -888,12 +894,14 @@ impl TrainPath {
       "distance_scale": 10.0,
       "heading_scale": 2.0,
       "cutoff_distance": 50.0,
-      "heading_cutoff": 5.0,
-      "probability_threshold": 0.25,
+      "heading_cutoff": 10.0,
+      "probability_threshold": 0.02,
       "resampling_distance": 10.0,
+      "beta": 50.0,
+      "edge_zone_distance": 50.0,
       "fallback_mode": false,
-      "candidate_paths_evaluated": 3,
-      "bidirectional_path": true
+      "viterbi_subsequences": 1,
+      "bridge_netelements": 2
     }
   },
   "features": [

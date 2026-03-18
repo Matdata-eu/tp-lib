@@ -96,7 +96,7 @@
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [X] T039 [P] [US1] Write integration test for successful path calculation with simple linear path in tests/integration/path_calculation_test.rs
-- [X] T040 [P] [US1] Write integration test for path calculation with junction (3 candidate branches) in tests/integration/path_calculation_test.rs
+- [X] T040 [P] [US1] Write integration test for path calculation with netelement connection (3 candidate branches) in tests/integration/path_calculation_test.rs
 - [X] T041 [P] [US1] Write integration test for heading filtering (exclude segments with >5° difference) in tests/integration/path_calculation_test.rs
 - [X] T042 [P] [US1] Write integration test for selecting highest probability path from multiple candidates in tests/integration/path_calculation_test.rs
 - [X] T043 [P] [US1] Write contract test verifying calculate_train_path() signature and error types in tests/contract/path_api_contract.rs
@@ -444,7 +444,7 @@
 ```bash
 # Launch all tests for User Story 1 together:
 Task T039: Integration test for successful path calculation
-Task T040: Integration test for junction handling
+Task T040: Integration test for netelement connection handling
 Task T041: Integration test for heading filtering
 Task T042: Integration test for highest probability selection
 Task T043: Contract test for API signature

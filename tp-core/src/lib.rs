@@ -61,10 +61,6 @@ pub use path::{
     calculate_mean_spacing,
     calculate_train_path,
     export_all_debug_info,
-    // Debug export functions (US7)
-    export_candidate_paths,
-    export_decision_tree,
-    export_position_candidates,
     project_onto_path,
     select_resampled_subset,
     CandidateInfo,
@@ -77,6 +73,7 @@ pub use path::{
     PathDecision,
     PathResult,
     PositionCandidates,
+    TransitionProbabilityEntry,
 };
 
 /// Result type alias using ProjectionError

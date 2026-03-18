@@ -9,7 +9,7 @@
 
 **Status**: Under construction
 
-Train positioning library excels in post-processing the GNSS positions of your measurement train to achieve an unambiguous network location. 
+Train positioning library excels in post-processing the GNSS positions of your measurement train to achieve an unambiguous network location. This library is your a map matching assistant specifically for railway.
 
 ## Features
 
@@ -19,7 +19,7 @@ Train positioning library excels in post-processing the GNSS positions of your m
 - 🌍 **CRS Aware**: Explicit coordinate reference system handling (EPSG codes)
 - ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; timezone-less ISO 8601 datetimes assumed UTC
 - 📊 **Multiple Formats**: CSV and GeoJSON input/output
-- 🧪 **Well Tested**: 427 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
+- 🧪 **Well Tested**: 460 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
 - ⚡ **Production Ready**: Full CLI interface with validation and error handling
 
 ## Train Path Calculation
@@ -30,10 +30,8 @@ to determine the most probable route a train took through the railway network.
 ### How It Works
 
 1. **Candidate Selection**: Find candidate track segments within cutoff distance of each GNSS position
-2. **Probability Scoring**: Calculate per-position probability using distance and heading alignment; aggregate into a per-netelement average (`P_avg`) and a coverage-adjusted score (`coverage_prob = C_coverage × P_avg`) where `C_coverage` rewards segments with large absolute GNSS coverage (reference: 500 m)
-3. **Path Construction**: Build continuous paths using network topology; `P_avg` gates candidate inclusion while `coverage_prob` drives junction selection; topology-only bridge segments are inserted automatically when a navigable connection carries no GNSS evidence
-4. **Bidirectional Validation**: Validate path consistency from both directions
-5. **Path Selection**: Return highest probability path
+2. **Emission Probability**: Calculate per-position probability using exponential decay of distance and heading alignment
+3. **Viterbi Decoding**: Decode the globally optimal netelement sequence using a log-space Viterbi algorithm (HMM map matching, Newson & Krumm 2009). Transition probabilities are derived from shortest-path vs. great-circle distance through the topology graph. Bridge netelements are inserted automatically for path continuity.
 
 ### CLI Commands
 
@@ -51,6 +49,11 @@ tp-cli simple-projection --gnss positions.csv --network network.geojson --output
 tp-cli --gnss positions.csv --network network.geojson --train-path path.csv --output result.csv
 ```
 
+### Debug Output
+
+Pass `--debug` to write intermediate HMM calculation results as GeoJSON files to a `debug/` subdirectory next to the output file.  
+See **[DEBUG.md](DEBUG.md)** for a full description of the four output files, their properties, and a typical debugging workflow.
+
 ### Algorithm Parameters
 
 | Parameter | Default | Description |
@@ -58,9 +61,9 @@ tp-cli --gnss positions.csv --network network.geojson --train-path path.csv --ou
 | `--distance-scale` | 10.0 | Distance decay scale (meters) |
 | `--heading-scale` | 2.0 | Heading decay scale (degrees) |
 | `--cutoff-distance` | 50.0 | Max distance for candidate selection (meters) |
-| `--heading-cutoff` | 5.0 | Max heading difference to accept (degrees) |
-| `--probability-threshold` | 0.25 | Minimum probability for segment inclusion |
-| `--max-candidates` | 5 | Max candidates per GNSS position |
+| `--heading-cutoff` | 10.0 | Max heading difference to accept (degrees) |
+| `--probability-threshold` | 0.02 | Minimum emission probability for candidate inclusion |
+| `--max-candidates` | 3 | Max candidates per GNSS position |
 | `--resampling-distance` | None | Optional GNSS resampling distance (meters) |
 
 ### Performance
@@ -77,7 +80,7 @@ tp-lib/                    # Rust workspace root
 │   ├── src/
 │   │   ├── models/        # Data models (GnssPosition, Netelement, ProjectedPosition)
 │   │   ├── projection/    # Projection algorithms (geom, spatial indexing)
-│   │   ├── path/          # Train path calculation (candidate, construction, probability)
+│   │   ├── path/          # Train path calculation (candidate, probability, graph, viterbi)
 │   │   ├── io/            # Input/output (CSV, GeoJSON, Arrow)
 │   │   ├── crs/           # Coordinate reference system transformations
 │   │   ├── temporal/      # Timezone handling utilities

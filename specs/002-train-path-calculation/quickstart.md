@@ -161,7 +161,7 @@ tp-cli \
 **Parameter rationale:**
 - `--distance-scale 15.0`: Tighter distance tolerance for urban rail
 - `--heading-cutoff 10.0`: Allow sharper turns typical in metros
-- `--probability-threshold 0.20`: Lower threshold to handle complex junctions
+- `--probability-threshold 0.20`: Lower threshold to handle complex netelement connections
 - `--verbose`: See detailed progress for debugging
 
 ---
@@ -552,7 +552,7 @@ Process multiple train journeys through the same network:
 #!/bin/bash
 
 NETWORK="data/rail_network.geojson"
-CONFIG="--distance-scale 10 --heading-cutoff 5"
+CONFIG="--distance-scale 10 --heading-cutoff 10"
 
 for journey in data/journeys/*.csv; do
     output="results/$(basename "$journey" .csv)_path.csv"
