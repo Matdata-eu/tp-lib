@@ -137,6 +137,12 @@ pub fn viterbi_decode(
     // while keeping the Viterbi chain unbroken for continuous paths.
     const NO_TRANSITION_PENALTY: f64 = -23.0;
 
+    // Minimum emission probability floor.  A single noisy observation
+    // (e.g. heading beyond cutoff → emission = 0) must not irrecoverably
+    // destroy hundreds of steps of accumulated evidence.  The floor is
+    // tiny enough to heavily penalise the step without producing −∞.
+    const EMISSION_FLOOR: f64 = 1e-10;
+
     // ── Recurse t = 1 .. T-1 ───────────────────────────────────────────
     for t in 1..t_count {
         let curr_cands = &position_candidates[t];
@@ -185,12 +191,7 @@ pub fn viterbi_decode(
 
         for (j, cand_j) in curr_cands.iter().enumerate() {
             let emission_j = curr_probs.get(j).copied().unwrap_or(0.0);
-            let ln_emission_j = safe_ln(emission_j);
-
-            if ln_emission_j == f64::NEG_INFINITY {
-                // Zero emission — no point computing transitions.
-                continue;
-            }
+            let ln_emission_j = safe_ln(emission_j.max(EMISSION_FLOOR));
 
             for (i, cand_i) in prev_cands.iter().enumerate() {
                 if prev_lv[i] == f64::NEG_INFINITY {
@@ -244,11 +245,9 @@ pub fn viterbi_decode(
                 let carry_score = prev_lv[best_i] + NO_TRANSITION_PENALTY;
                 for (j, _) in curr_cands.iter().enumerate() {
                     let emission = curr_probs.get(j).copied().unwrap_or(0.0);
-                    let ln_em = safe_ln(emission);
-                    if ln_em != f64::NEG_INFINITY {
-                        lv[j] = carry_score + ln_em;
-                        bp[j] = Some((prev_t, best_i));
-                    }
+                    let ln_em = safe_ln(emission.max(EMISSION_FLOOR));
+                    lv[j] = carry_score + ln_em;
+                    bp[j] = Some((prev_t, best_i));
                 }
             }
         }

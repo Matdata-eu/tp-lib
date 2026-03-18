@@ -2,57 +2,136 @@
 
 use crate::errors::ProjectionError;
 use crate::models::{GnssPosition, ProjectedPosition};
-use geo::algorithm::{ClosestPoint, HaversineDistance, HaversineLength, LineLocatePoint};
+use geo::algorithm::HaversineDistance;
 use geo::{LineString, Point};
 
 #[cfg(test)]
 use geo::Coord;
 
-/// Project a point onto the nearest location on a LineString
+/// Project a point onto the nearest location on a LineString.
+///
+/// Uses an equirectangular approximation (cos(lat) scaling on longitude) so
+/// that the closest-point computation is metrically correct for geographic
+/// (WGS 84) coordinates.
 pub fn project_point_onto_linestring(
     point: &Point<f64>,
     linestring: &LineString<f64>,
 ) -> Result<Point<f64>, ProjectionError> {
-    match linestring.closest_point(point) {
-        geo::Closest::SinglePoint(projected) | geo::Closest::Intersection(projected) => {
-            Ok(projected)
-        }
-        geo::Closest::Indeterminate => Err(ProjectionError::InvalidGeometry(
-            "Could not find closest point on linestring".to_string(),
-        )),
+    let coords = &linestring.0;
+    if coords.len() < 2 {
+        return Err(ProjectionError::InvalidGeometry(
+            "Linestring must have at least 2 points for projection".to_string(),
+        ));
     }
+
+    let cos_lat = point.y().to_radians().cos();
+    let mut min_dist_sq = f64::INFINITY;
+    let mut best = coords[0];
+
+    for i in 0..coords.len() - 1 {
+        let p1 = &coords[i];
+        let p2 = &coords[i + 1];
+
+        // Work in a locally-scaled coordinate frame where distances
+        // approximate true metric distances (up to a constant factor).
+        let dx = (p2.x - p1.x) * cos_lat;
+        let dy = p2.y - p1.y;
+        let len_sq = dx * dx + dy * dy;
+
+        let t = if len_sq > 0.0 {
+            let px = (point.x() - p1.x) * cos_lat;
+            let py = point.y() - p1.y;
+            ((px * dx + py * dy) / len_sq).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+
+        // Interpolate back in degree space.
+        let proj_x = p1.x + t * (p2.x - p1.x);
+        let proj_y = p1.y + t * (p2.y - p1.y);
+
+        let ex = (point.x() - proj_x) * cos_lat;
+        let ey = point.y() - proj_y;
+        let dist_sq = ex * ex + ey * ey;
+
+        if dist_sq < min_dist_sq {
+            min_dist_sq = dist_sq;
+            best = geo::Coord { x: proj_x, y: proj_y };
+        }
+    }
+
+    Ok(Point::from(best))
 }
 
-/// Calculate the distance along a linestring from its start to a given point
+/// Calculate the distance along a linestring from its start to a given point.
 ///
-/// Uses the geo crate's line_locate_point to find the fractional position,
-/// then multiplies by the total haversine length to get distance in meters.
+/// Locates the segment closest to `point` using an equirectangular
+/// approximation (cos(lat) scaling), then accumulates haversine distances
+/// up to that segment plus the fractional part within it.
 pub fn calculate_measure_along_linestring(
     linestring: &LineString<f64>,
     point: &Point<f64>,
 ) -> Result<f64, ProjectionError> {
-    if linestring.0.is_empty() {
+    let coords = &linestring.0;
+    if coords.is_empty() {
         return Err(ProjectionError::InvalidGeometry(
             "Cannot calculate measure on empty linestring".to_string(),
         ));
     }
-
-    if linestring.0.len() < 2 {
+    if coords.len() < 2 {
         return Err(ProjectionError::InvalidGeometry(
             "Linestring must have at least 2 points".to_string(),
         ));
     }
 
-    // Get fractional position (0.0 to 1.0) along the linestring
-    let fractional_position = linestring.line_locate_point(point).ok_or_else(|| {
-        ProjectionError::InvalidGeometry("Could not locate point on linestring".to_string())
-    })?;
+    // Find the segment the point projects onto (same metric as
+    // project_point_onto_linestring).
+    let cos_lat = point.y().to_radians().cos();
+    let mut min_dist_sq = f64::INFINITY;
+    let mut best_seg: usize = 0;
+    let mut best_t: f64 = 0.0;
 
-    // Calculate total length using haversine distance
-    let total_length = linestring.haversine_length();
+    for i in 0..coords.len() - 1 {
+        let p1 = &coords[i];
+        let p2 = &coords[i + 1];
 
-    // Calculate measure in meters
-    let measure = fractional_position * total_length;
+        let dx = (p2.x - p1.x) * cos_lat;
+        let dy = p2.y - p1.y;
+        let len_sq = dx * dx + dy * dy;
+
+        let t = if len_sq > 0.0 {
+            let px = (point.x() - p1.x) * cos_lat;
+            let py = point.y() - p1.y;
+            ((px * dx + py * dy) / len_sq).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+
+        let proj_x = p1.x + t * (p2.x - p1.x);
+        let proj_y = p1.y + t * (p2.y - p1.y);
+        let ex = (point.x() - proj_x) * cos_lat;
+        let ey = point.y() - proj_y;
+        let dist_sq = ex * ex + ey * ey;
+
+        if dist_sq < min_dist_sq {
+            min_dist_sq = dist_sq;
+            best_seg = i;
+            best_t = t;
+        }
+    }
+
+    // Accumulate haversine distances for complete segments before best_seg.
+    let mut measure = 0.0;
+    for i in 0..best_seg {
+        let a = Point::new(coords[i].x, coords[i].y);
+        let b = Point::new(coords[i + 1].x, coords[i + 1].y);
+        measure += a.haversine_distance(&b);
+    }
+
+    // Add fractional distance within the best segment.
+    let seg_start = Point::new(coords[best_seg].x, coords[best_seg].y);
+    let seg_end = Point::new(coords[best_seg + 1].x, coords[best_seg + 1].y);
+    measure += best_t * seg_start.haversine_distance(&seg_end);
 
     Ok(measure)
 }

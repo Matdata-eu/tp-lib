@@ -116,47 +116,85 @@ fn calculate_closest_point_on_linestring(
     point: &Point<f64>,
     linestring: &LineString<f64>,
 ) -> Result<(f64, f64, Point<f64>), ProjectionError> {
-    use geo::algorithm::euclidean_distance::EuclideanDistance;
+    use geo::algorithm::haversine_distance::HaversineDistance;
 
-    // Find the closest point by checking each line segment
-    let mut min_distance = f64::INFINITY;
-    let mut closest_point = linestring.0[0];
-    let mut closest_param = 0.0;
+    let coords = &linestring.0;
 
-    for i in 0..linestring.0.len() - 1 {
-        let p1 = Point::new(linestring.0[i].x, linestring.0[i].y);
-        let p2 = Point::new(linestring.0[i + 1].x, linestring.0[i + 1].y);
+    // Use cos(lat) scaling so the dot-product projection is metrically
+    // correct for geographic (WGS 84) coordinates — same approach used by
+    // `calculate_heading_at_point` and `project_point_onto_linestring`.
+    let cos_lat = point.y().to_radians().cos();
 
-        // Calculate closest point on this segment
-        let dx = p2.x() - p1.x();
-        let dy = p2.y() - p1.y();
+    let mut min_dist_sq = f64::INFINITY;
+    let mut best_seg: usize = 0;
+    let mut best_t: f64 = 0.0;
+    let mut closest_point = coords[0];
+
+    for i in 0..coords.len() - 1 {
+        let p1 = &coords[i];
+        let p2 = &coords[i + 1];
+
+        let dx = (p2.x - p1.x) * cos_lat;
+        let dy = p2.y - p1.y;
         let len_sq = dx * dx + dy * dy;
 
         let t = if len_sq > 0.0 {
-            ((point.x() - p1.x()) * dx + (point.y() - p1.y()) * dy) / len_sq
+            let px = (point.x() - p1.x) * cos_lat;
+            let py = point.y() - p1.y;
+            ((px * dx + py * dy) / len_sq).clamp(0.0, 1.0)
         } else {
             0.0
         };
 
-        let t_clamped = t.clamp(0.0, 1.0);
-        let seg_point = Point::new(p1.x() + t_clamped * dx, p1.y() + t_clamped * dy);
+        // Interpolate back in degree space.
+        let proj_x = p1.x + t * (p2.x - p1.x);
+        let proj_y = p1.y + t * (p2.y - p1.y);
 
-        let dist = point.euclidean_distance(&seg_point);
-        if dist < min_distance {
-            min_distance = dist;
-            closest_point = seg_point.0;
-            closest_param = (i as f64 + t_clamped) / (linestring.0.len() - 1) as f64;
+        let ex = (point.x() - proj_x) * cos_lat;
+        let ey = point.y() - proj_y;
+        let dist_sq = ex * ex + ey * ey;
+
+        if dist_sq < min_dist_sq {
+            min_dist_sq = dist_sq;
+            closest_point = geo::Coord { x: proj_x, y: proj_y };
+            best_seg = i;
+            best_t = t;
         }
     }
 
     let closest_pt = Point::new(closest_point.x, closest_point.y);
 
-    // Calculate distance in meters (rough approximation for small distances)
-    let lat_diff = (point.y() - closest_pt.y()) * 111320.0; // 1° ≈ 111.32 km
-    let lon_diff = (point.x() - closest_pt.x()) * 111320.0 * (point.y().to_radians()).cos();
-    let distance = (lat_diff * lat_diff + lon_diff * lon_diff).sqrt();
+    // Distance in meters via haversine (accurate for any latitude).
+    let distance = point.haversine_distance(&closest_pt);
 
-    Ok((distance, closest_param, closest_pt))
+    // Compute length-based intrinsic coordinate (0..1) using haversine
+    // segment lengths instead of a uniform vertex-index parameterization.
+    let mut length_before = 0.0;
+    for i in 0..best_seg {
+        let a = Point::new(coords[i].x, coords[i].y);
+        let b = Point::new(coords[i + 1].x, coords[i + 1].y);
+        length_before += a.haversine_distance(&b);
+    }
+    let seg_start = Point::new(coords[best_seg].x, coords[best_seg].y);
+    let seg_end = Point::new(coords[best_seg + 1].x, coords[best_seg + 1].y);
+    let seg_length = seg_start.haversine_distance(&seg_end);
+    length_before += best_t * seg_length;
+
+    let total_length: f64 = (0..coords.len() - 1)
+        .map(|i| {
+            let a = Point::new(coords[i].x, coords[i].y);
+            let b = Point::new(coords[i + 1].x, coords[i + 1].y);
+            a.haversine_distance(&b)
+        })
+        .sum();
+
+    let intrinsic = if total_length > 0.0 {
+        (length_before / total_length).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    Ok((distance, intrinsic, closest_pt))
 }
 
 /// Calculate heading at a projected point on a linestring
