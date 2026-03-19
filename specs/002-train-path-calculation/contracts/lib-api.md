@@ -69,7 +69,7 @@ impl Default for PathConfig {
         Self {
             distance_scale: 10.0,
             heading_scale: 2.0,
-            cutoff_distance: 50.0,
+            cutoff_distance: 500.0,
             heading_cutoff: 10.0,
             probability_threshold: 0.02,
             resampling_distance: None,
@@ -141,7 +141,7 @@ impl PathConfigBuilder {
         let config = PathConfig {
             distance_scale: self.distance_scale.unwrap_or(10.0),
             heading_scale: self.heading_scale.unwrap_or(2.0),
-            cutoff_distance: self.cutoff_distance.unwrap_or(50.0),
+            cutoff_distance: self.cutoff_distance.unwrap_or(500.0),
             heading_cutoff: self.heading_cutoff.unwrap_or(10.0),
             probability_threshold: self.probability_threshold.unwrap_or(0.02),
             resampling_distance: self.resampling_distance.flatten(),

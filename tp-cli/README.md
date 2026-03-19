@@ -209,7 +209,7 @@ These parameters control the path calculation algorithm. The defaults work well 
 |-----------|---------|-------------|
 | `--distance-scale` | `10.0` | Distance exponential decay scale (meters) |
 | `--heading-scale` | `2.0` | Heading exponential decay scale (degrees) |
-| `--cutoff-distance` | `50.0` | Maximum distance for candidate selection (meters) |
+| `--cutoff-distance` | `500.0` | Maximum distance for candidate selection (meters) |
 | `--heading-cutoff` | `10.0` | Maximum heading difference before rejection (degrees) |
 | `--probability-threshold` | `0.02` | Minimum probability for path segment inclusion |
 | `--max-candidates` | `3` | Maximum candidate netelements per GNSS position |
@@ -353,7 +353,7 @@ tp-cli --gnss data.csv \
        --crs EPSG:4326 \
        --network network.geojson \
        --output projected.csv \
-       --cutoff-distance 30.0 \
+       --cutoff-distance 100.0 \
        --max-candidates 5 \
        --distance-scale 5.0
 ```

@@ -359,7 +359,7 @@ cargo llvm-cov --lib -p tp-lib-core --html --output-dir target/coverage
 |-----------|---------|---------|
 | `distance_scale` | 10.0 | Distance decay rate (meters) |
 | `heading_scale` | 2.0 | Heading decay rate (degrees) |
-| `cutoff_distance` | 50.0 | Max search distance (meters) |
+| `cutoff_distance` | 500.0 | Max search distance (meters) |
 | `heading_cutoff` | 10.0 | Max heading difference (degrees) |
 | `probability_threshold` | 0.02 | Min probability for inclusion |
 | `max_candidates` | 3 | Max candidates per position |

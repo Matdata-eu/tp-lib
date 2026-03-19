@@ -65,7 +65,7 @@ struct Cli {
     heading_scale: f64,
 
     /// Maximum distance for candidate selection (meters)
-    #[arg(long = "cutoff-distance", value_name = "VALUE", default_value = "50.0")]
+    #[arg(long = "cutoff-distance", value_name = "VALUE", default_value = "500.0")]
     cutoff_distance: f64,
 
     /// Maximum heading difference before rejection (degrees)
@@ -169,7 +169,7 @@ enum Commands {
         distance_scale: f64,
         #[arg(long = "heading-scale", default_value = "2.0")]
         heading_scale: f64,
-        #[arg(long = "cutoff-distance", default_value = "50.0")]
+        #[arg(long = "cutoff-distance", default_value = "500.0")]
         cutoff_distance: f64,
         #[arg(long = "heading-cutoff", default_value = "10.0")]
         heading_cutoff: f64,

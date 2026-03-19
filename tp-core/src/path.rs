@@ -514,7 +514,7 @@ impl Default for PathConfig {
     /// Default values:
     /// - `distance_scale`: 10.0 meters (exponential decay)
     /// - `heading_scale`: 2.0 degrees (exponential decay)
-    /// - `cutoff_distance`: 50.0 meters
+    /// - `cutoff_distance`: 500.0 meters
     /// - `heading_cutoff`: 10.0 degrees
     /// - `probability_threshold`: 0.02 (2%)
     /// - `resampling_distance`: None (disabled)
@@ -528,7 +528,7 @@ impl Default for PathConfig {
         Self {
             distance_scale: 10.0,
             heading_scale: 2.0,
-            cutoff_distance: 50.0,
+            cutoff_distance: 500.0,
             heading_cutoff: 10.0,
             probability_threshold: 0.02,
             resampling_distance: None,
@@ -553,7 +553,7 @@ impl Default for PathConfig {
 /// let config = PathConfig::builder()
 ///     .distance_scale(15.0)
 ///     .heading_scale(3.0)
-///     .cutoff_distance(50.0)
+///     .cutoff_distance(500.0)
 ///     .heading_cutoff(10.0)
 ///     .probability_threshold(0.3)
 ///     .resampling_distance(Some(10.0))
@@ -754,7 +754,7 @@ pub use PathCalculationMode::{FallbackIndependent, TopologyBased};
 ///
 /// - `distance_scale`: Decay rate for distance probability (default 10.0m)
 /// - `heading_scale`: Decay rate for heading probability (default 2.0°)
-/// - `cutoff_distance`: Maximum distance for candidate selection (default 50.0m)
+/// - `cutoff_distance`: Maximum distance for candidate selection (default 500.0m)
 /// - `heading_cutoff`: Maximum heading difference, rejects if exceeded (default 10.0°)
 /// - `probability_threshold`: Minimum probability for segment inclusion (default 0.02)
 /// - `max_candidates`: Maximum candidates to evaluate per GNSS position

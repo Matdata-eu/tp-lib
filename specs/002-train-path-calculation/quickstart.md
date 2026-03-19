@@ -302,7 +302,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = PathConfigBuilder::new()
         .distance_scale(15.0)           // Tighter distance tolerance
         .heading_scale(3.0)             // More lenient heading tolerance
-        .cutoff_distance(75.0)          // Wider search radius
+        .cutoff_distance(75.0)          // Smaller search radius
         .heading_cutoff(8.0)            // Allow up to 8° heading difference
         .probability_threshold(0.20)    // Lower acceptance threshold
         .resampling_distance(Some(10.0)) // Resample at 10m intervals
@@ -672,7 +672,7 @@ fn validate_against_ground_truth() -> Result<(), Box<dyn std::error::Error>> {
 **Solutions:**
 ```bash
 # Increase cutoff distance
-tp-cli calculate-path ... --cutoff-distance 100.0
+tp-cli calculate-path ... --cutoff-distance 1000.0
 
 # Lower probability threshold
 tp-cli calculate-path ... --probability-threshold 0.15

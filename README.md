@@ -60,7 +60,7 @@ See **[DEBUG.md](DEBUG.md)** for a full description of the four output files, th
 |-----------|---------|-------------|
 | `--distance-scale` | 10.0 | Distance decay scale (meters) |
 | `--heading-scale` | 2.0 | Heading decay scale (degrees) |
-| `--cutoff-distance` | 50.0 | Max distance for candidate selection (meters) |
+| `--cutoff-distance` | 500.0 | Max distance for candidate selection (meters) |
 | `--heading-cutoff` | 10.0 | Max heading difference to accept (degrees) |
 | `--probability-threshold` | 0.02 | Minimum emission probability for candidate inclusion |
 | `--max-candidates` | 3 | Max candidates per GNSS position |

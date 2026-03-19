@@ -129,7 +129,7 @@ This is the **primary workflow** for path-based GNSS projection. It combines pat
 |--------|---------|-------|-------------|
 | `--distance-scale <VALUE>` | 10.0 | > 0.0 | Distance exponential decay scale parameter (meters) |
 | `--heading-scale <VALUE>` | 2.0 | > 0.0 | Heading exponential decay scale parameter (degrees) |
-| `--cutoff-distance <VALUE>` | 50.0 | > 0.0 | Maximum distance for candidate selection (meters) |
+| `--cutoff-distance <VALUE>` | 500.0 | > 0.0 | Maximum distance for candidate selection (meters) |
 | `--heading-cutoff <VALUE>` | 10.0 | 0.0-180.0 | Maximum heading difference before rejection (degrees) |
 | `--probability-threshold <VALUE>` | 0.02 | 0.0-1.0 | Minimum probability for path segment inclusion |
 | `--max-candidates <N>` | 3 | ≥ 1 | Maximum candidate netelements per GNSS position |
@@ -262,7 +262,7 @@ Use this command when you want to:
 |--------|---------|-------|-------------|
 | `--distance-scale <VALUE>` | 10.0 | > 0.0 | Distance exponential decay scale parameter (meters) |
 | `--heading-scale <VALUE>` | 2.0 | > 0.0 | Heading exponential decay scale parameter (degrees) |
-| `--cutoff-distance <VALUE>` | 50.0 | > 0.0 | Maximum distance for candidate selection (meters) |
+| `--cutoff-distance <VALUE>` | 500.0 | > 0.0 | Maximum distance for candidate selection (meters) |
 | `--heading-cutoff <VALUE>` | 10.0 | 0.0-180.0 | Maximum heading difference before rejection (degrees) |
 | `--probability-threshold <VALUE>` | 0.02 | 0.0-1.0 | Minimum probability for path segment inclusion |
 | `--max-candidates <N>` | 3 | ≥ 1 | Maximum candidate netelements per GNSS position |
@@ -522,7 +522,7 @@ Output from `tp-cli calculate-path`:
     "metadata": {
       "distance_scale": 10.0,
       "heading_scale": 2.0,
-      "cutoff_distance": 50.0,
+      "cutoff_distance": 500.0,
       "heading_cutoff": 10.0,
       "probability_threshold": 0.02,
       "resampling_distance": null,

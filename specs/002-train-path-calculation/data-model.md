@@ -893,7 +893,7 @@ impl TrainPath {
     "metadata": {
       "distance_scale": 10.0,
       "heading_scale": 2.0,
-      "cutoff_distance": 50.0,
+      "cutoff_distance": 500.0,
       "heading_cutoff": 10.0,
       "probability_threshold": 0.02,
       "resampling_distance": 10.0,

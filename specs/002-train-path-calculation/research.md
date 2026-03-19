@@ -19,9 +19,9 @@
     - [Alternatives Considered](#alternatives-considered-1)
   - [3. Path Construction Algorithm: Bidirectional Validation *(Superseded)*](#3-path-construction-algorithm-bidirectional-validation-superseded)
   - [3b. HMM / Viterbi Map-Matching Migration](#3b-hmm--viterbi-map-matching-migration)
-    - [Decision](#decision-2b)
-    - [Rationale](#rationale-2b)
-    - [Reference](#reference-2b)
+    - [Decision](#decision-2)
+    - [Rationale](#rationale-2)
+    - [Reference](#reference)
   - [4. Distance Coverage Correction Factor *(Superseded)*](#4-distance-coverage-correction-factor-superseded)
   - [5. Reusing Existing Codebase Functions](#5-reusing-existing-codebase-functions)
     - [Functions to Reuse](#functions-to-reuse)
@@ -31,14 +31,14 @@
       - [I/O Functions (io/geojson.rs, io/csv.rs)](#io-functions-iogeojsonrs-iocsvrs)
     - [Code Reuse Strategy](#code-reuse-strategy)
   - [6. Performance Optimization: Resampling Strategy](#6-performance-optimization-resampling-strategy)
-    - [Decision](#decision-4)
-    - [Rationale](#rationale-4)
+    - [Decision](#decision-3)
+    - [Rationale](#rationale-3)
     - [Performance Impact](#performance-impact)
-    - [Alternatives Considered](#alternatives-considered-4)
+    - [Alternatives Considered](#alternatives-considered-2)
   - [7. Error Handling Strategy](#7-error-handling-strategy)
-    - [Decision](#decision-5)
+    - [Decision](#decision-4)
     - [Fallback Behavior](#fallback-behavior)
-    - [Rationale](#rationale-5)
+    - [Rationale](#rationale-4)
   - [8. Testing Strategy](#8-testing-strategy)
     - [Test Coverage Plan](#test-coverage-plan)
       - [Unit Tests (`tests/unit/`)](#unit-tests-testsunit)
@@ -48,8 +48,8 @@
       - [Performance Benchmarks (`benches/`)](#performance-benchmarks-benches)
     - [TDD Workflow Enforcement](#tdd-workflow-enforcement)
   - [9. CLI Interface Design](#9-cli-interface-design)
-    - [Decision](#decision-6)
-    - [Rationale](#rationale-6)
+    - [Decision](#decision-5)
+    - [Rationale](#rationale-5)
   - [10. Dependencies and Licenses](#10-dependencies-and-licenses)
     - [New Dependencies](#new-dependencies)
     - [License Verification](#license-verification)
@@ -513,7 +513,7 @@ tp-cli \
   --output projected.csv \
   --distance-scale 10.0 \
   --heading-scale 2.0 \
-  --cutoff-distance 50.0 \
+  --cutoff-distance 500.0 \
   --heading-cutoff 10.0 \
   --probability-threshold 0.02 \
   --resampling-distance 10.0 \

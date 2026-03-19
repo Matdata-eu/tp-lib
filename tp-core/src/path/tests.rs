@@ -19,7 +19,7 @@ fn test_path_config_defaults() {
     
     assert_eq!(config.distance_scale, 10.0);
     assert_eq!(config.heading_scale, 2.0);
-    assert_eq!(config.cutoff_distance, 50.0);
+    assert_eq!(config.cutoff_distance, 500.0);
     assert_eq!(config.heading_cutoff, 10.0);
     assert_eq!(config.probability_threshold, 0.02);
     assert_eq!(config.max_candidates, 3);

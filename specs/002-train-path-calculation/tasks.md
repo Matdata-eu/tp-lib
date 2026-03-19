@@ -75,7 +75,7 @@
 ### Configuration
 
 - [X] T033 [P] Create PathConfig struct in tp-core/src/path.rs (distance_scale, heading_scale, cutoff_distance, heading_cutoff, probability_threshold, resampling_distance, max_candidates)
-- [X] T034 [P] Implement PathConfig::default() with documented default values (distance_scale: 10.0, heading_scale: 2.0, cutoff_distance: 50.0, heading_cutoff: 5.0, probability_threshold: 0.25, max_candidates: 3)
+- [X] T034 [P] Implement PathConfig::default() with documented default values (distance_scale: 10.0, heading_scale: 2.0, cutoff_distance: 500.0, heading_cutoff: 5.0, probability_threshold: 0.25, max_candidates: 3)
 - [X] T035 [P] Create PathConfigBuilder with fluent API and validation
 - [X] T036 [P] Create PathResult struct (path: Option<TrainPath>, mode: PathCalculationMode enum, projected_positions, warnings)
 - [X] T037 [P] Create PathCalculationMode enum (TopologyBased, FallbackIndependent) in tp-core/src/path.rs
