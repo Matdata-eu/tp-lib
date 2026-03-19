@@ -17,8 +17,6 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Simple projection](#simple-projection-1)
       - [Path calculation](#path-calculation-1)
       - [Path projection](#path-projection-1)
-- [Ignore below](#ignore-below)
-  - [Single-switch cases](#single-switch-cases)
     - [L36-A → L36C-A – log\_28554](#l36-a--l36c-a--log_28554)
       - [Simple projection](#simple-projection-2)
       - [Path calculation](#path-calculation-2)
@@ -31,6 +29,8 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Simple projection](#simple-projection-4)
       - [Path calculation](#path-calculation-4)
       - [Path projection](#path-projection-4)
+- [Ignore below](#ignore-below)
+  - [Single-switch cases](#single-switch-cases)
     - [L25N-B → L36C-B – log\_31176](#l25n-b--l36c-b--log_31176)
       - [Simple projection](#simple-projection-5)
       - [Path calculation](#path-calculation-5)
@@ -223,17 +223,17 @@ No surprises. The blue dots are again the simple-projection result while the gol
 ![L36 track A - Path projection](log_29083/log_29083_L36-A-path-projection.png)
 
 
-# Ignore below
-
-## Single-switch cases
-
 ### L36-A → L36C-A – log_28554
 
 Log file ID: 28554
 
-Train takes a single switch from L36 track A onto the L36C branch (track A).
+Train takes a single switch from L36 track A onto the L36C line towards the airport (track A). Due to the tunnel, the raw GNSS positions start to drift near the end of the path:
+
+![L36-A to L36C-A - Raw](log_28554/log_28554_L36-A_to_L36C-A-raw.png)
 
 #### Simple projection
+
+Considering the simple layout and path, the simple projection will result already in an optimal result:
 
 ```bash
 target/release/tp-cli.exe simple-projection --gnss test-data/log_28554/log_28554_L36-A_to_L36C-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28554/log_28554_L36-A_to_L36C-A-simple-projection.geojson
@@ -243,21 +243,19 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_28554/log_28554
 
 #### Path calculation
 
+Path calculation gives the expected result.
+
 ```bash
 target/release/tp-cli.exe calculate-path --gnss test-data/log_28554/log_28554_L36-A_to_L36C-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28554/log_28554_L36-A_to_L36C-A-path-calculation.geojson
 ```
 
-Expected output:
-1. 88_L_5916 (prob=0.892)
-2. 88_L_2026 (prob=0.116)
-3. 88_L_7855 (prob=0.947)
-4. 88_L_7818 (prob=0.771)
-
-Note the low probability on `88_L_2026` — this is the short netelement at the switch between the L36 main line and the L36C branch.
+All path elements score a high probability.
 
 ![L36-A to L36C-A - Path calculation](log_28554/log_28554_L36-A_to_L36C-A-path.png)
 
 #### Path projection
+
+No surprises here:
 
 ```bash
 target/release/tp-cli.exe --gnss test-data/log_28554/log_28554_L36-A_to_L36C-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28554/log_28554_L36-A_to_L36C-A-path-projection.geojson
@@ -265,13 +263,16 @@ target/release/tp-cli.exe --gnss test-data/log_28554/log_28554_L36-A_to_L36C-A.c
 
 ![L36-A to L36C-A - Path projection](log_28554/log_28554_L36-A_to_L36C-A-path-projection.png)
 
----
 
 ### L36-B → L36N-B – log_29304
 
 Log file ID: 29304
 
-Train takes a single switch from L36 track B onto the L36N airport branch (track B).
+Train drives from Leuven to Brussels, initially driving on L36 track B and moving over to L36N track B after the airport junction. GNSS data is relatively clean:
+
+![L36-B to L36N-B - Raw](log_29304/log_29304_L36-B_to_L36N-B-raw.png)
+
+![L36-B to L36N-B - Raw at switch](log_29304/log_29304_L36-B_to_L36N-B-raw-switch.png)
 
 #### Simple projection
 
@@ -304,8 +305,6 @@ target/release/tp-cli.exe --gnss test-data/log_29304/log_29304_L36-B_to_L36N-B.c
 ```
 
 ![L36-B to L36N-B - Path projection](log_29304/log_29304_L36-B_to_L36N-B-path-projection.png)
-
----
 
 ### L36C-B → L36-A – log_30908
 
@@ -347,6 +346,15 @@ target/release/tp-cli.exe --gnss test-data/log_30908/log_30908_L36C-B_to_L36-A.c
 ```
 
 ![L36C-B to L36-A - Path projection](log_30908/log_30908_L36C-B_to_L36-A-path-projection.png)
+
+# Ignore below
+
+## Single-switch cases
+
+
+---
+
+
 
 ---
 
