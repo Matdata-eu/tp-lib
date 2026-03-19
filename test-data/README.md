@@ -310,13 +310,17 @@ target/release/tp-cli.exe --gnss test-data/log_29304/log_29304_L36-B_to_L36N-B.c
 
 Log file ID: 30908
 
-Train arrives on the L36C branch (track B) and rejoins the L36 main line (track A) via a switch.
+Train starts from L36C track B and merges onto L36 track A. The GNSS positions are very bad at the start until the train is out of the tunnel.
+
+![L36C-B to L36-A - Raw](log_30908/log_30908_L36C-B_to_L36-A-raw.png)
 
 #### Simple projection
 
 ```bash
 target/release/tp-cli.exe simple-projection --gnss test-data/log_30908/log_30908_L36C-B_to_L36-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_30908/log_30908_L36C-B_to_L36-A-simple-projection.geojson
 ```
+
+Simple projection gives decent results:
 
 ![L36C-B to L36-A - Simple projection](log_30908/log_30908_L36C-B_to_L36-A-simple-projection.png)
 
@@ -326,16 +330,7 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_30908/log_30908
 target/release/tp-cli.exe calculate-path --gnss test-data/log_30908/log_30908_L36C-B_to_L36-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_30908/log_30908_L36C-B_to_L36-A-path-calculation.geojson
 ```
 
-Expected output:
-1. 88_L_155  (prob=0.908)
-2. 88_L_111  (prob=0.833)
-3. 88_L_42   (prob=1.000)
-4. 88_L_2026 (prob=1.000)
-5. 88_L_7824 (prob=1.000)
-6. 88_L_9764 (prob=1.000)
-7. 88_L_3878 (prob=0.358)
-8. 88_L_1932 (prob=0.425)
-9. 88_L_2094 (prob=0.328)
+Path calculation is as it should be:
 
 ![L36C-B to L36-A - Path calculation](log_30908/log_30908_L36C-B_to_L36-A-path.png)
 
@@ -344,6 +339,8 @@ Expected output:
 ```bash
 target/release/tp-cli.exe --gnss test-data/log_30908/log_30908_L36C-B_to_L36-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_30908/log_30908_L36C-B_to_L36-A-path-projection.geojson
 ```
+
+No surprises with path projection:
 
 ![L36C-B to L36-A - Path projection](log_30908/log_30908_L36C-B_to_L36-A-path-projection.png)
 
