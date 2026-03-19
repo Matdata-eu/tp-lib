@@ -29,8 +29,6 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Simple projection](#simple-projection-4)
       - [Path calculation](#path-calculation-4)
       - [Path projection](#path-projection-4)
-- [Ignore below](#ignore-below)
-  - [Single-switch cases](#single-switch-cases)
     - [L25N-B → L36C-B – log\_31176](#l25n-b--l36c-b--log_31176)
       - [Simple projection](#simple-projection-5)
       - [Path calculation](#path-calculation-5)
@@ -173,6 +171,8 @@ target/release/tp-cli.exe --gnss test-data/log_28876/log_28876_L36-B.csv --crs E
 
 In gold the path projected coordinates. In blue the result of the simple projection as reference. We conclude that path projection yields better results than simple projection.
 
+---
+
 ### L36 track A – log_29083
 
 Log file ID: 29083
@@ -263,6 +263,7 @@ target/release/tp-cli.exe --gnss test-data/log_28554/log_28554_L36-A_to_L36C-A.c
 
 ![L36-A to L36C-A - Path projection](log_28554/log_28554_L36-A_to_L36C-A-path-projection.png)
 
+---
 
 ### L36-B → L36N-B – log_29304
 
@@ -306,6 +307,8 @@ target/release/tp-cli.exe --gnss test-data/log_29304/log_29304_L36-B_to_L36N-B.c
 
 ![L36-B to L36N-B - Path projection](log_29304/log_29304_L36-B_to_L36N-B-path-projection.png)
 
+---
+
 ### L36C-B → L36-A – log_30908
 
 Log file ID: 30908
@@ -344,28 +347,28 @@ No surprises with path projection:
 
 ![L36C-B to L36-A - Path projection](log_30908/log_30908_L36C-B_to_L36-A-path-projection.png)
 
-# Ignore below
-
-## Single-switch cases
-
-
----
-
-
-
 ---
 
 ### L25N-B → L36C-B – log_31176
 
 Log file ID: 31176
 
-Longer trip starting on L25N track B and joining L36C track B. Contains many segments including several connector netelements.
+Starting on L25N track B and merging onto L36C track B. A switch and an overcrossing. GNSS positions are drifting off, when going into the tunnel.
+
+![L25N-B to L36C-B - Simple projection](log_31176/log_31176_25N-B_to_L36C-B-raw.png)
+
+Detail of drifting off:
+
+![L25N-B to L36C-B - Simple projection](log_31176/log_31176_25N-B_to_L36C-B-raw2.png)
+
 
 #### Simple projection
 
 ```bash
 target/release/tp-cli.exe simple-projection --gnss test-data/log_31176/log_31176_25N-B_to_L36C-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31176/log_31176_25N-B_to_L36C-B-simple-projection.geojson
 ```
+
+Simple projection has the issue of jumping from track to track:
 
 ![L25N-B to L36C-B - Simple projection](log_31176/log_31176_25N-B_to_L36C-B-simple-projection.png)
 
@@ -375,27 +378,7 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_31176/log_31176
 target/release/tp-cli.exe calculate-path --gnss test-data/log_31176/log_31176_25N-B_to_L36C-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31176/log_31176_25N-B_to_L36C-B-path-calculation.geojson
 ```
 
-Expected output:
-1.  88_L_7137  (prob=0.806)
-2.  88_L_11885 (prob=0.407)
-3.  88_L_11886 (prob=0.530)
-4.  88_L_24043 (prob=0.275)
-5.  88_L_262   (prob=0.117)
-6.  88_L_6041  (prob=0.070)
-7.  88_L_6042  (prob=0.319)
-8.  88_L_7141  (prob=1.000)
-9.  88_L_17875 (prob=1.000)
-10. 88_L_1727  (prob=1.000)
-11. 88_L_5210  (prob=1.000)
-12. 88_L_1728  (prob=1.000)
-13. 88_L_18686 (prob=1.000)
-14. 88_L_5589  (prob=1.000)
-15. 88_L_7154  (prob=1.000)
-16. 88_L_7819  (prob=1.000)
-17. 88_L_13635 (prob=1.000)
-18. 88_L_16654 (prob=0.642)
-
-The first several segments show lower probabilities as the algorithm resolves the switch area around L25N/L36C.
+Path calculation is as it should:
 
 ![L25N-B to L36C-B - Path calculation](log_31176/log_31176_25N-B_to_L36C-B-path.png)
 
@@ -404,6 +387,8 @@ The first several segments show lower probabilities as the algorithm resolves th
 ```bash
 target/release/tp-cli.exe --gnss test-data/log_31176/log_31176_25N-B_to_L36C-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31176/log_31176_25N-B_to_L36C-B-path-projection.geojson
 ```
+
+Path projection is good:
 
 ![L25N-B to L36C-B - Path projection](log_31176/log_31176_25N-B_to_L36C-B-path-projection.png)
 
