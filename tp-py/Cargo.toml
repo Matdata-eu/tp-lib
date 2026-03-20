@@ -17,3 +17,4 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 tp-lib-core = { version = "0.0.1", path = "../tp-core" }
 pyo3.workspace = true
+geo.workspace = true

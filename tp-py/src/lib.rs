@@ -24,9 +24,9 @@
 use pyo3::exceptions::{PyIOError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use tp_lib_core::{
-    parse_gnss_csv, parse_network_geojson, project_gnss as core_project_gnss,
-    ProjectedPosition as CoreProjectedPosition, ProjectionConfig as CoreProjectionConfig,
-    ProjectionError, RailwayNetwork,
+    crs::transform::CrsTransformer, parse_gnss_csv, parse_network_geojson,
+    project_gnss as core_project_gnss, ProjectedPosition as CoreProjectedPosition,
+    ProjectionConfig as CoreProjectionConfig, ProjectionError, RailwayNetwork,
 };
 
 // ============================================================================
@@ -258,22 +258,26 @@ impl From<&CoreProjectedPosition> for ProjectedPosition {
 ///     print(f"{pos.netelement_id}: {pos.measure_meters}m")
 /// ```
 #[pyfunction]
-#[pyo3(signature = (gnss_file, gnss_crs, network_file, _network_crs, _target_crs, config=None))]
+#[pyo3(signature = (gnss_file, gnss_crs, network_file, network_crs, target_crs, config=None))]
 fn project_gnss(
     gnss_file: &str,
     gnss_crs: &str,
     network_file: &str,
-    _network_crs: &str, // Reserved for future use when CRS per file is supported
-    _target_crs: &str,  // Reserved for future use when explicit target CRS is supported
+    network_crs: &str,
+    target_crs: &str,
     config: Option<ProjectionConfig>,
 ) -> PyResult<Vec<ProjectedPosition>> {
+    // Validate all CRS strings upfront so callers get a clear ValueError for bad CRS
+    CrsTransformer::new(gnss_crs.to_string(), gnss_crs.to_string()).map_err(convert_error)?;
+    CrsTransformer::new(network_crs.to_string(), network_crs.to_string()).map_err(convert_error)?;
+    CrsTransformer::new(target_crs.to_string(), target_crs.to_string()).map_err(convert_error)?;
+
     // Convert Python config to Rust config
     let core_config: CoreProjectionConfig = config
         .unwrap_or_else(|| ProjectionConfig::new(1000.0, 50.0, false))
         .into();
 
     // Parse GNSS positions from CSV
-    // Note: parse_gnss_csv signature is (path, crs, lat_col, lon_col, time_col)
     let gnss_positions = parse_gnss_csv(gnss_file, gnss_crs, "latitude", "longitude", "timestamp")
         .map_err(convert_error)?;
 
@@ -285,11 +289,25 @@ fn project_gnss(
     let network = RailwayNetwork::new(netelements).map_err(convert_error)?;
 
     // Project positions
-    let results =
+    let core_results =
         core_project_gnss(&gnss_positions, &network, &core_config).map_err(convert_error)?;
 
-    // Convert to Python objects
-    Ok(results.iter().map(ProjectedPosition::from).collect())
+    // Convert to Python objects, transforming coordinates to target_crs
+    let mut py_results = Vec::with_capacity(core_results.len());
+    for core_result in &core_results {
+        let mut pos = ProjectedPosition::from(core_result);
+        if pos.crs != target_crs {
+            let transformer = CrsTransformer::new(pos.crs.clone(), target_crs.to_string())
+                .map_err(convert_error)?;
+            let point = geo::Point::new(pos.projected_x, pos.projected_y);
+            let transformed = transformer.transform(point).map_err(convert_error)?;
+            pos.projected_x = transformed.x();
+            pos.projected_y = transformed.y();
+            pos.crs = target_crs.to_string();
+        }
+        py_results.push(pos);
+    }
+    Ok(py_results)
 }
 
 // ============================================================================
