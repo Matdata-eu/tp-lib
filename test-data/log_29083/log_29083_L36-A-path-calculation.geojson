@@ -935,10 +935,10 @@
       "properties": {
         "end_intrinsic": 0.999280060821792,
         "gnss_end_index": 572,
-        "gnss_start_index": 430,
+        "gnss_start_index": 418,
         "netelement_id": "88_L_42",
         "probability": 1.0,
-        "start_intrinsic": 0.023774930216524034
+        "start_intrinsic": 0.014470124638998676
       }
     },
     {
@@ -2032,6 +2032,6 @@
   ],
   "properties": {
     "calculated_at": "2022-03-15T09:10:26.200+00:00",
-    "overall_probability": 0.4684852042336281
+    "overall_probability": 0.005218917890829157
   }
 }
