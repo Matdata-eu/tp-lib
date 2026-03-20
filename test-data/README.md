@@ -45,40 +45,36 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Simple projection](#simple-projection-8)
       - [Path calculation](#path-calculation-8)
       - [Path projection](#path-projection-8)
-    - [L36-A → L36C-A → L25N-B – log\_29493](#l36-a--l36c-a--l25n-b--log_29493)
+    - [L36-A → L36C-A → L25N-B – log\_29584](#l36-a--l36c-a--l25n-b--log_29584)
       - [Simple projection](#simple-projection-9)
       - [Path calculation](#path-calculation-9)
       - [Path projection](#path-projection-9)
-    - [L36-A → L36C-A → L25N-B – log\_29584](#l36-a--l36c-a--l25n-b--log_29584)
+    - [L36-A → L36C-A → L25N-B – log\_29835](#l36-a--l36c-a--l25n-b--log_29835)
       - [Simple projection](#simple-projection-10)
       - [Path calculation](#path-calculation-10)
       - [Path projection](#path-projection-10)
-    - [L36-A → L36C-A → L25N-B – log\_29835](#l36-a--l36c-a--l25n-b--log_29835)
+    - [L36-A → L36C-A → L25N-B – log\_31259](#l36-a--l36c-a--l25n-b--log_31259)
       - [Simple projection](#simple-projection-11)
       - [Path calculation](#path-calculation-11)
       - [Path projection](#path-projection-11)
-    - [L36-A → L36C-A → L25N-B – log\_31259](#l36-a--l36c-a--l25n-b--log_31259)
+  - [Airport branch (L36N)](#airport-branch-l36n)
+    - [L36N track A – log\_29224](#l36n-track-a--log_29224)
       - [Simple projection](#simple-projection-12)
       - [Path calculation](#path-calculation-12)
       - [Path projection](#path-projection-12)
-  - [Airport branch (L36N)](#airport-branch-l36n)
-    - [L36N track A – log\_29224](#l36n-track-a--log_29224)
+    - [L36N track A – log\_30779](#l36n-track-a--log_30779)
       - [Simple projection](#simple-projection-13)
       - [Path calculation](#path-calculation-13)
       - [Path projection](#path-projection-13)
-    - [L36N track A – log\_30779](#l36n-track-a--log_30779)
+  - [Degraded GNSS cases](#degraded-gnss-cases)
+    - [L36-A → L36C-A → L25N-B, very bad GNSS – log\_28586](#l36-a--l36c-a--l25n-b-very-bad-gnss--log_28586)
       - [Simple projection](#simple-projection-14)
       - [Path calculation](#path-calculation-14)
       - [Path projection](#path-projection-14)
-  - [Degraded GNSS cases](#degraded-gnss-cases)
-    - [L36-A → L36C-A → L25N-B, very bad GNSS – log\_28586](#l36-a--l36c-a--l25n-b-very-bad-gnss--log_28586)
+    - [L36 track A, very bad GNSS – log\_38373](#l36-track-a-very-bad-gnss--log_38373)
       - [Simple projection](#simple-projection-15)
       - [Path calculation](#path-calculation-15)
       - [Path projection](#path-projection-15)
-    - [L36 track A, very bad GNSS – log\_38373](#l36-track-a-very-bad-gnss--log_38373)
-      - [Simple projection](#simple-projection-16)
-      - [Path calculation](#path-calculation-16)
-      - [Path projection](#path-projection-16)
   - [File reorganisation](#file-reorganisation)
 
 Root folder for release exe: `target/release/`
@@ -527,57 +523,7 @@ Good result:
 
 ---
 
-### L36-A → L36C-A → L25N-B – log_29493
 
-Log file ID: 29493
-
-Same route as log_28573. Use alongside the other four logs of this route to validate consistency.
-
-#### Simple projection
-
-```bash
-target/release/tp-cli.exe simple-projection --gnss test-data/log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B-simple-projection.geojson
-```
-
-![L36-A to L36C-A to L25N-B (log_29493) - Simple projection](log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B-simple-projection.png)
-
-#### Path calculation
-
-```bash
-target/release/tp-cli.exe calculate-path --gnss test-data/log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B-path-calculation.geojson
-```
-
-Expected output:
-1.  88_L_1388  (prob=0.927)
-2.  88_L_11046 (prob=0.320)
-3.  88_L_11885 (prob=1.000)
-4.  88_L_7137  (prob=1.000)
-5.  88_L_109   (prob=1.000)
-6.  88_L_11721 (prob=1.000)
-7.  88_L_5210  (prob=0.345)
-8.  88_L_1727  (prob=1.000)
-9.  88_L_17875 (prob=1.000)
-10. 88_L_7141  (prob=1.000)
-11. 88_L_6042  (prob=1.000)
-12. 88_L_16654 (prob=1.000)
-13. 88_L_13635 (prob=1.000)
-14. 88_L_7819  (prob=1.000)
-15. 88_L_7154  (prob=0.489)
-16. 88_L_5589  (prob=0.484)
-17. 88_L_18686 (prob=0.138)
-18. 88_L_1728  (prob=0.293)
-
-![L36-A to L36C-A to L25N-B (log_29493) - Path calculation](log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B-path.png)
-
-#### Path projection
-
-```bash
-target/release/tp-cli.exe --gnss test-data/log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B-path-projection.geojson
-```
-
-![L36-A to L36C-A to L25N-B (log_29493) - Path projection](log_29493/log_29493_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
-
----
 
 ### L36-A → L36C-A → L25N-B – log_29584
 
