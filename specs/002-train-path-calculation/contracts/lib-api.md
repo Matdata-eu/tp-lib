@@ -46,7 +46,7 @@ pub struct PathConfig {
     /// Heading scale for exponential decay (default: 2.0 degrees)
     pub heading_scale: f64,
     
-    /// Maximum distance for candidate selection (default: 50.0 meters)
+    /// Maximum distance for candidate selection (default: 500.0 meters)
     pub cutoff_distance: f64,
     
     /// Maximum heading difference before rejection (default: 10.0 degrees)

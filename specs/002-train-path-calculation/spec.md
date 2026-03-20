@@ -152,7 +152,7 @@ A developer troubleshooting path calculation issues exports intermediate results
 
 ### Session 2026-01-08
 
-- Q: When GNSS coordinates fall outside the configured cutoff distance (default 50m) from all track segments during the projection phase (after path is calculated), how should the system handle these outliers? → A: Exclude outlier coordinates from output entirely (omit from results file). Future feature will address better handling.
+- Q: When GNSS coordinates fall outside the configured cutoff distance (default 500m) from all track segments during the projection phase (after path is calculated), how should the system handle these outliers? → A: Exclude outlier coordinates from output entirely (omit from results file). Future feature will address better handling.
 - Q: How should the distance between a GNSS coordinate and a candidate netelement be factored into the probability calculation? → A: Inverse exponential decay based on both distance (e.g., e^(-distance/scale)) and heading difference (e.g., e^(-heading_diff/scale))
 - Q: When multiple candidate paths have identical probability scores (after forward/backward averaging), which path should be selected? → A: Select the first path found during calculation (arbitrary but deterministic)
 - Q: When a pre-calculated train path is provided as input (FR-041), what format should the system expect? → A: Same format as path-only export: CSV or GeoJSON with ordered AssociatedNetElements
@@ -173,7 +173,7 @@ A developer troubleshooting path calculation issues exports intermediate results
 
 ### Edge Cases
 
-- GNSS coordinates more than the configured cutoff distance (default 50m) from any track segment are excluded from output (omitted from results)
+- GNSS coordinates more than the configured cutoff distance (default 500m) from any track segment are excluded from output (omitted from results)
 - NetRelations where elementA equals elementB (self-referencing) are skipped with warnings logged
 - NetRelations referencing non-existent netelement IDs are skipped with warnings logged; segments with only invalid netrelations are treated as isolated
 - What happens when a track segment has no netrelations connecting it to other segments (isolated segment)?
@@ -216,7 +216,7 @@ A developer troubleshooting path calculation issues exports intermediate results
 - **FR-015**: The calculated train path MUST be continuous (each segment connects to the next via a netrelation)
 - **FR-016**: All netrelations between consecutive segments in the path MUST have navigability in the direction of travel (not "none" or opposing direction)
 - **FR-017**: System MUST find at most N nearest netelements for each GNSS coordinate (where N is configurable, default 3)
-- **FR-018**: System MUST only consider netelements within a configurable cutoff distance (default 50 meters) from each GNSS coordinate
+- **FR-018**: System MUST only consider netelements within a configurable cutoff distance (default 500 meters) from each GNSS coordinate
 - **FR-018a**: System MUST exclude from output any GNSS coordinates that are more than the cutoff distance from all track segments in the calculated path
 - **FR-019**: System MUST calculate probability for each candidate netelement using inverse exponential decay for both distance (e.g., e^(-distance/distance_scale)) and heading alignment (e.g., e^(-heading_difference/heading_scale)), with the overall probability being the product of distance and heading probability factors
 - **FR-020**: System MUST set probability to 0 when heading difference between GNSS coordinate and netelement exceeds configurable cutoff (default 10 degrees), overriding exponential decay calculation
@@ -324,7 +324,7 @@ A developer troubleshooting path calculation issues exports intermediate results
 The following configuration parameters are referenced in the requirements with default values:
 
 - **Max nearest netelements**: Default 3 — maximum number of candidate track segments considered for each GNSS coordinate
-- **Distance cutoff**: Default 50 meters — maximum distance from GNSS coordinate to consider a track segment as candidate
+- **Distance cutoff**: Default 500 meters — maximum distance from GNSS coordinate to consider a track segment as candidate
 - **Heading difference cutoff**: Default 10 degrees — maximum heading misalignment before emission probability is set to 0
 - **Minimum probability threshold**: Default 2% — minimum emission probability for segment inclusion
 - **Resampling distance**: Default 10 meters — target spacing between GNSS coordinates used for path calculation

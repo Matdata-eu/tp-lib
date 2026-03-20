@@ -242,9 +242,9 @@ When **all** transition scores at a time-step `t` are `-∞` (no feasible transi
 3. For each current candidate `j` with non-zero emission: `log_V[t][j] = carry_score + ln(P_emission(t, j))`
 4. Set `backptr[t][j] = i*` so the backtrace follows the best previous state
 
-This produces a **single unbroken subsequence** for all GNSS input (the GNSS data represents one continuous drive). The heavy penalty ensures that carry-forward transitions are strongly disfavoured relative to genuine topological transitions, but the chain is never severed.
+This produces a **single unbroken subsequence** within a Viterbi processing window. The heavy penalty ensures that carry-forward transitions are strongly disfavoured relative to genuine topological transitions, but within a window the chain is never severed.
 
-**Important**: Because carry-forward preserves chain continuity, the backtrace always yields exactly one subsequence covering the entire GNSS timeline.
+**Important**: Because carry-forward preserves chain continuity *within a window*, the backtrace for that window always yields exactly one subsequence covering the entire GNSS timeline of the window. Requirement **FR-027** (Viterbi break detection and subsequence reinitialization) is satisfied by higher-level control logic, which may terminate the current window and start a new one when configured break conditions are met; in that case, multiple subsequences exist across windows, while each individual window still uses the no-break penalty carry-forward scheme described here.
 
 ### Backtrace
 

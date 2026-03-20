@@ -147,6 +147,12 @@ This is the **primary workflow** for path-based GNSS projection. It combines pat
 | `--format <FORMAT>` | auto | Output format: `csv`, `geojson`, or `auto` (detect from extension) |
 | `--save-path <FILE>` | None | Optionally save calculated path to file (in addition to projected coordinates) |
 
+**Input Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--crs <CRS>` | None | Coordinate Reference System for GNSS input (e.g., `EPSG:4326`). Overrides CRS column in CSV file. |
+
 **General Options:**
 
 | Option | Description |

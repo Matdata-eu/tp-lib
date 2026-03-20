@@ -292,9 +292,8 @@ When working on path calculation features (`tp-core/src/path/`):
 The path calculation module consists of several submodules:
 
 - **`candidate.rs`**: Find candidate netelements for each GNSS position
-- **`probability.rs`**: Calculate probabilities using distance and heading
-- **`construction.rs`**: Build paths forward and backward through network
-- **`selection.rs`**: Select best path from candidates
+- **`probability.rs`**: Calculate HMM-related probabilities (e.g., emission/transition) using distance, heading, and network context
+- **`viterbi.rs`**: Run the HMM/Viterbi algorithm to compute the most likely train path from the candidate sequences
 - **`graph.rs`**: Network topology graph operations
 - **`spacing.rs`**: GNSS resampling for consistent spacing
 
