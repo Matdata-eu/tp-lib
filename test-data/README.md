@@ -54,27 +54,10 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Path calculation](#path-calculation-10)
       - [Path projection](#path-projection-10)
     - [L36-A → L36C-A → L25N-B – log\_31259](#l36-a--l36c-a--l25n-b--log_31259)
+    - [L36-A → L36C-A → L25N-B, very bad GNSS – log\_28586](#l36-a--l36c-a--l25n-b-very-bad-gnss--log_28586)
       - [Simple projection](#simple-projection-11)
       - [Path calculation](#path-calculation-11)
       - [Path projection](#path-projection-11)
-  - [Airport branch (L36N)](#airport-branch-l36n)
-    - [L36N track A – log\_29224](#l36n-track-a--log_29224)
-      - [Simple projection](#simple-projection-12)
-      - [Path calculation](#path-calculation-12)
-      - [Path projection](#path-projection-12)
-    - [L36N track A – log\_30779](#l36n-track-a--log_30779)
-      - [Simple projection](#simple-projection-13)
-      - [Path calculation](#path-calculation-13)
-      - [Path projection](#path-projection-13)
-  - [Degraded GNSS cases](#degraded-gnss-cases)
-    - [L36-A → L36C-A → L25N-B, very bad GNSS – log\_28586](#l36-a--l36c-a--l25n-b-very-bad-gnss--log_28586)
-      - [Simple projection](#simple-projection-14)
-      - [Path calculation](#path-calculation-14)
-      - [Path projection](#path-projection-14)
-    - [L36 track A, very bad GNSS – log\_38373](#l36-track-a-very-bad-gnss--log_38373)
-      - [Simple projection](#simple-projection-15)
-      - [Path calculation](#path-calculation-15)
-      - [Path projection](#path-projection-15)
   - [File reorganisation](#file-reorganisation)
 
 Root folder for release exe: `target/release/`
@@ -610,142 +593,22 @@ Good result:
 
 Log file ID: 31259
 
-Same route as log_28573. The path calculation resolves fewer segments than the other four logs of this route — the GNSS coverage ends earlier on the L25N-B leg.
-
-#### Simple projection
-
-```bash
-target/release/tp-cli.exe simple-projection --gnss test-data/log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B-simple-projection.geojson
-```
-
-![L36-A to L36C-A to L25N-B (log_31259) - Simple projection](log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B-simple-projection.png)
-
-#### Path calculation
-
-```bash
-target/release/tp-cli.exe calculate-path --gnss test-data/log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B-path-calculation.geojson
-```
-
-Expected output:
-1.  88_L_1388  (prob=0.957)
-2.  88_L_11046 (prob=0.558)
-3.  88_L_11885 (prob=1.000)
-4.  88_L_7137  (prob=1.000)
-5.  88_L_109   (prob=1.000)
-6.  88_L_11721 (prob=1.000)
-7.  88_L_5210  (prob=0.285)
-8.  88_L_1728  (prob=0.316)
-9.  88_L_18686 (prob=0.139)
-10. 88_L_5589  (prob=0.501)
-11. 88_L_7154  (prob=0.388)
-
-![L36-A to L36C-A to L25N-B (log_31259) - Path calculation](log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B-path.png)
-
-#### Path projection
-
-```bash
-target/release/tp-cli.exe --gnss test-data/log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B-path-projection.geojson
-```
-
-![L36-A to L36C-A to L25N-B (log_31259) - Path projection](log_31259/log_31259_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
+Same route as log_28573. Quality of GNSS is also relatively good, small drift near the station of the airport. No screenshots because nothing special to report.
 
 ---
-
-## Airport branch (L36N)
-
-### L36N track A – log_29224
-
-Log file ID: 29224
-
-Train traveling on the L36N airport branch, track A (underground tunnel beneath the airport).
-
-#### Simple projection
-
-```bash
-target/release/tp-cli.exe simple-projection --gnss test-data/log_29224/log_29224_L36N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29224/log_29224_L36N-A-simple-projection.geojson
-```
-
-![L36N track A (log_29224) - Simple projection](log_29224/log_29224_L36N-A-simple-projection.png)
-
-#### Path calculation
-
-```bash
-target/release/tp-cli.exe calculate-path --gnss test-data/log_29224/log_29224_L36N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29224/log_29224_L36N-A-path-calculation.geojson
-```
-
-Expected output:
-1. 88_L_1932 (prob=0.930)
-2. 88_L_3878 (prob=0.946)
-3. 88_L_9764 (prob=0.925)
-4. 88_L_7824 (prob=0.400)
-5. 88_L_2026 (prob=0.048)
-6. 88_L_42   (prob=0.488)
-7. 88_L_111  (prob=0.395)
-8. 88_L_155  (prob=0.433)
-
-![L36N track A (log_29224) - Path calculation](log_29224/log_29224_L36N-A-path.png)
-
-#### Path projection
-
-```bash
-target/release/tp-cli.exe --gnss test-data/log_29224/log_29224_L36N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29224/log_29224_L36N-A-path-projection.geojson
-```
-
-![L36N track A (log_29224) - Path projection](log_29224/log_29224_L36N-A-path-projection.png)
-
----
-
-### L36N track A – log_30779
-
-Log file ID: 30779
-
-Second log of the L36N airport branch, track A. Slightly different segment coverage than log_29224 at the far end.
-
-#### Simple projection
-
-```bash
-target/release/tp-cli.exe simple-projection --gnss test-data/log_30779/log_30779_L36N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_30779/log_30779_L36N-A-simple-projection.geojson
-```
-
-![L36N track A (log_30779) - Simple projection](log_30779/log_30779_L36N-A-simple-projection.png)
-
-#### Path calculation
-
-```bash
-target/release/tp-cli.exe calculate-path --gnss test-data/log_30779/log_30779_L36N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_30779/log_30779_L36N-A-path-calculation.geojson
-```
-
-Expected output:
-1. 88_L_9764 (prob=0.900)
-2. 88_L_3878 (prob=0.909)
-3. 88_L_1932 (prob=0.848)
-4. 88_L_2094 (prob=0.320)
-5. 88_L_111  (prob=0.362)
-6. 88_L_42   (prob=0.427)
-7. 88_L_2026 (prob=0.049)
-8. 88_L_5916 (prob=0.342)
-
-![L36N track A (log_30779) - Path calculation](log_30779/log_30779_L36N-A-path.png)
-
-#### Path projection
-
-```bash
-target/release/tp-cli.exe --gnss test-data/log_30779/log_30779_L36N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_30779/log_30779_L36N-A-path-projection.geojson
-```
-
-![L36N track A (log_30779) - Path projection](log_30779/log_30779_L36N-A-path-projection.png)
-
----
-
-## Degraded GNSS cases
-
-These logs have heavily corrupted GNSS data. Despite the degraded input, the path calculation algorithm should still find the correct route (or the most plausible route given the available evidence).
 
 ### L36-A → L36C-A → L25N-B, very bad GNSS – log_28586
 
 Log file ID: 28586
 
-Same route as log_28573 but with severely degraded GNSS data. The algorithm is expected to find the same netelement sequence despite the noise.
+Coming from Brussels towards Leuven, taking the junction to the airport and then returning to Brussels again. The GNSS solution is in very bad shape:
+
+![L36-A to L36C-A to L25N-B very bad GNSS - Simple projection](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-raw.png)
+
+Zoom in on problem area:
+
+![L36-A to L36C-A to L25N-B very bad GNSS - Simple projection](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-raw-detail.png)
+
 
 #### Simple projection
 
@@ -753,9 +616,9 @@ Same route as log_28573 but with severely degraded GNSS data. The algorithm is e
 target/release/tp-cli.exe simple-projection --gnss test-data/log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad-simple-projection.geojson
 ```
 
-Expected to produce many erroneous projections onto adjacent netelements.
+Expected result:
 
-![L36-A to L36C-A to L25N-B very bad GNSS - Simple projection](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad-simple-projection.png)
+![L36-A to L36C-A to L25N-B very bad GNSS - Simple projection](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-simple-projection.png)
 
 #### Path calculation
 
@@ -763,27 +626,13 @@ Expected to produce many erroneous projections onto adjacent netelements.
 target/release/tp-cli.exe calculate-path --gnss test-data/log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad-path-calculation.geojson
 ```
 
-Expected output (same route as log_28573 — the path algorithm recovers fully despite the noise):
-1.  88_L_1388  (prob=0.892)
-2.  88_L_11046 (prob=0.561)
-3.  88_L_11885 (prob=1.000)
-4.  88_L_7137  (prob=1.000)
-5.  88_L_109   (prob=1.000)
-6.  88_L_11721 (prob=1.000)
-7.  88_L_5210  (prob=0.612)
-8.  88_L_1727  (prob=1.000)
-9.  88_L_17875 (prob=1.000)
-10. 88_L_7141  (prob=0.387)
-11. 88_L_6042  (prob=1.000)
-12. 88_L_16654 (prob=1.000)
-13. 88_L_13635 (prob=1.000)
-14. 88_L_7819  (prob=1.000)
-15. 88_L_7154  (prob=0.621)
-16. 88_L_5589  (prob=0.585)
-17. 88_L_18686 (prob=0.031)
-18. 88_L_1728  (prob=0.376)
+Good result:
 
-![L36-A to L36C-A to L25N-B very bad GNSS - Path calculation](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad-path.png)
+![L36-A to L36C-A to L25N-B very bad GNSS - Path calculation](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-path.png)
+
+Zoom on detail:
+
+![L36-A to L36C-A to L25N-B very bad GNSS - Path calculation](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-path-detail.png)
 
 #### Path projection
 
@@ -791,51 +640,9 @@ Expected output (same route as log_28573 — the path algorithm recovers fully d
 target/release/tp-cli.exe --gnss test-data/log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad-path-projection.geojson
 ```
 
-![L36-A to L36C-A to L25N-B very bad GNSS - Path projection](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad-path-projection.png)
+Expected result, again showing the need to also perform longitudal post processing:
 
----
-
-### L36 track A, very bad GNSS – log_38373
-
-Log file ID: 38373
-
-Degraded GNSS data on L36 track A (no switches). The path calculation finds a plausible route but the low probability values reflect the poor signal quality.
-
-#### Simple projection
-
-```bash
-target/release/tp-cli.exe simple-projection --gnss test-data/log_38373/log_38373_L36-A-very-bad.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_38373/log_38373_L36-A-very-bad-simple-projection.geojson
-```
-
-![L36 track A very bad GNSS - Simple projection](log_38373/log_38373_L36-A-very-bad-simple-projection.png)
-
-#### Path calculation
-
-```bash
-target/release/tp-cli.exe calculate-path --gnss test-data/log_38373/log_38373_L36-A-very-bad.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_38373/log_38373_L36-A-very-bad-path-calculation.geojson
-```
-
-Expected output:
-1. 88_L_5916 (prob=0.396)
-2. 88_L_2026 (prob=1.000)
-3. 88_L_42   (prob=0.180)
-4. 88_L_111  (prob=1.000)
-5. 88_L_2094 (prob=1.000)
-6. 88_L_1932 (prob=1.000)
-7. 88_L_3878 (prob=0.777)
-8. 88_L_9764 (prob=0.845)
-
-Note: the path diverges from clean L36-A logs (e.g., log_29083) in the later segments (`88_L_2094, 88_L_1932, 88_L_3878, 88_L_9764`), following the L36N-A branch instead of continuing purely on L36-A. This is a known limitation with very sparse GNSS data where the algorithm cannot distinguish between adjacent tracks.
-
-![L36 track A very bad GNSS - Path calculation](log_38373/log_38373_L36-A-very-bad-path.png)
-
-#### Path projection
-
-```bash
-target/release/tp-cli.exe --gnss test-data/log_38373/log_38373_L36-A-very-bad.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_38373/log_38373_L36-A-very-bad-path-projection.geojson
-```
-
-![L36 track A very bad GNSS - Path projection](log_38373/log_38373_L36-A-very-bad-path-projection.png)
+![L36-A to L36C-A to L25N-B very bad GNSS - Path projection](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
 
 ---
 

@@ -714,13 +714,13 @@
         ]
       },
       "properties": {
-        "action": "removed-direction-violation",
+        "action": "removed-direction-cascade",
         "from_netelement_id": "88_L_2011",
         "pair_index": 37,
         "reachable": false,
-        "rerouted_via": "88_L_9755",
+        "rerouted_via": "88_L_13697",
         "to_netelement_id": "88_L_9755",
-        "warning": "Removed 88_L_9755 (directional violation: triple 88_L_2011/88_L_13697/88_L_9755)"
+        "warning": "Removed 88_L_13697 (cascade: anchor=0 protected=3 at triple 88_L_2011/88_L_13697/88_L_9755)"
       }
     },
     {
@@ -728,18 +728,56 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          4.485714880090668,
-          50.8943477024468
+          4.485754132250319,
+          50.8942998394903
         ]
       },
       "properties": {
         "action": "removed-direction-violation",
-        "from_netelement_id": "88_L_2011",
+        "from_netelement_id": "88_L_2010",
         "pair_index": 38,
+        "reachable": false,
+        "rerouted_via": "88_L_9755",
+        "to_netelement_id": "88_L_9755",
+        "warning": "Removed 88_L_9755 (directional violation: triple 88_L_2010/88_L_2011/88_L_9755)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485754132250319,
+          50.8942998394903
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_2010",
+        "pair_index": 39,
         "reachable": false,
         "rerouted_via": "88_L_2014",
         "to_netelement_id": "88_L_2014",
-        "warning": "Removed 88_L_2014 (directional violation: triple 88_L_2011/88_L_13697/88_L_2014)"
+        "warning": "Removed 88_L_2014 (directional violation: triple 88_L_2010/88_L_2011/88_L_2014)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485754132250319,
+          50.8942998394903
+        ]
+      },
+      "properties": {
+        "action": "kept-direction-warning",
+        "from_netelement_id": "88_L_2010",
+        "pair_index": 40,
+        "reachable": false,
+        "rerouted_via": "88_L_2011",
+        "to_netelement_id": "88_L_7819",
+        "warning": "Directional violation at 88_L_2010/88_L_2011/88_L_7819 (kept: segments too significant to remove automatically)"
       }
     },
     {
@@ -754,30 +792,11 @@
       "properties": {
         "action": "kept-direction-warning",
         "from_netelement_id": "88_L_2011",
-        "pair_index": 39,
-        "reachable": false,
-        "rerouted_via": "88_L_13697",
-        "to_netelement_id": "88_L_7819",
-        "warning": "Directional violation at 88_L_2011/88_L_13697/88_L_7819 (kept: segments too significant to remove automatically)"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          4.481704222622102,
-          50.899415019025085
-        ]
-      },
-      "properties": {
-        "action": "kept-direction-warning",
-        "from_netelement_id": "88_L_13697",
-        "pair_index": 40,
+        "pair_index": 41,
         "reachable": false,
         "rerouted_via": "88_L_7819",
         "to_netelement_id": "88_L_13635",
-        "warning": "Directional violation at 88_L_13697/88_L_7819/88_L_13635 (kept: segments too significant to remove automatically)"
+        "warning": "Directional violation at 88_L_2011/88_L_7819/88_L_13635 (kept: segments too significant to remove automatically)"
       }
     }
   ],

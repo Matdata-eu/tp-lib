@@ -44,18 +44,18 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          4.481704222622102,
-          50.899415019025085
+          4.485714880090668,
+          50.8943477024468
         ]
       },
       "properties": {
-        "from_netelement_id": "88_L_13697",
-        "inserted_count": 3,
-        "inserted_netelements": "88_L_5898, 88_L_9753, 88_L_2012",
-        "pair_index": 6,
+        "from_netelement_id": "88_L_2011",
+        "inserted_count": 5,
+        "inserted_netelements": "88_L_7816, 88_L_5977, 88_L_7820, 88_L_9755, 88_L_2014",
+        "pair_index": 5,
         "route_found": true,
         "to_netelement_id": "88_L_7819",
-        "warning": "Gap fill: inserted 3 bridge NE(s) between 88_L_13697 and 88_L_7819: [88_L_5898, 88_L_9753, 88_L_2012]"
+        "warning": "Gap fill: inserted 5 bridge NE(s) between 88_L_2011 and 88_L_7819: [88_L_7816, 88_L_5977, 88_L_7820, 88_L_9755, 88_L_2014]"
       }
     }
   ],
