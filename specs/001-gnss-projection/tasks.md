@@ -82,7 +82,7 @@
 
 1. CSV + GeoJSON → output with original data + projected coords + netelement ID + measure
 2. Positions on single netelement → monotonic measure increase
-3. Junction positions → geometrically nearest netelement selected
+3. Connection positions → geometrically nearest netelement selected
 4. Output record count = input record count (1:1 correspondence)
 
 ### Geometric Projection (US1 Core Logic)

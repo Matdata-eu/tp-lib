@@ -1,24 +1,76 @@
 # TP-Lib: Train Positioning Library
 
 [![CI](https://github.com/matdata-eu/tp-lib/actions/workflows/ci.yml/badge.svg)](https://github.com/matdata-eu/tp-lib/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/matdata-eu/tp-lib/branch/main/graph/badge.svg)](https://codecov.io/gh/matdata-eu/tp-lib)
 [![crates.io](https://img.shields.io/crates/v/tp-lib-core.svg)](https://crates.io/crates/tp-lib-core)
 [![PyPI](https://img.shields.io/pypi/v/tp-lib.svg)](https://pypi.org/project/tp-lib/)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://matdata-eu.github.io/tp-lib/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-**Status**: ✅ Production Ready - All 66 Tasks Complete
+**Status**: Under construction
 
-Train positioning library for processing GNSS data by projecting positions onto railway track netelements (track axis centerlines). Developed for Infrabel infrastructure management.
+Train positioning library excels in post-processing the GNSS positions of your measurement train to achieve an unambiguous network location. This library is your map matching assistant specifically for railway.
 
 ## Features
 
 - 🚄 **High Performance**: R-tree spatial indexing for O(log n) nearest-track search
 - 📍 **Accurate Projection**: Haversine distance and geodesic calculations with geo-rs
+- 🛤️ **Train Path Calculation**: Probabilistic path calculation through rail networks using topology
 - 🌍 **CRS Aware**: Explicit coordinate reference system handling (EPSG codes)
-- ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets
+- ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; timezone-less ISO 8601 datetimes assumed UTC
 - 📊 **Multiple Formats**: CSV and GeoJSON input/output
-- 🧪 **Well Tested**: 84 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
+- 🧪 **Well Tested**: 460 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
 - ⚡ **Production Ready**: Full CLI interface with validation and error handling
+
+## Train Path Calculation
+
+The library supports continuous train path calculation using network topology (netrelations) 
+to determine the most probable route a train took through the railway network.
+
+### How It Works
+
+1. **Candidate Selection**: Find candidate track segments within cutoff distance of each GNSS position
+2. **Emission Probability**: Calculate per-position probability using exponential decay of distance and heading alignment
+3. **Viterbi Decoding**: Decode the globally optimal netelement sequence using a log-space Viterbi algorithm (HMM map matching, Newson & Krumm 2009). Transition probabilities are derived from shortest-path vs. great-circle distance through the topology graph. Bridge netelements are inserted automatically for path continuity.
+
+### CLI Commands
+
+```bash
+# Default: Calculate path AND project coordinates onto it
+tp-cli --gnss positions.csv --network network.geojson --output result.csv
+
+# Calculate path only (export path segments without projection)
+tp-cli calculate-path --gnss positions.csv --network network.geojson --output path.csv
+
+# Simple projection (legacy mode, no path calculation)
+tp-cli simple-projection --gnss positions.csv --network network.geojson --output projected.csv
+
+# Use pre-calculated path for projection
+tp-cli --gnss positions.csv --network network.geojson --train-path path.csv --output result.csv
+```
+
+### Debug Output
+
+Pass `--debug` to write intermediate HMM calculation results as GeoJSON files to a `debug/` subdirectory next to the output file.  
+See **[DEBUG.md](DEBUG.md)** for a full description of the debug output files, their properties, and a typical debugging workflow.
+
+### Algorithm Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--distance-scale` | 10.0 | Distance decay scale (meters) |
+| `--heading-scale` | 2.0 | Heading decay scale (degrees) |
+| `--cutoff-distance` | 500.0 | Max distance for candidate selection (meters) |
+| `--heading-cutoff` | 10.0 | Max heading difference to accept (degrees) |
+| `--probability-threshold` | 0.02 | Minimum emission probability for candidate inclusion |
+| `--max-candidates` | 3 | Max candidates per GNSS position |
+| `--resampling-distance` | None | Optional GNSS resampling distance (meters) |
+
+### Performance
+
+- **Benchmark**: 1000 positions × 50 netelements in ~900μs (target was <10s)
+- **Scalability**: Sub-linear scaling with R-tree spatial indexing
+- **Memory**: Handles 10,000+ positions efficiently
 
 ## Project Structure
 
@@ -28,6 +80,7 @@ tp-lib/                    # Rust workspace root
 │   ├── src/
 │   │   ├── models/        # Data models (GnssPosition, Netelement, ProjectedPosition)
 │   │   ├── projection/    # Projection algorithms (geom, spatial indexing)
+│   │   ├── path/          # Train path calculation (candidate, probability, graph, viterbi)
 │   │   ├── io/            # Input/output (CSV, GeoJSON, Arrow)
 │   │   ├── crs/           # Coordinate reference system transformations
 │   │   ├── temporal/      # Timezone handling utilities
@@ -51,7 +104,7 @@ tp-lib/                    # Rust workspace root
 
 ```bash
 # Clone repository
-git clone https://github.com/infrabel/tp-lib
+git clone https://github.com/matdata-eu/tp-lib
 cd tp-lib
 
 # Build all crates
@@ -175,45 +228,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Development Status
-
-### ✅ Phase 1 Complete: Setup (T001-T015)
-
-- [x] Workspace structure with tp-core, tp-cli, tp-py crates
-- [x] Cargo.toml configuration for workspace and dependencies
-- [x] Git repository initialization with .gitignore
-- [x] Directory structure (models, projection, io, crs, temporal)
-- [x] Error types (ProjectionError enum with thiserror)
-
-### ✅ Phase 2 Complete: Foundational (T016-T025)
-
-- [x] Data models (GnssPosition, Netelement, ProjectedPosition)
-- [x] Basic validation (latitude/longitude ranges, timezone presence)
-- [x] Module structure and public API exports
-- [x] Unit tests for all models
-- [x] Test fixtures and integration test framework
-
-### ✅ Phase 3 Complete: User Story 1 MVP (T026-T049)
-
-- [x] **Geometric Projection** (T026-T028): ClosestPoint algorithm, measure calculation, 8 unit tests
-- [x] **Spatial Indexing** (T029-T031): R-tree implementation, O(log n) nearest-neighbor, 3 unit tests
-- [x] **Input Parsing** (T032-T035): CSV/GeoJSON readers with Polars/geojson crates, 3 integration tests
-- [x] **Main Pipeline** (T036-T040): RailwayNetwork struct, project_gnss() function, 1 end-to-end test
-- [x] **Output Writers** (T041-T042): CSV/GeoJSON serialization, 2 integration tests
-- [x] **CLI Interface** (T043-T047): clap argument parsing, validation, exit codes, help documentation
-- [x] **Integration Tests** (T048): Full pipeline test with 3 GNSS positions × 2 netelements
-- [x] **Configuration** (T049): ProjectionConfig with warning threshold and CRS transform flag
-
-**Result**: Fully functional CLI and library with 28 passing tests
-
-### ✅ Phase 4 Complete: Polish & Cross-Cutting (T050-T066)
-
-- [x] **Documentation** (T050-T053): Rustdoc comments, README files
-- [x] **Performance Benchmarks** (T054-T056): Criterion benchmarks, naive vs optimized
-- [x] **Python Bindings** (T057-T060): PyO3 wrappers, error conversion, pytest tests
-- [x] **Additional Testing** (T061-T064): Contract tests, GNSS validation, CRS transform tests, CLI integration tests
-- [x] **Structured Logging** (T065-T066): Tracing instrumentation, subscriber configuration
-
 ## Implementation Notes
 
 ### Performance
@@ -232,7 +246,7 @@ latitude,longitude,timestamp,altitude,hdop
 50.8503,4.3517,2025-12-09T14:30:00+01:00,100.0,2.0
 ```
 
-- RFC3339 timestamps with timezone (+HH:MM format required)
+- RFC3339 timestamps with timezone (e.g. `2025-12-09T14:30:00+01:00` or `2025-12-09T14:30:00Z`); timezone-less ISO 8601 datetimes (e.g. `2025-12-09T14:30:00`) are accepted and assumed UTC
 - CRS must be specified via `--crs` flag
 - Column names configurable with `--lat-col`, `--lon-col`, `--time-col`
 

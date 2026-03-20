@@ -68,17 +68,21 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       
       - name: Install maturin
-        run: pip install maturin pytest
-      
+        run: pip install maturin
+
+      - name: Create virtual environment
+        run: python -m venv .venv
+
       - name: Build Python package
         run: |
           cd tp-py
           maturin develop
-      
+
+      - name: Install test dependencies
+        run: .venv/bin/pip install pytest
+
       - name: Run Python tests
-        run: |
-          cd tp-py
-          pytest python/tests/
+        run: .venv/bin/pytest tp-py/python/tests/
 
   lint:
     name: Linting

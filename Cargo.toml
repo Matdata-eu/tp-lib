@@ -26,6 +26,9 @@ crs-definitions = "0.3.1"
 rstar = "0.12"
 geojson = "0.24"
 
+# Graph algorithms
+petgraph = "0.6"
+
 # Data processing
 arrow = "53.0"
 polars = "0.44"
@@ -52,3 +55,8 @@ pyo3 = { version = "0.21", features = ["extension-module"] }
 # Testing
 criterion = { version = "0.5", features = ["html_reports"] }
 quickcheck = "1.0"
+
+[profile.dev]
+debug = 2
+opt-level = 0
+split-debuginfo = "unpacked"

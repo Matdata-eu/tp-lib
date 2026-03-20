@@ -31,7 +31,7 @@ An infrastructure manager has a CSV file containing raw GNSS positions from a si
 
 2. **Given** GNSS positions that closely follow a single straight netelement, **When** projecting to track axis, **Then** each position is mapped to the nearest point on that netelement's linestring with measure increasing monotonically along the journey direction
 
-3. **Given** GNSS positions near a junction where multiple netelements intersect, **When** projecting positions, **Then** the library selects the geometrically nearest netelement based on pure spatial proximity
+3. **Given** GNSS positions near a netelement connection where multiple netelements intersect, **When** projecting positions, **Then** the library selects the geometrically nearest netelement based on pure spatial proximity
 
 4. **Given** output from the projection process, **When** examining the results, **Then** every input GNSS record has exactly one corresponding output record preserving record count and order
 

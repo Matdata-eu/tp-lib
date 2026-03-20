@@ -34,4 +34,13 @@ pub enum ProjectionError {
 
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),
+
+    #[error("Path calculation failed: {reason}")]
+    PathCalculationFailed { reason: String },
+
+    #[error("No navigable path found between netelements")]
+    NoNavigablePath,
+
+    #[error("Invalid netrelation: {0}")]
+    InvalidNetRelation(String),
 }

@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.472744953365083,
+          50.885159321352475
+        ]
+      },
+      "properties": {
+        "from_netelement_id": "88_L_5916",
+        "inserted_count": 11,
+        "inserted_netelements": "88_L_2026, 88_L_7855, 88_L_7818, 88_L_9754, 88_L_5831, 88_L_2013, 88_L_9755, 88_L_2014, 88_L_7819, 88_L_7154, 88_L_9422",
+        "pair_index": 0,
+        "route_found": true,
+        "to_netelement_id": "88_L_1388",
+        "warning": "Gap fill: inserted 11 bridge NE(s) between 88_L_5916 and 88_L_1388: [88_L_2026, 88_L_7855, 88_L_7818, 88_L_9754, 88_L_5831, 88_L_2013, 88_L_9755, 88_L_2014, 88_L_7819, 88_L_7154, 88_L_9422]"
+      }
+    }
+  ],
+  "description": "Gap filling: bridge netelements inserted between disconnected consecutive segments after sanity validation",
+  "phase": 6
+}

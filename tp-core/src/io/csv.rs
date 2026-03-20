@@ -1,10 +1,47 @@
 //! CSV parsing and writing
 
 use crate::errors::ProjectionError;
-use crate::models::{GnssPosition, ProjectedPosition};
-use chrono::{DateTime, FixedOffset};
+use crate::models::{AssociatedNetElement, GnssPosition, ProjectedPosition, TrainPath};
+use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone, Utc};
 use polars::prelude::*;
 use std::collections::HashMap;
+
+// CSV column name constants for projected positions output
+const COL_ORIGINAL_LAT: &str = "original_lat";
+const COL_ORIGINAL_LON: &str = "original_lon";
+const COL_ORIGINAL_TIME: &str = "original_time";
+const COL_PROJECTED_LAT: &str = "projected_lat";
+const COL_PROJECTED_LON: &str = "projected_lon";
+const COL_NETELEMENT_ID: &str = "netelement_id";
+const COL_MEASURE_METERS: &str = "measure_meters";
+const COL_PROJECTION_DISTANCE_METERS: &str = "projection_distance_meters";
+const COL_CRS: &str = "crs";
+
+// CSV column names for train path output
+const COL_PROBABILITY: &str = "probability";
+const COL_START_INTRINSIC: &str = "start_intrinsic";
+const COL_END_INTRINSIC: &str = "end_intrinsic";
+const COL_GNSS_START_INDEX: &str = "gnss_start_index";
+const COL_GNSS_END_INDEX: &str = "gnss_end_index";
+
+/// Parse a timestamp string, accepting RFC3339 (with timezone) or ISO 8601 without timezone
+/// (assumed to be UTC).
+fn parse_timestamp(s: &str) -> Result<DateTime<FixedOffset>, String> {
+    // First try full RFC3339 (includes timezone)
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Ok(dt);
+    }
+    // Fall back: treat timezone-less ISO 8601 datetime as UTC
+    let naive = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f")
+        .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S"))
+        .map_err(|e| {
+            format!(
+                "{} (expected RFC3339 with timezone, e.g., 2025-12-09T14:30:00+01:00, or ISO 8601 without timezone assumed UTC)",
+                e
+            )
+        })?;
+    Ok(Utc.from_utc_datetime(&naive).fixed_offset())
+}
 
 /// Parse GNSS positions from CSV file
 pub fn parse_gnss_csv(
@@ -32,6 +69,11 @@ pub fn parse_gnss_csv(
             ))
         })?;
 
+    // Handle empty CSV (only headers) - polars can't infer types from empty data
+    if df.height() == 0 {
+        return Ok(Vec::new());
+    }
+
     // Validate required columns exist
     let schema = df.schema();
     if !schema.contains(lat_col) {
@@ -56,6 +98,10 @@ pub fn parse_gnss_csv(
     // Get all column names for metadata preservation
     let all_columns: Vec<String> = schema.iter_names().map(|s| s.to_string()).collect();
 
+    // Check if heading and distance columns exist (optional - US4: T115-T116)
+    let has_heading = schema.contains("heading");
+    let has_distance = schema.contains("distance");
+
     // Extract required columns
     let lat_series = df.column(lat_col).map_err(|e| {
         ProjectionError::InvalidCoordinate(format!("Failed to get latitude: {}", e))
@@ -78,6 +124,38 @@ pub fn parse_gnss_csv(
         ProjectionError::InvalidTimestamp(format!("Timestamp must be string: {}", e))
     })?;
 
+    // Get optional heading and distance series if they exist
+    let heading_series = if has_heading {
+        Some(df.column("heading").map_err(|e| {
+            ProjectionError::InvalidGeometry(format!("Failed to get heading: {}", e))
+        })?)
+    } else {
+        None
+    };
+
+    let distance_series = if has_distance {
+        Some(df.column("distance").map_err(|e| {
+            ProjectionError::InvalidGeometry(format!("Failed to get distance: {}", e))
+        })?)
+    } else {
+        None
+    };
+
+    // Convert heading and distance to typed arrays
+    let heading_array = heading_series
+        .as_ref()
+        .map(|s| s.f64())
+        .transpose()
+        .map_err(|e| ProjectionError::InvalidGeometry(format!("Heading must be numeric: {}", e)))?;
+
+    let distance_array = distance_series
+        .as_ref()
+        .map(|s| s.f64())
+        .transpose()
+        .map_err(|e| {
+            ProjectionError::InvalidGeometry(format!("Distance must be numeric: {}", e))
+        })?;
+
     // Build GNSS positions
     let mut positions = Vec::new();
     let row_count = df.height();
@@ -96,27 +174,22 @@ pub fn parse_gnss_csv(
             ProjectionError::InvalidTimestamp(format!("Missing timestamp at row {}", i))
         })?;
 
-        let timestamp = DateTime::<FixedOffset>::parse_from_rfc3339(time_str)
-            .map_err(|e| ProjectionError::InvalidTimestamp(
-                format!("Invalid timestamp '{}' at row {}: {} (expected RFC3339 format with timezone, e.g., 2025-12-09T14:30:00+01:00)", 
-                    time_str, i, e)
-            ))?;
-
-        // Validate timezone is present
-        if timestamp.timezone().local_minus_utc() == 0
-            && !time_str.contains('+')
-            && !time_str.ends_with('Z')
-        {
-            return Err(ProjectionError::InvalidTimestamp(format!(
-                "Timestamp at row {} missing explicit timezone offset",
-                i
-            )));
-        }
+        let timestamp = parse_timestamp(time_str).map_err(|e| {
+            ProjectionError::InvalidTimestamp(format!(
+                "Invalid timestamp '{}' at row {}: {}",
+                time_str, i, e
+            ))
+        })?;
 
         // Build metadata from other columns
         let mut metadata = HashMap::new();
         for col_name in &all_columns {
-            if col_name != lat_col && col_name != lon_col && col_name != time_col {
+            if col_name != lat_col
+                && col_name != lon_col
+                && col_name != time_col
+                && col_name != "heading"
+                && col_name != "distance"
+            {
                 if let Ok(series) = df.column(col_name) {
                     if let Ok(str_series) = series.cast(&DataType::String) {
                         if let Ok(str_chunked) = str_series.str() {
@@ -129,8 +202,37 @@ pub fn parse_gnss_csv(
             }
         }
 
-        // Create GNSS position
-        let mut position = GnssPosition::new(latitude, longitude, timestamp, crs.to_string())?;
+        // Extract heading if present (0-360°), validate range
+        let heading = heading_array.as_ref().and_then(|arr| arr.get(i));
+        if let Some(h) = heading {
+            if !(0.0..=360.0).contains(&h) {
+                return Err(ProjectionError::InvalidGeometry(format!(
+                    "Heading must be in [0, 360], got {} at row {}",
+                    h, i
+                )));
+            }
+        }
+
+        // Extract distance if present (must be >= 0)
+        let distance = distance_array.as_ref().and_then(|arr| arr.get(i));
+        if let Some(d) = distance {
+            if d < 0.0 {
+                return Err(ProjectionError::InvalidGeometry(format!(
+                    "Distance must be >= 0, got {} at row {}",
+                    d, i
+                )));
+            }
+        }
+
+        // Create GNSS position with heading and distance if available (US4: T115-T116)
+        let mut position = GnssPosition::with_heading_distance(
+            latitude,
+            longitude,
+            timestamp,
+            crs.to_string(),
+            heading,
+            distance,
+        )?;
         position.metadata = metadata;
         positions.push(position);
     }
@@ -148,16 +250,16 @@ pub fn write_csv(
     let mut csv_writer = Writer::from_writer(writer);
 
     // Write header
-    csv_writer.write_record(&[
-        "original_lat",
-        "original_lon",
-        "original_time",
-        "projected_lat",
-        "projected_lon",
-        "netelement_id",
-        "measure_meters",
-        "projection_distance_meters",
-        "crs",
+    csv_writer.write_record([
+        COL_ORIGINAL_LAT,
+        COL_ORIGINAL_LON,
+        COL_ORIGINAL_TIME,
+        COL_PROJECTED_LAT,
+        COL_PROJECTED_LON,
+        COL_NETELEMENT_ID,
+        COL_MEASURE_METERS,
+        COL_PROJECTION_DISTANCE_METERS,
+        COL_CRS,
     ])?;
 
     // Write data rows
@@ -178,3 +280,261 @@ pub fn write_csv(
     csv_writer.flush()?;
     Ok(())
 }
+
+/// Write TrainPath to CSV
+///
+/// Output format: One row per segment with columns:
+/// - netelement_id: ID of the netelement
+/// - probability: Segment probability (0.0 to 1.0)
+/// - start_intrinsic: Entry point on netelement (0.0 to 1.0)
+/// - end_intrinsic: Exit point on netelement (0.0 to 1.0)
+/// - gnss_start_index: First GNSS position index
+/// - gnss_end_index: Last GNSS position index
+///
+/// The overall_probability is written as a comment in the first line.
+///
+/// # Example Output
+///
+/// ```csv
+/// # overall_probability: 0.89
+/// netelement_id,probability,start_intrinsic,end_intrinsic,gnss_start_index,gnss_end_index
+/// NE_A,0.87,0.0,1.0,0,10
+/// NE_B,0.92,0.0,1.0,11,18
+/// ```
+pub fn write_trainpath_csv(
+    train_path: &TrainPath,
+    writer: &mut impl std::io::Write,
+) -> Result<(), ProjectionError> {
+    use csv::Writer;
+
+    // Write overall probability as comment
+    writeln!(
+        writer,
+        "# overall_probability: {}",
+        train_path.overall_probability
+    )?;
+
+    if let Some(calculated_at) = &train_path.calculated_at {
+        writeln!(writer, "# calculated_at: {}", calculated_at.to_rfc3339())?;
+    }
+
+    let mut csv_writer = Writer::from_writer(writer);
+
+    // Write header
+    csv_writer.write_record([
+        COL_NETELEMENT_ID,
+        COL_PROBABILITY,
+        COL_START_INTRINSIC,
+        COL_END_INTRINSIC,
+        COL_GNSS_START_INDEX,
+        COL_GNSS_END_INDEX,
+    ])?;
+
+    // Write data rows
+    for segment in &train_path.segments {
+        csv_writer.write_record(&[
+            segment.netelement_id.clone(),
+            segment.probability.to_string(),
+            segment.start_intrinsic.to_string(),
+            segment.end_intrinsic.to_string(),
+            segment.gnss_start_index.to_string(),
+            segment.gnss_end_index.to_string(),
+        ])?;
+    }
+
+    csv_writer.flush()?;
+    Ok(())
+}
+
+/// Parse TrainPath from CSV
+///
+/// Reads a CSV file in the format produced by write_trainpath_csv.
+/// Expects columns: netelement_id, probability, start_intrinsic, end_intrinsic,
+/// gnss_start_index, gnss_end_index
+///
+/// The overall_probability can be specified in a comment line starting with
+/// `# overall_probability:` or will default to the average of segment probabilities.
+///
+/// # Arguments
+///
+/// * `path` - Path to CSV file
+///
+/// # Returns
+///
+/// A TrainPath struct reconstructed from the CSV data
+pub fn parse_trainpath_csv(path: &str) -> Result<TrainPath, ProjectionError> {
+    // Read the file to extract comment lines and filter them out
+    let file_content = std::fs::read_to_string(path)?;
+    let mut overall_probability: Option<f64> = None;
+    let mut calculated_at: Option<chrono::DateTime<chrono::Utc>> = None;
+    let mut csv_lines = Vec::new();
+
+    // Parse comment lines and collect non-comment lines
+    for line in file_content.lines() {
+        if let Some(comment) = line.strip_prefix('#') {
+            let comment = comment.trim();
+            if let Some(value) = comment.strip_prefix("overall_probability:") {
+                overall_probability = value.trim().parse().ok();
+            } else if let Some(value) = comment.strip_prefix("calculated_at:") {
+                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(value.trim()) {
+                    calculated_at = Some(dt.with_timezone(&chrono::Utc));
+                }
+            }
+        } else {
+            csv_lines.push(line);
+        }
+    }
+
+    // Write filtered CSV to temporary string for polars
+    // Use thread ID and timestamp to avoid race conditions with parallel tests
+    let filtered_csv = csv_lines.join("\n");
+    let unique_id = format!(
+        "{}_{:?}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    );
+    let temp_file = std::env::temp_dir().join(format!("trainpath_{}.csv", unique_id));
+    std::fs::write(&temp_file, filtered_csv)?;
+
+    // Read CSV using polars
+    let df = CsvReadOptions::default()
+        .with_has_header(true)
+        .try_into_reader_with_file_path(Some(temp_file.clone()))
+        .map_err(|e| {
+            ProjectionError::IoError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to read TrainPath CSV: {}", e),
+            ))
+        })?
+        .finish()
+        .map_err(|e| {
+            ProjectionError::IoError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to parse TrainPath CSV: {}", e),
+            ))
+        })?;
+
+    // Clean up temp file
+    let _ = std::fs::remove_file(temp_file);
+
+    // Handle empty CSV (only headers)
+    if df.height() == 0 {
+        return TrainPath::new(Vec::new(), 1.0, None, None);
+    }
+
+    // Extract columns and cast to correct types
+    let netelement_id = df
+        .column("netelement_id")
+        .map_err(|e| ProjectionError::GeoJsonError(format!("Missing netelement_id column: {}", e)))?
+        .str()
+        .map_err(|e| ProjectionError::GeoJsonError(format!("netelement_id must be string: {}", e)))?
+        .clone();
+
+    let probability_series = df
+        .column("probability")
+        .map_err(|e| ProjectionError::GeoJsonError(format!("Missing probability column: {}", e)))?
+        .cast(&DataType::Float64)
+        .map_err(|e| ProjectionError::GeoJsonError(format!("probability cast failed: {}", e)))?;
+    let probability = probability_series.f64().map_err(|e| {
+        ProjectionError::GeoJsonError(format!("probability must be numeric: {}", e))
+    })?;
+
+    let start_intrinsic_series = df
+        .column("start_intrinsic")
+        .map_err(|e| {
+            ProjectionError::GeoJsonError(format!("Missing start_intrinsic column: {}", e))
+        })?
+        .cast(&DataType::Float64)
+        .map_err(|e| {
+            ProjectionError::GeoJsonError(format!("start_intrinsic cast failed: {}", e))
+        })?;
+    let start_intrinsic = start_intrinsic_series.f64().map_err(|e| {
+        ProjectionError::GeoJsonError(format!("start_intrinsic must be numeric: {}", e))
+    })?;
+
+    let end_intrinsic_series = df
+        .column("end_intrinsic")
+        .map_err(|e| ProjectionError::GeoJsonError(format!("Missing end_intrinsic column: {}", e)))?
+        .cast(&DataType::Float64)
+        .map_err(|e| ProjectionError::GeoJsonError(format!("end_intrinsic cast failed: {}", e)))?;
+    let end_intrinsic = end_intrinsic_series.f64().map_err(|e| {
+        ProjectionError::GeoJsonError(format!("end_intrinsic must be numeric: {}", e))
+    })?;
+
+    let gnss_start_index_series = df
+        .column("gnss_start_index")
+        .map_err(|e| {
+            ProjectionError::GeoJsonError(format!("Missing gnss_start_index column: {}", e))
+        })?
+        .cast(&DataType::UInt32)
+        .map_err(|e| {
+            ProjectionError::GeoJsonError(format!("gnss_start_index cast failed: {}", e))
+        })?;
+    let gnss_start_index = gnss_start_index_series.u32().map_err(|e| {
+        ProjectionError::GeoJsonError(format!("gnss_start_index must be integer: {}", e))
+    })?;
+
+    let gnss_end_index_series = df
+        .column("gnss_end_index")
+        .map_err(|e| {
+            ProjectionError::GeoJsonError(format!("Missing gnss_end_index column: {}", e))
+        })?
+        .cast(&DataType::UInt32)
+        .map_err(|e| ProjectionError::GeoJsonError(format!("gnss_end_index cast failed: {}", e)))?;
+    let gnss_end_index = gnss_end_index_series.u32().map_err(|e| {
+        ProjectionError::GeoJsonError(format!("gnss_end_index must be integer: {}", e))
+    })?;
+
+    // Build segments
+    let mut segments = Vec::new();
+    let row_count = df.height();
+
+    for i in 0..row_count {
+        let id = netelement_id
+            .get(i)
+            .ok_or_else(|| {
+                ProjectionError::GeoJsonError(format!("Missing netelement_id at row {}", i))
+            })?
+            .to_string();
+
+        let prob = probability.get(i).ok_or_else(|| {
+            ProjectionError::GeoJsonError(format!("Missing probability at row {}", i))
+        })?;
+
+        let start_intr = start_intrinsic.get(i).ok_or_else(|| {
+            ProjectionError::GeoJsonError(format!("Missing start_intrinsic at row {}", i))
+        })?;
+
+        let end_intr = end_intrinsic.get(i).ok_or_else(|| {
+            ProjectionError::GeoJsonError(format!("Missing end_intrinsic at row {}", i))
+        })?;
+
+        let start_idx = gnss_start_index.get(i).ok_or_else(|| {
+            ProjectionError::GeoJsonError(format!("Missing gnss_start_index at row {}", i))
+        })? as usize;
+
+        let end_idx = gnss_end_index.get(i).ok_or_else(|| {
+            ProjectionError::GeoJsonError(format!("Missing gnss_end_index at row {}", i))
+        })? as usize;
+
+        let segment =
+            AssociatedNetElement::new(id, prob, start_intr, end_intr, start_idx, end_idx)?;
+
+        segments.push(segment);
+    }
+
+    // Calculate overall probability if not provided
+    let overall_prob = overall_probability.unwrap_or_else(|| {
+        let sum: f64 = segments.iter().map(|s| s.probability).sum();
+        sum / segments.len() as f64
+    });
+
+    // Create TrainPath
+    TrainPath::new(segments, overall_prob, calculated_at, None)
+}
+
+#[cfg(test)]
+mod tests;

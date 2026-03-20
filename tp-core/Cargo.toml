@@ -17,6 +17,7 @@ proj4rs.workspace = true
 crs-definitions.workspace = true
 rstar.workspace = true
 geojson.workspace = true
+petgraph.workspace = true
 arrow.workspace = true
 polars.workspace = true
 csv.workspace = true
@@ -32,6 +33,7 @@ default = []
 [dev-dependencies]
 criterion.workspace = true
 quickcheck.workspace = true
+tempfile = "3.24.0"
 
 [[bench]]
 name = "projection_bench"
@@ -39,4 +41,8 @@ harness = false
 
 [[bench]]
 name = "naive_baseline_bench"
+harness = false
+
+[[bench]]
+name = "path_calculation_bench"
 harness = false

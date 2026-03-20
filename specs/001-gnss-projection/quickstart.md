@@ -361,13 +361,13 @@ grep "projection distance" warnings.log
 - `EPSG:3812`: Belgian Lambert 2008
 - `EPSG:31370`: Belgian Lambert 72 (legacy)
 
-### Error: Missing Timezone
+### Note: Timezone-less Timestamps
 
-**Message**: `Error: Missing timezone in timestamp: 2025-12-09T14:30:00`
+**Message**: `Warning: Timestamp '2025-12-09T14:30:00' has no timezone — assuming UTC`
 
-**Cause**: Timestamp lacks timezone offset.
+**Behaviour**: Timestamps without a timezone offset are accepted and treated as UTC.
 
-**Fix**: Add timezone to CSV:
+**Recommendation**: Add an explicit timezone to avoid ambiguity:
 ```csv
 timestamp
 2025-12-09T14:30:00+01:00
@@ -420,14 +420,18 @@ tp-cli project-gnss --gnss-file data.csv --network-file network.geojson
 
 ### 2. Include Timezone in Timestamps
 
-Use ISO 8601 format with timezone:
+Use ISO 8601 format with an explicit timezone for best results. Timezone-less datetimes are accepted and assumed UTC:
 
 ```csv
-# ✅ Good
+# ✅ Best: explicit timezone
 timestamp
 2025-12-09T14:30:00+01:00
 
-# ❌ Bad (rejected)
+# ✅ Also accepted: assumed UTC
+timestamp
+2025-12-09T14:30:00
+
+# ❌ Bad: unsupported format
 timestamp
 2025-12-09 14:30:00
 ```

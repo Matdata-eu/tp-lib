@@ -289,7 +289,7 @@ tp-cli project-gnss \
 |---------------------|-------------------------|
 | AS-1: CSV + GeoJSON → output | CSV parser + GeoJSON parser + projection engine + output formatter |
 | AS-2: Monotonic measure | Measure calculation validates direction consistency |
-| AS-3: Nearest netelement at junction | R-tree spatial index with distance comparison |
+| AS-3: Nearest netelement at connection | R-tree spatial index with distance comparison |
 | AS-4: 1:1 record correspondence | Processing loop ensures output.len() == input.len() |
 
 ---

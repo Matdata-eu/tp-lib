@@ -14,7 +14,7 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Load railway network from GeoJSON
-//! let netelements = parse_network_geojson("network.geojson")?;
+//! let (netelements, _netrelations) = parse_network_geojson("network.geojson")?;
 //! let network = RailwayNetwork::new(netelements)?;
 //!
 //! // Load GNSS positions from CSV
@@ -43,13 +43,38 @@ pub mod crs;
 pub mod errors;
 pub mod io;
 pub mod models;
+pub mod path;
 pub mod projection;
 pub mod temporal;
 
 // Re-export main types for convenience
 pub use errors::ProjectionError;
-pub use io::{parse_gnss_csv, parse_gnss_geojson, parse_network_geojson, write_csv, write_geojson};
-pub use models::{GnssPosition, Netelement, ProjectedPosition};
+pub use io::{
+    parse_gnss_csv, parse_gnss_geojson, parse_netrelations_geojson, parse_network_geojson,
+    parse_trainpath_csv, write_csv, write_geojson, write_trainpath_csv, write_trainpath_geojson,
+};
+pub use models::{
+    AssociatedNetElement, GnssNetElementLink, GnssPosition, NetRelation, Netelement,
+    PathDiagnosticInfo, PathMetadata, ProjectedPosition, SegmentDiagnostic, TrainPath,
+};
+pub use path::{
+    calculate_mean_spacing,
+    calculate_train_path,
+    export_all_debug_info,
+    project_onto_path,
+    select_resampled_subset,
+    CandidateInfo,
+    CandidatePath,
+    // Debug info types (US7)
+    DebugInfo,
+    PathCalculationMode,
+    PathConfig,
+    PathConfigBuilder,
+    PathDecision,
+    PathResult,
+    PositionCandidates,
+    TransitionProbabilityEntry,
+};
 
 /// Result type alias using ProjectionError
 pub type Result<T> = std::result::Result<T, ProjectionError>;
@@ -108,7 +133,7 @@ impl Default for ProjectionConfig {
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load netelements from GeoJSON
-/// let netelements = parse_network_geojson("network.geojson")?;
+/// let (netelements, _netrelations) = parse_network_geojson("network.geojson")?;
 ///
 /// // Build spatial index
 /// let network = RailwayNetwork::new(netelements)?;
@@ -202,6 +227,23 @@ impl RailwayNetwork {
     pub fn netelement_count(&self) -> usize {
         self.index.netelements().len()
     }
+
+    /// Get the number of netelements in the network
+    ///
+    /// Alias for `netelement_count()` for convenience.
+    pub fn len(&self) -> usize {
+        self.netelement_count()
+    }
+
+    /// Check if the network has no netelements
+    pub fn is_empty(&self) -> bool {
+        self.netelement_count() == 0
+    }
+
+    /// Iterate over all netelements
+    pub fn iter(&self) -> impl Iterator<Item = &Netelement> {
+        self.index.netelements().iter()
+    }
 }
 
 /// Project GNSS positions onto railway network
@@ -236,7 +278,7 @@ impl RailwayNetwork {
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load data
-/// let netelements = parse_network_geojson("network.geojson")?;
+/// let (netelements, _netrelations) = parse_network_geojson("network.geojson")?;
 /// let network = RailwayNetwork::new(netelements)?;
 /// let positions = parse_gnss_csv("gnss.csv", "EPSG:4326", "latitude", "longitude", "timestamp")?;
 ///
@@ -352,3 +394,6 @@ pub fn project_gnss(
 
     Ok(results)
 }
+
+#[cfg(test)]
+mod tests;

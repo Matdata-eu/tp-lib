@@ -24,9 +24,9 @@
 use pyo3::exceptions::{PyIOError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use tp_lib_core::{
-    parse_gnss_csv, parse_network_geojson, project_gnss as core_project_gnss,
-    ProjectedPosition as CoreProjectedPosition, ProjectionConfig as CoreProjectionConfig,
-    ProjectionError, RailwayNetwork,
+    crs::transform::CrsTransformer, parse_gnss_csv, parse_network_geojson,
+    project_gnss as core_project_gnss, ProjectedPosition as CoreProjectedPosition,
+    ProjectionConfig as CoreProjectionConfig, ProjectionError, RailwayNetwork,
 };
 
 // ============================================================================
@@ -56,6 +56,15 @@ fn convert_error(error: ProjectionError) -> PyErr {
         ProjectionError::CsvError(err) => PyIOError::new_err(format!("CSV error: {}", err)),
         ProjectionError::GeoJsonError(msg) => PyIOError::new_err(format!("GeoJSON error: {}", msg)),
         ProjectionError::IoError(err) => PyIOError::new_err(format!("IO error: {}", err)),
+        ProjectionError::PathCalculationFailed { reason } => {
+            PyRuntimeError::new_err(format!("Path calculation failed: {}", reason))
+        }
+        ProjectionError::NoNavigablePath => {
+            PyValueError::new_err("No navigable path found between netelements")
+        }
+        ProjectionError::InvalidNetRelation(msg) => {
+            PyValueError::new_err(format!("Invalid netrelation: {}", msg))
+        }
     }
 }
 
@@ -67,6 +76,10 @@ fn convert_error(error: ProjectionError) -> PyErr {
 #[pyclass]
 #[derive(Clone)]
 pub struct ProjectionConfig {
+    /// Maximum search radius for nearest-segment lookup (meters)
+    #[pyo3(get, set)]
+    pub max_search_radius_meters: f64,
+
     /// Warning threshold for large projection distances
     #[pyo3(get, set)]
     pub projection_distance_warning_threshold: f64,
@@ -79,12 +92,14 @@ pub struct ProjectionConfig {
 #[pymethods]
 impl ProjectionConfig {
     #[new]
-    #[pyo3(signature = (projection_distance_warning_threshold=50.0, suppress_warnings=false))]
+    #[pyo3(signature = (max_search_radius_meters=1000.0, projection_distance_warning_threshold=50.0, suppress_warnings=false))]
     fn new(
+        max_search_radius_meters: f64,
         projection_distance_warning_threshold: f64,
         suppress_warnings: bool,
     ) -> Self {
         Self {
+            max_search_radius_meters,
             projection_distance_warning_threshold,
             suppress_warnings,
         }
@@ -92,9 +107,8 @@ impl ProjectionConfig {
 
     fn __repr__(&self) -> String {
         format!(
-            "ProjectionConfig(projection_distance_warning_threshold={}, suppress_warnings={})",
-            self.projection_distance_warning_threshold,
-            self.suppress_warnings
+            "ProjectionConfig(max_search_radius_meters={}, projection_distance_warning_threshold={}, suppress_warnings={})",
+            self.max_search_radius_meters, self.projection_distance_warning_threshold, self.suppress_warnings
         )
     }
 }
@@ -244,37 +258,56 @@ impl From<&CoreProjectedPosition> for ProjectedPosition {
 ///     print(f"{pos.netelement_id}: {pos.measure_meters}m")
 /// ```
 #[pyfunction]
-#[pyo3(signature = (gnss_file, gnss_crs, network_file, _network_crs, _target_crs, config=None))]
+#[pyo3(signature = (gnss_file, gnss_crs, network_file, network_crs, target_crs, config=None))]
 fn project_gnss(
     gnss_file: &str,
     gnss_crs: &str,
     network_file: &str,
-    _network_crs: &str, // Reserved for future use when CRS per file is supported
-    _target_crs: &str,  // Reserved for future use when explicit target CRS is supported
+    network_crs: &str,
+    target_crs: &str,
     config: Option<ProjectionConfig>,
 ) -> PyResult<Vec<ProjectedPosition>> {
+    // Validate all CRS strings upfront so callers get a clear ValueError for bad CRS
+    CrsTransformer::new(gnss_crs.to_string(), gnss_crs.to_string()).map_err(convert_error)?;
+    CrsTransformer::new(network_crs.to_string(), network_crs.to_string()).map_err(convert_error)?;
+    CrsTransformer::new(target_crs.to_string(), target_crs.to_string()).map_err(convert_error)?;
+
     // Convert Python config to Rust config
     let core_config: CoreProjectionConfig = config
-        .unwrap_or_else(|| ProjectionConfig::new(50.0, false))
+        .unwrap_or_else(|| ProjectionConfig::new(1000.0, 50.0, false))
         .into();
 
     // Parse GNSS positions from CSV
-    // Note: parse_gnss_csv signature is (path, crs, lat_col, lon_col, time_col)
     let gnss_positions = parse_gnss_csv(gnss_file, gnss_crs, "latitude", "longitude", "timestamp")
         .map_err(convert_error)?;
 
     // Parse network from GeoJSON
-    let netelements = parse_network_geojson(network_file).map_err(convert_error)?;
+    let (netelements, _netrelations) =
+        parse_network_geojson(network_file).map_err(convert_error)?;
 
     // Build spatial index
     let network = RailwayNetwork::new(netelements).map_err(convert_error)?;
 
     // Project positions
-    let results =
+    let core_results =
         core_project_gnss(&gnss_positions, &network, &core_config).map_err(convert_error)?;
 
-    // Convert to Python objects
-    Ok(results.iter().map(ProjectedPosition::from).collect())
+    // Convert to Python objects, transforming coordinates to target_crs
+    let mut py_results = Vec::with_capacity(core_results.len());
+    for core_result in &core_results {
+        let mut pos = ProjectedPosition::from(core_result);
+        if pos.crs != target_crs {
+            let transformer = CrsTransformer::new(pos.crs.clone(), target_crs.to_string())
+                .map_err(convert_error)?;
+            let point = geo::Point::new(pos.projected_x, pos.projected_y);
+            let transformed = transformer.transform(point).map_err(convert_error)?;
+            pos.projected_x = transformed.x();
+            pos.projected_y = transformed.y();
+            pos.crs = target_crs.to_string();
+        }
+        py_results.push(pos);
+    }
+    Ok(py_results)
 }
 
 // ============================================================================
