@@ -935,9 +935,14 @@ fn remove_oscillations(
             };
 
             // Collapse when the intermediate is shorter than the first segment
-            // or very short in absolute terms (< 10 GNSS positions).
-            let is_oscillation =
-                intermediate_gnss_count <= first_gnss_count || intermediate_gnss_count < 10;
+            // or very short in absolute terms (< 10 GNSS positions), AND the
+            // number of distinct intermediate NEs is small.  Long chains of
+            // distinct NEs represent genuine path segments even when GNSS
+            // coverage is low (e.g. poor satellite reception).
+            let intermediate_ne_count = j - i - 1;
+            let is_oscillation = intermediate_ne_count <= MAX_OSCILLATION_INTERMEDIATE_NES
+                && (intermediate_gnss_count <= first_gnss_count
+                    || intermediate_gnss_count < 10);
 
             if !is_oscillation {
                 i += 1;
@@ -1066,6 +1071,17 @@ fn triple_is_consistent(
 /// it are kept with a warning.
 const DIRECTION_REMOVAL_GNSS_THRESHOLD: usize = 100;
 
+/// Maximum number of distinct intermediate netelements that can be collapsed
+/// as an oscillation.  Sequences with more intermediates are treated as
+/// genuine path segments (the train actually traversed them) even when their
+/// total GNSS coverage is small relative to the repeated netelement.
+const MAX_OSCILLATION_INTERMEDIATE_NES: usize = 3;
+
+/// Maximum number of neighbour removals a single netelement can cause during
+/// direction-violation processing before it is force-removed as the likely
+/// source of path corruption (wrong GNSS assignment).
+const MAX_DIRECTION_CASCADE_REMOVALS: usize = 3;
+
 /// Remove segments that violate directional consistency (U-turns).
 ///
 /// Walks the path checking each triple (A, B, C).  When the triple is
@@ -1105,6 +1121,24 @@ fn remove_direction_violations(
     let mut changed = true;
     let mut warned_triples: std::collections::HashSet<(String, String, String)> =
         std::collections::HashSet::new();
+    // Track how many neighbour removals each NE has caused during the
+    // direction-violation cascade. Two separate counters avoid conflating
+    // unrelated removal patterns:
+    //
+    // • *anchor*  — incremented for A when B is removed and A→B was
+    //   connected (A stays, successive Bs get eaten).
+    // • *protected* — incremented for B when C is removed as fallback
+    //   because B was too significant (B stays, successive Cs get eaten).
+    //
+    // When either counter for B reaches the threshold **and** the current
+    // C would be removable (i.e. the cascade would continue), B is force-
+    // removed as the likely source of path corruption.  The C-removability
+    // guard prevents force-removal when the cascade would naturally stop
+    // at a significant C (kept-direction-warning).
+    let mut cascade_as_anchor: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    let mut cascade_as_protected: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
 
     while changed {
         changed = false;
@@ -1118,6 +1152,48 @@ fn remove_direction_violations(
             if triple_is_consistent(&ne_a, &ne_b, &ne_c, graph, node_map) {
                 i += 1;
                 continue;
+            }
+
+            // ── 0. Cascade detection: force-remove B if it caused too
+            //       many neighbour removals ───────────────────────────────
+            let b_anchor = cascade_as_anchor.get(&ne_b).copied().unwrap_or(0);
+            let b_protected = cascade_as_protected.get(&ne_b).copied().unwrap_or(0);
+            let c_would_be_removable = is_removable(&result[i + 1]);
+            if (b_anchor >= MAX_DIRECTION_CASCADE_REMOVALS
+                || b_protected >= MAX_DIRECTION_CASCADE_REMOVALS)
+                && c_would_be_removable
+            {
+                // B has caused too many cascade removals — it is likely a
+                // wrong GNSS assignment.  Force-remove it regardless of
+                // GNSS coverage.
+                if !is_bridge(&result[i]) {
+                    if i > 0 {
+                        let end = result[i].gnss_end_index;
+                        if result[i - 1].gnss_end_index < end {
+                            result[i - 1].gnss_end_index = end;
+                        }
+                    }
+                }
+
+                let warn = format!(
+                    "Removed {} (cascade: anchor={} protected={} at triple {}/{}/{})",
+                    ne_b, b_anchor, b_protected, ne_a, ne_b, ne_c,
+                );
+                warnings.push(warn.clone());
+                decisions.push(SanityDecision {
+                    pair_index: *pair_index,
+                    from_netelement_id: ne_a,
+                    to_netelement_id: ne_c,
+                    reachable: false,
+                    action: "removed-direction-cascade".to_string(),
+                    rerouted_via: vec![ne_b],
+                    warning: warn,
+                });
+                *pair_index += 1;
+
+                result.remove(i);
+                changed = true;
+                break;
             }
 
             // ── 1. Oscillation remnant (A == C): always target C ─────────
@@ -1271,6 +1347,17 @@ fn remove_direction_violations(
                         result[target_idx + 1].gnss_start_index = start;
                     }
                 }
+            }
+
+            // ── 5. Track cascade causes ──────────────────────────────────
+            // When B is removed: A is the anchor that caused the removal.
+            // When C is removed (fallback because B was protected): B is
+            // the anchor.  A high count for an anchor signals a wrong GNSS
+            // assignment that poisons subsequent triples.
+            if target_idx == i {
+                *cascade_as_anchor.entry(ne_a.clone()).or_insert(0) += 1;
+            } else if target_idx == i + 1 {
+                *cascade_as_protected.entry(ne_b.clone()).or_insert(0) += 1;
             }
 
             let warn = format!(
