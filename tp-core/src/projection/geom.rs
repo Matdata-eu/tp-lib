@@ -56,7 +56,10 @@ pub fn project_point_onto_linestring(
 
         if dist_sq < min_dist_sq {
             min_dist_sq = dist_sq;
-            best = geo::Coord { x: proj_x, y: proj_y };
+            best = geo::Coord {
+                x: proj_x,
+                y: proj_y,
+            };
         }
     }
 

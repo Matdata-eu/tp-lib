@@ -145,8 +145,7 @@ fn test_path_metadata_serialization() {
     assert!(json.contains("distance_scale"));
     assert!(json.contains("50"));
 
-    let deserialized: PathMetadata =
-        serde_json::from_str(&json).expect("Failed to deserialize");
+    let deserialized: PathMetadata = serde_json::from_str(&json).expect("Failed to deserialize");
     assert_eq!(deserialized.distance_scale, 50.0);
     assert_eq!(deserialized.candidate_paths_evaluated, 3);
 }

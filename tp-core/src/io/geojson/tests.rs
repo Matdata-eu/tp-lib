@@ -293,7 +293,10 @@ fn test_parse_gnss_geojson_with_metadata() {
     let result = parse_gnss_geojson(file.path().to_str().unwrap(), "EPSG:4326");
     assert!(result.is_ok());
     let positions = result.unwrap();
-    assert_eq!(positions[0].metadata.get("speed"), Some(&"50.5".to_string()));
+    assert_eq!(
+        positions[0].metadata.get("speed"),
+        Some(&"50.5".to_string())
+    );
 }
 
 #[test]
@@ -422,10 +425,10 @@ fn test_parse_network_geojson_empty_geometry() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_network_geojson(file.path().to_str().unwrap());
     assert!(result.is_err());
     if let Err(e) = result {
@@ -448,10 +451,10 @@ fn test_parse_network_geojson_point_geometry() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_network_geojson(file.path().to_str().unwrap());
     assert!(result.is_err());
     if let Err(e) = result {
@@ -474,10 +477,10 @@ fn test_parse_network_geojson_polygon_geometry() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_network_geojson(file.path().to_str().unwrap());
     assert!(result.is_err());
 }
@@ -510,10 +513,10 @@ fn test_parse_network_geojson_netrelation_missing_navigability() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_network_geojson(file.path().to_str().unwrap());
     // Should error due to missing navigability
     assert!(result.is_err());
@@ -548,10 +551,10 @@ fn test_parse_network_geojson_netrelation_invalid_navigability() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_network_geojson(file.path().to_str().unwrap());
     assert!(result.is_err());
 }
@@ -574,10 +577,10 @@ fn test_parse_network_geojson_netrelation_missing_position_on_a() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_network_geojson(file.path().to_str().unwrap());
     // Should error due to missing position_on_a
     assert!(result.is_err());
@@ -601,10 +604,10 @@ fn test_parse_network_geojson_netrelation_missing_position_on_b() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_network_geojson(file.path().to_str().unwrap());
     // Should error due to missing position_on_b
     assert!(result.is_err());
@@ -627,10 +630,10 @@ fn test_parse_gnss_geojson_invalid_coordinates_length() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_gnss_geojson(file.path().to_str().unwrap(), "EPSG:4326");
     assert!(result.is_err());
     if let Err(e) = result {
@@ -656,10 +659,10 @@ fn test_parse_gnss_geojson_with_heading_property() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_gnss_geojson(file.path().to_str().unwrap(), "EPSG:4326");
     assert!(result.is_ok());
     let positions = result.unwrap();
@@ -685,10 +688,10 @@ fn test_parse_gnss_geojson_with_distance_property() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_gnss_geojson(file.path().to_str().unwrap(), "EPSG:4326");
     assert!(result.is_ok());
     let positions = result.unwrap();
@@ -700,10 +703,12 @@ fn test_parse_gnss_geojson_with_distance_property() {
 fn test_write_geojson_with_multiple_netelements() {
     use chrono::Utc;
     use geo::Point;
-    
-    let gnss1 = GnssPosition::new(50.8503, 4.3517, Utc::now().into(), "EPSG:4326".to_string()).unwrap();
-    let gnss2 = GnssPosition::new(50.8513, 4.3527, Utc::now().into(), "EPSG:4326".to_string()).unwrap();
-    
+
+    let gnss1 =
+        GnssPosition::new(50.8503, 4.3517, Utc::now().into(), "EPSG:4326".to_string()).unwrap();
+    let gnss2 =
+        GnssPosition::new(50.8513, 4.3527, Utc::now().into(), "EPSG:4326".to_string()).unwrap();
+
     let positions = vec![
         ProjectedPosition {
             original: gnss1,
@@ -724,11 +729,11 @@ fn test_write_geojson_with_multiple_netelements() {
             intrinsic: Some(0.5),
         },
     ];
-    
+
     let mut file = NamedTempFile::new().unwrap();
     let result = write_geojson(&positions, &mut file);
     assert!(result.is_ok());
-    
+
     let contents = std::fs::read_to_string(file.path()).unwrap();
     assert!(contents.contains("NE001"));
     assert!(contents.contains("NE002"));
@@ -740,10 +745,10 @@ fn test_parse_netrelations_geojson_empty_file() {
         "type": "FeatureCollection",
         "features": []
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_netrelations_geojson(file.path().to_str().unwrap());
     assert!(result.is_ok());
     let netrelations = result.unwrap();
@@ -770,10 +775,10 @@ fn test_parse_netrelations_geojson_with_netelement_a_and_netelement_b() {
             }
         ]
     }"#;
-    
+
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(geojson_content.as_bytes()).unwrap();
-    
+
     let result = parse_netrelations_geojson(file.path().to_str().unwrap());
     match &result {
         Ok(netrelations) => {

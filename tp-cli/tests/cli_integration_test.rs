@@ -713,10 +713,7 @@ fn test_simple_projection_real_fixture() {
         "{}/../test-data/log_28876/log_28876_L36-B.csv",
         manifest_dir
     );
-    let network_file = format!(
-        "{}/../test-data/network_airport.geojson",
-        manifest_dir
-    );
+    let network_file = format!("{}/../test-data/network_airport.geojson", manifest_dir);
 
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
     cmd.arg("simple-projection")
@@ -734,10 +731,16 @@ fn test_simple_projection_real_fixture() {
     let stderr = String::from_utf8_lossy(&output.get_output().stderr);
     eprintln!("--- stderr ---\n{}", stderr);
 
-    assert!(output_file.exists(), "Output GeoJSON file should be created");
+    assert!(
+        output_file.exists(),
+        "Output GeoJSON file should be created"
+    );
 
     let content = fs::read_to_string(&output_file).unwrap();
-    eprintln!("--- output (first 2000 chars) ---\n{}", &content[..content.len().min(2000)]);
+    eprintln!(
+        "--- output (first 2000 chars) ---\n{}",
+        &content[..content.len().min(2000)]
+    );
 
     assert!(
         content.contains("FeatureCollection"),
@@ -754,9 +757,13 @@ fn test_simple_projection_real_fixture() {
     );
 
     // Count features: the input CSV has one row per GNSS fix, output should match
-    let feature_count = content.matches("\"type\":\"Feature\"")
+    let feature_count = content
+        .matches("\"type\":\"Feature\"")
         .count()
         .max(content.matches("\"type\": \"Feature\"").count());
     eprintln!("--- feature count: {} ---", feature_count);
-    assert!(feature_count > 0, "Output should contain at least one projected feature");
+    assert!(
+        feature_count > 0,
+        "Output should contain at least one projected feature"
+    );
 }

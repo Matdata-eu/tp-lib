@@ -145,7 +145,6 @@ pub fn find_nearest_netelement(
     Ok(nearest_entry.index)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,10 +225,7 @@ mod tests {
 
         // Netelement B: vertical line at x = 5.5, y from 50.8 to 51.2 (tall bbox)
         //   bbox: x=[5.5, 5.5], y=[50.8, 51.2]
-        let ls_b = LineString::from(vec![
-            Coord { x: 5.5, y: 50.8 },
-            Coord { x: 5.5, y: 51.2 },
-        ]);
+        let ls_b = LineString::from(vec![Coord { x: 5.5, y: 50.8 }, Coord { x: 5.5, y: 51.2 }]);
         let ne_b = Netelement::new("B".to_string(), ls_b, "EPSG:4326".to_string()).unwrap();
 
         let index = NetworkIndex::new(vec![ne_a, ne_b]).unwrap();

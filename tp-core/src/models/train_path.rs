@@ -258,16 +258,14 @@ mod tests {
 
     #[test]
     fn test_train_path_diagnostics() {
-        let segments = vec![
-            AssociatedNetElement {
-                netelement_id: "NE_A".to_string(),
-                start_intrinsic: 0.0,
-                end_intrinsic: 1.0,
-                probability: 0.9,
-                gnss_start_index: 0,
-                gnss_end_index: 10,
-            },
-        ];
+        let segments = vec![AssociatedNetElement {
+            netelement_id: "NE_A".to_string(),
+            start_intrinsic: 0.0,
+            end_intrinsic: 1.0,
+            probability: 0.9,
+            gnss_start_index: 0,
+            gnss_end_index: 10,
+        }];
 
         let path = TrainPath::new(segments, 0.9, None, None).unwrap();
         let diagnostics = path.diagnostics();
@@ -280,16 +278,14 @@ mod tests {
     fn test_train_path_with_metadata() {
         use crate::models::PathMetadata;
 
-        let segments = vec![
-            AssociatedNetElement {
-                netelement_id: "NE_A".to_string(),
-                start_intrinsic: 0.0,
-                end_intrinsic: 1.0,
-                probability: 0.9,
-                gnss_start_index: 0,
-                gnss_end_index: 10,
-            },
-        ];
+        let segments = vec![AssociatedNetElement {
+            netelement_id: "NE_A".to_string(),
+            start_intrinsic: 0.0,
+            end_intrinsic: 1.0,
+            probability: 0.9,
+            gnss_start_index: 0,
+            gnss_end_index: 10,
+        }];
 
         let metadata = PathMetadata {
             distance_scale: 10.0,
@@ -312,16 +308,14 @@ mod tests {
 
     #[test]
     fn test_train_path_with_calculated_at() {
-        let segments = vec![
-            AssociatedNetElement {
-                netelement_id: "NE_A".to_string(),
-                start_intrinsic: 0.0,
-                end_intrinsic: 1.0,
-                probability: 0.9,
-                gnss_start_index: 0,
-                gnss_end_index: 10,
-            },
-        ];
+        let segments = vec![AssociatedNetElement {
+            netelement_id: "NE_A".to_string(),
+            start_intrinsic: 0.0,
+            end_intrinsic: 1.0,
+            probability: 0.9,
+            gnss_start_index: 0,
+            gnss_end_index: 10,
+        }];
 
         let now = Utc::now();
         let path = TrainPath::new(segments, 0.9, Some(now), None).unwrap();

@@ -203,11 +203,7 @@ fn test_parse_gnss_csv_invalid_numeric() {
 #[test]
 fn test_parse_gnss_csv_custom_column_names() {
     let mut file = NamedTempFile::new().unwrap();
-    writeln!(
-        file,
-        "lat,lon,time\n50.8503,4.3517,2024-01-15T10:30:00Z"
-    )
-    .unwrap();
+    writeln!(file, "lat,lon,time\n50.8503,4.3517,2024-01-15T10:30:00Z").unwrap();
 
     let result = parse_gnss_csv(
         file.path().to_str().unwrap(),
@@ -241,7 +237,10 @@ fn test_parse_gnss_csv_preserves_metadata() {
 
     assert!(result.is_ok());
     let positions = result.unwrap();
-    assert_eq!(positions[0].metadata.get("speed"), Some(&"50.5".to_string()));
+    assert_eq!(
+        positions[0].metadata.get("speed"),
+        Some(&"50.5".to_string())
+    );
     assert_eq!(
         positions[0].metadata.get("altitude"),
         Some(&"100.0".to_string())
@@ -489,10 +488,10 @@ fn test_parse_gnss_csv_negative_distance() {
 fn test_write_projected_positions_csv() {
     let positions = vec![create_test_projected_position()];
     let mut output = Vec::new();
-    
+
     let result = write_csv(&positions, &mut output);
     assert!(result.is_ok());
-    
+
     let csv_str = String::from_utf8(output).unwrap();
     assert!(csv_str.contains("original_lat"));
     assert!(csv_str.contains("50.8503"));
@@ -502,7 +501,7 @@ fn test_write_projected_positions_csv() {
 #[test]
 fn test_write_trainpath_csv_with_comments() {
     use chrono::Utc;
-    
+
     let path = TrainPath::new(
         vec![AssociatedNetElement {
             netelement_id: "NE001".to_string(),
@@ -517,11 +516,11 @@ fn test_write_trainpath_csv_with_comments() {
         None,
     )
     .unwrap();
-    
+
     let mut output = Vec::new();
     let result = write_trainpath_csv(&path, &mut output);
     assert!(result.is_ok());
-    
+
     let csv_str = String::from_utf8(output).unwrap();
     assert!(csv_str.contains("# overall_probability:"));
     assert!(csv_str.contains("# calculated_at:"));
@@ -538,7 +537,7 @@ fn test_parse_trainpath_csv_with_comments() {
 
     let result = parse_trainpath_csv(file.path().to_str().unwrap());
     assert!(result.is_ok());
-    
+
     let path = result.unwrap();
     assert_eq!(path.overall_probability, 0.95);
     assert!(path.calculated_at.is_some());
@@ -588,7 +587,7 @@ fn test_parse_gnss_csv_empty_string_values() {
         "longitude",
         "timestamp",
     );
-    
+
     // Should succeed - empty metadata values are allowed
     assert!(result.is_ok());
 }
@@ -609,7 +608,7 @@ fn test_parse_gnss_csv_special_characters_in_metadata() {
         "longitude",
         "timestamp",
     );
-    
+
     assert!(result.is_ok());
     let positions = result.unwrap();
     assert_eq!(positions.len(), 1);
@@ -633,7 +632,7 @@ fn test_parse_gnss_csv_null_values_in_optional_columns() {
         "longitude",
         "timestamp",
     );
-    
+
     // Should succeed - null values in optional columns are allowed
     assert!(result.is_ok());
     let positions = result.unwrap();
@@ -647,13 +646,17 @@ fn test_parse_gnss_csv_null_values_in_optional_columns() {
 #[test]
 fn test_write_csv_with_metadata_field() {
     let mut pos = create_test_projected_position();
-    pos.original.metadata.insert("train_id".to_string(), "T123".to_string());
-    pos.original.metadata.insert("description".to_string(), "Test data".to_string());
-    
+    pos.original
+        .metadata
+        .insert("train_id".to_string(), "T123".to_string());
+    pos.original
+        .metadata
+        .insert("description".to_string(), "Test data".to_string());
+
     let mut output = Vec::new();
-    let result = write_csv(&vec![pos], &mut output);
+    let result = write_csv(&[pos], &mut output);
     assert!(result.is_ok());
-    
+
     // CSV writing should succeed even with metadata
     let csv_str = String::from_utf8(output).unwrap();
     assert!(!csv_str.is_empty());
@@ -662,7 +665,7 @@ fn test_write_csv_with_metadata_field() {
 #[test]
 fn test_write_trainpath_csv_with_zero_probability() {
     use chrono::Utc;
-    
+
     let path = TrainPath::new(
         vec![AssociatedNetElement {
             netelement_id: "NE001".to_string(),
@@ -677,11 +680,11 @@ fn test_write_trainpath_csv_with_zero_probability() {
         None,
     )
     .unwrap();
-    
+
     let mut output = Vec::new();
     let result = write_trainpath_csv(&path, &mut output);
     assert!(result.is_ok());
-    
+
     let csv_str = String::from_utf8(output).unwrap();
     assert!(csv_str.contains("# overall_probability: 0"));
 }
@@ -760,4 +763,3 @@ fn test_parse_trainpath_csv_invalid_gnss_index() {
     // Testing that parsing doesn't crash
     let _ = result;
 }
-

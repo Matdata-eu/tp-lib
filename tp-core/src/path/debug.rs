@@ -1,4 +1,4 @@
-﻿//! Debug information export utilities for path calculation (US7)
+//! Debug information export utilities for path calculation (US7)
 //!
 //! This module provides functions to export intermediate HMM calculation results
 //! for troubleshooting and parameter tuning.
@@ -53,25 +53,16 @@ pub fn export_all_debug_info<P: AsRef<Path>>(
     }
 
     if !debug_info.netelement_probabilities.is_empty() {
-        export_hmm_candidate_netelements(
-            debug_info,
-            dir.join("04_candidate_netelements.geojson"),
-        )?;
+        export_hmm_candidate_netelements(debug_info, dir.join("04_candidate_netelements.geojson"))?;
         export_hmm_selected_path(debug_info, dir.join("07_selected_path.geojson"))?;
     }
 
     if !debug_info.sanity_decisions.is_empty() {
-        export_path_sanity_decisions(
-            debug_info,
-            dir.join("05_path_sanity_decisions.geojson"),
-        )?;
+        export_path_sanity_decisions(debug_info, dir.join("05_path_sanity_decisions.geojson"))?;
     }
 
     if !debug_info.gap_fills.is_empty() {
-        export_gap_fills(
-            debug_info,
-            dir.join("06_filling_gaps.geojson"),
-        )?;
+        export_gap_fills(debug_info, dir.join("06_filling_gaps.geojson"))?;
     }
 
     if !debug_info.transition_probabilities.is_empty() {
@@ -131,15 +122,15 @@ pub fn export_hmm_emission_probabilities<P: AsRef<Path>>(
                 "distance_probability".to_string(),
                 JsonValue::from(candidate.distance_probability),
             );
-            props.insert("distance_m".to_string(), JsonValue::from(candidate.distance));
+            props.insert(
+                "distance_m".to_string(),
+                JsonValue::from(candidate.distance),
+            );
             if let Some(hp) = candidate.heading_probability {
                 props.insert("heading_probability".to_string(), JsonValue::from(hp));
             }
             if let Some(hd) = candidate.heading_difference {
-                props.insert(
-                    "heading_difference_deg".to_string(),
-                    JsonValue::from(hd),
-                );
+                props.insert("heading_difference_deg".to_string(), JsonValue::from(hd));
             }
             props.insert(
                 "status".to_string(),
@@ -202,12 +193,11 @@ pub fn export_hmm_viterbi_trace<P: AsRef<Path>>(
     use geojson::{Feature, FeatureCollection, Geometry, Value};
     use serde_json::{Map, Value as JsonValue};
 
-    let pos_lookup: std::collections::HashMap<usize, &crate::path::PositionCandidates> =
-        debug_info
-            .position_candidates
-            .iter()
-            .map(|pc| (pc.position_index, pc))
-            .collect();
+    let pos_lookup: std::collections::HashMap<usize, &crate::path::PositionCandidates> = debug_info
+        .position_candidates
+        .iter()
+        .map(|pc| (pc.position_index, pc))
+        .collect();
 
     let mut features = Vec::new();
 
@@ -345,9 +335,7 @@ pub fn export_hmm_candidate_netelements<P: AsRef<Path>>(
     fc_members.insert("phase".to_string(), JsonValue::from(4i64));
     fc_members.insert(
         "description".to_string(),
-        JsonValue::from(
-            "HMM candidate netelements: all states considered during Viterbi decoding",
-        ),
+        JsonValue::from("HMM candidate netelements: all states considered during Viterbi decoding"),
     );
 
     let fc = FeatureCollection {
@@ -420,9 +408,7 @@ pub fn export_hmm_selected_path<P: AsRef<Path>>(
     fc_members.insert("phase".to_string(), JsonValue::from(6i64));
     fc_members.insert(
         "description".to_string(),
-        JsonValue::from(
-            "HMM selected path: netelements in the final validated path",
-        ),
+        JsonValue::from("HMM selected path: netelements in the final validated path"),
     );
 
     let fc = FeatureCollection {
@@ -499,10 +485,7 @@ pub fn export_hmm_transition_probabilities<P: AsRef<Path>>(
             "from_step".to_string(),
             JsonValue::from(entry.from_step as i64),
         );
-        props.insert(
-            "to_step".to_string(),
-            JsonValue::from(entry.to_step as i64),
-        );
+        props.insert("to_step".to_string(), JsonValue::from(entry.to_step as i64));
         props.insert(
             "from_netelement_id".to_string(),
             JsonValue::from(entry.from_netelement_id.clone()),
@@ -611,10 +594,7 @@ pub fn export_path_sanity_decisions<P: AsRef<Path>>(
             "to_netelement_id".to_string(),
             JsonValue::from(decision.to_netelement_id.clone()),
         );
-        props.insert(
-            "reachable".to_string(),
-            JsonValue::from(decision.reachable),
-        );
+        props.insert("reachable".to_string(), JsonValue::from(decision.reachable));
         props.insert(
             "action".to_string(),
             JsonValue::from(decision.action.clone()),
@@ -697,7 +677,10 @@ pub fn export_gap_fills<P: AsRef<Path>>(
             .unwrap_or_else(|| vec![0.0, 0.0]);
         let geom = Geometry::new(GeoValue::Point(coords));
         let mut props = JsonObject::new();
-        props.insert("pair_index".to_string(), JsonValue::from(gf.pair_index as u64));
+        props.insert(
+            "pair_index".to_string(),
+            JsonValue::from(gf.pair_index as u64),
+        );
         props.insert(
             "from_netelement_id".to_string(),
             JsonValue::from(gf.from_netelement_id.as_str()),
@@ -741,10 +724,7 @@ pub fn export_gap_fills<P: AsRef<Path>>(
         foreign_members: Some(fc_members),
     };
     let json = serde_json::to_string_pretty(&fc).map_err(|e| {
-        ProjectionError::InvalidGeometry(format!(
-            "Failed to serialize gap fills GeoJSON: {}",
-            e
-        ))
+        ProjectionError::InvalidGeometry(format!("Failed to serialize gap fills GeoJSON: {}", e))
     })?;
     let mut file = File::create(output_path.as_ref())?;
     file.write_all(json.as_bytes())?;
@@ -788,22 +768,26 @@ mod tests {
             chosen_option: "NE_A".to_string(),
             reason: "Only candidate".to_string(),
         });
-        debug_info.netelement_probabilities.push(NetelementProbabilityInfo {
-            netelement_id: "NE_A".to_string(),
-            avg_emission_probability: 0.72,
-            position_count: 1,
-            geometry_coords: vec![vec![4.35, 50.85], vec![4.36, 50.86]],
-            in_viterbi_path: true,
-            is_bridge: false,
-        });
-        debug_info.transition_probabilities.push(TransitionProbabilityEntry {
-            from_step: 0,
-            to_step: 1,
-            from_netelement_id: "NE_A".to_string(),
-            to_netelement_id: "NE_B".to_string(),
-            transition_probability: 0.65,
-            is_viterbi_chosen: true,
-        });
+        debug_info
+            .netelement_probabilities
+            .push(NetelementProbabilityInfo {
+                netelement_id: "NE_A".to_string(),
+                avg_emission_probability: 0.72,
+                position_count: 1,
+                geometry_coords: vec![vec![4.35, 50.85], vec![4.36, 50.86]],
+                in_viterbi_path: true,
+                is_bridge: false,
+            });
+        debug_info
+            .transition_probabilities
+            .push(TransitionProbabilityEntry {
+                from_step: 0,
+                to_step: 1,
+                from_netelement_id: "NE_A".to_string(),
+                to_netelement_id: "NE_B".to_string(),
+                transition_probability: 0.65,
+                is_viterbi_chosen: true,
+            });
         debug_info
     }
 
@@ -895,7 +879,9 @@ mod tests {
         assert!(temp_dir.join("03_viterbi_trace.geojson").exists());
         assert!(temp_dir.join("04_candidate_netelements.geojson").exists());
         assert!(temp_dir.join("07_selected_path.geojson").exists());
-        assert!(temp_dir.join("02_transition_probabilities.geojson").exists());
+        assert!(temp_dir
+            .join("02_transition_probabilities.geojson")
+            .exists());
 
         std::fs::remove_dir_all(&temp_dir).ok();
     }

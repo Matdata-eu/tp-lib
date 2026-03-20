@@ -27,21 +27,15 @@ fn simple_projection_real_fixture() {
     let network = RailwayNetwork::new(netelements).expect("Failed to build network index");
 
     // --- load GNSS (real column names from the CSV) ---
-    let gnss_positions = parse_gnss_csv(
-        gnss_path,
-        "EPSG:4326",
-        "latitude",
-        "longitude",
-        "timestamp",
-    )
-    .expect("Failed to load GNSS CSV");
+    let gnss_positions =
+        parse_gnss_csv(gnss_path, "EPSG:4326", "latitude", "longitude", "timestamp")
+            .expect("Failed to load GNSS CSV");
 
     eprintln!("Loaded {} GNSS positions", gnss_positions.len());
 
     // --- project ---
     let config = ProjectionConfig::default();
-    let projected =
-        project_gnss(&gnss_positions, &network, &config).expect("Projection failed");
+    let projected = project_gnss(&gnss_positions, &network, &config).expect("Projection failed");
 
     eprintln!("Projected {} positions", projected.len());
 

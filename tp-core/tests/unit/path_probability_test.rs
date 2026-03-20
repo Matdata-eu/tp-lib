@@ -41,7 +41,7 @@ mod tests {
             .unwrap();
 
         let result =
-            calculate_train_path(&gnss, &netelements, &vec![], &config).expect("should succeed");
+            calculate_train_path(&gnss, &netelements, &[], &config).expect("should succeed");
 
         let debug = result.debug_info.expect("debug info should be present");
         let ne_prob = debug
@@ -92,7 +92,7 @@ mod tests {
             .unwrap();
 
         let result =
-            calculate_train_path(&gnss, &netelements, &vec![], &config).expect("should succeed");
+            calculate_train_path(&gnss, &netelements, &[], &config).expect("should succeed");
 
         let debug = result.debug_info.expect("debug info");
         let ne_prob = debug
@@ -115,9 +115,6 @@ mod tests {
         );
 
         // It should not be a bridge (it was directly observed)
-        assert!(
-            !ne_prob.is_bridge,
-            "NE_800 should not be a bridge",
-        );
+        assert!(!ne_prob.is_bridge, "NE_800 should not be a bridge",);
     }
 }

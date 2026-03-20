@@ -68,6 +68,7 @@ pub struct ViterbiSubsequence {
 ///
 /// A `ViterbiResult` with one or more sub-sequences covering all time-steps
 /// that have at least one candidate.
+#[allow(clippy::too_many_arguments)]
 pub fn viterbi_decode(
     position_candidates: &[Vec<CandidateNetElement>],
     position_probabilities: &[Vec<f64>],
@@ -255,14 +256,8 @@ pub fn viterbi_decode(
         }
 
         log_v.push(lv);
-        let flat_bp: Vec<Option<usize>> = bp
-            .iter()
-            .map(|opt| opt.map(|(_, i)| i))
-            .collect();
-        let time_bp: Vec<Option<usize>> = bp
-            .iter()
-            .map(|opt| opt.map(|(pt, _)| pt))
-            .collect();
+        let flat_bp: Vec<Option<usize>> = bp.iter().map(|opt| opt.map(|(_, i)| i)).collect();
+        let time_bp: Vec<Option<usize>> = bp.iter().map(|opt| opt.map(|(pt, _)| pt)).collect();
         backptr.push(flat_bp);
         backptr_time.push(time_bp);
     }
@@ -342,16 +337,10 @@ fn compute_log_transition(
             if let Some(d) =
                 cached_shortest_path_distance(cache, graph, node_map, from_side, to_side)
             {
-                let from_partial = partial_netelement_distance(
-                    cand_i,
-                    from_side.position,
-                    &netelements[ne_i_idx],
-                );
-                let to_partial = partial_netelement_distance(
-                    cand_j,
-                    to_side.position,
-                    &netelements[ne_j_idx],
-                );
+                let from_partial =
+                    partial_netelement_distance(cand_i, from_side.position, &netelements[ne_i_idx]);
+                let to_partial =
+                    partial_netelement_distance(cand_j, to_side.position, &netelements[ne_j_idx]);
                 let route_distance = from_partial + d + to_partial;
 
                 let base_trans =
@@ -359,8 +348,13 @@ fn compute_log_transition(
 
                 // Turn-angle penalty: compare the exit heading from the
                 // from-NE with the entry heading into the to-NE.
-                let turn_factor =
-                    netelement_connection_turn_factor(ne_i_geom, from_side.position, ne_j_geom, to_side.position, config.turn_scale);
+                let turn_factor = netelement_connection_turn_factor(
+                    ne_i_geom,
+                    from_side.position,
+                    ne_j_geom,
+                    to_side.position,
+                    config.turn_scale,
+                );
 
                 let combined = base_trans * turn_factor;
                 let ln_combined = safe_ln(combined);
@@ -859,8 +853,7 @@ pub fn validate_path_navigability(
     }
 
     // Second pass: detect and collapse oscillation patterns (A→…→A).
-    let validated =
-        remove_oscillations(validated, &mut warnings, &mut decisions, &mut pair_index);
+    let validated = remove_oscillations(validated, &mut warnings, &mut decisions, &mut pair_index);
 
     // Third pass: remove segments that violate directional consistency.
     // A triple (A, B, C) is consistent if the entry side of B from A and the
@@ -905,8 +898,8 @@ fn remove_oscillations(
 
             // Look for the next occurrence of the same netelement.
             let mut j_opt: Option<usize> = None;
-            for k in (i + 1)..result.len() {
-                if result[k].netelement_id == ne_id {
+            for (k, step) in result.iter().enumerate().skip(i + 1) {
+                if step.netelement_id == ne_id {
                     j_opt = Some(k);
                     break;
                 }
@@ -941,8 +934,7 @@ fn remove_oscillations(
             // coverage is low (e.g. poor satellite reception).
             let intermediate_ne_count = j - i - 1;
             let is_oscillation = intermediate_ne_count <= MAX_OSCILLATION_INTERMEDIATE_NES
-                && (intermediate_gnss_count <= first_gnss_count
-                    || intermediate_gnss_count < 10);
+                && (intermediate_gnss_count <= first_gnss_count || intermediate_gnss_count < 10);
 
             if !is_oscillation {
                 i += 1;
@@ -1110,9 +1102,8 @@ fn remove_direction_violations(
     let gnss_span = |seg: &AssociatedNetElement| -> usize {
         seg.gnss_end_index.saturating_sub(seg.gnss_start_index)
     };
-    let is_bridge = |seg: &AssociatedNetElement| -> bool {
-        seg.gnss_start_index == seg.gnss_end_index
-    };
+    let is_bridge =
+        |seg: &AssociatedNetElement| -> bool { seg.gnss_start_index == seg.gnss_end_index };
     let is_removable = |seg: &AssociatedNetElement| -> bool {
         is_bridge(seg) || gnss_span(seg) < DIRECTION_REMOVAL_GNSS_THRESHOLD
     };
@@ -1166,12 +1157,10 @@ fn remove_direction_violations(
                 // B has caused too many cascade removals — it is likely a
                 // wrong GNSS assignment.  Force-remove it regardless of
                 // GNSS coverage.
-                if !is_bridge(&result[i]) {
-                    if i > 0 {
-                        let end = result[i].gnss_end_index;
-                        if result[i - 1].gnss_end_index < end {
-                            result[i - 1].gnss_end_index = end;
-                        }
+                if !is_bridge(&result[i]) && i > 0 {
+                    let end = result[i].gnss_end_index;
+                    if result[i - 1].gnss_end_index < end {
+                        result[i - 1].gnss_end_index = end;
                     }
                 }
 
@@ -1201,12 +1190,10 @@ fn remove_direction_violations(
                 let target_idx = i + 1;
                 let target_ne = result[target_idx].netelement_id.clone();
 
-                if !is_bridge(&result[target_idx]) {
-                    if target_idx > 0 {
-                        let end = result[target_idx].gnss_end_index;
-                        if result[target_idx - 1].gnss_end_index < end {
-                            result[target_idx - 1].gnss_end_index = end;
-                        }
+                if !is_bridge(&result[target_idx]) && target_idx > 0 {
+                    let end = result[target_idx].gnss_end_index;
+                    if result[target_idx - 1].gnss_end_index < end {
+                        result[target_idx - 1].gnss_end_index = end;
                     }
                 }
 
@@ -1283,8 +1270,7 @@ fn remove_direction_violations(
                     i + 1
                 } else {
                     // Both B and C too large — warn and skip.
-                    let triple_key =
-                        (ne_a.clone(), ne_b.clone(), ne_c.clone());
+                    let triple_key = (ne_a.clone(), ne_b.clone(), ne_c.clone());
                     if warned_triples.insert(triple_key) {
                         let warn = format!(
                             "Directional violation at {}/{}/{} \
@@ -1308,8 +1294,7 @@ fn remove_direction_violations(
                 }
             } else {
                 // Disconnected case: warn and skip — do NOT eat C.
-                let triple_key =
-                    (ne_a.clone(), ne_b.clone(), ne_c.clone());
+                let triple_key = (ne_a.clone(), ne_b.clone(), ne_c.clone());
                 if warned_triples.insert(triple_key) {
                     let warn = format!(
                         "Directional violation at {}/{}/{} \
@@ -1449,9 +1434,7 @@ fn insert_bridges(
     let mut best_to_side = 0u8;
     for from in &from_sides {
         for to in &to_sides {
-            if let Some(d) =
-                cached_shortest_path_distance(cache, graph, node_map, from, to)
-            {
+            if let Some(d) = cached_shortest_path_distance(cache, graph, node_map, from, to) {
                 if best_route.is_none() || d < best_route.unwrap() {
                     best_route = Some(d);
                     best_from_side = from.position;
@@ -1503,8 +1486,8 @@ fn insert_bridges(
         if netelement_index.contains_key(ne_id) {
             segments.push(AssociatedNetElement::new(
                 ne_id.clone(),
-                1.0,  // Bridge probability
-                0.0,  // Full intrinsic range
+                1.0, // Bridge probability
+                0.0, // Full intrinsic range
                 1.0,
                 gnss_idx,
                 gnss_idx,
@@ -1639,9 +1622,7 @@ pub fn fill_path_gaps(
                     let warn = format!(
                         "Gap fill: removed {} (U-turn: bridge route via {} \
                          creates direction violation with successor {})",
-                        next.netelement_id,
-                        last_bridge,
-                        after_target.netelement_id,
+                        next.netelement_id, last_bridge, after_target.netelement_id,
                     );
                     warnings.push(warn.clone());
                     gap_fills.push(GapFill {
@@ -1665,7 +1646,9 @@ pub fn fill_path_gaps(
             }
 
             if !bridge_ne_ids.is_empty() {
-                let gnss_idx = result.last().map_or(prev.gnss_end_index, |r| r.gnss_end_index);
+                let gnss_idx = result
+                    .last()
+                    .map_or(prev.gnss_end_index, |r| r.gnss_end_index);
                 let mut inserted = Vec::new();
                 for ne_id in &bridge_ne_ids {
                     if netelement_index.contains_key(ne_id) {
@@ -1792,10 +1775,9 @@ mod tests {
             make_ne("A", vec![(3.0, 50.0), (3.001, 50.0)]),
             make_ne("B", vec![(3.001, 50.0), (3.002, 50.0)]),
         ];
-        let netelement_index: HashMap<String, usize> =
-            [("A".to_string(), 0), ("B".to_string(), 1)]
-                .into_iter()
-                .collect();
+        let netelement_index: HashMap<String, usize> = [("A".to_string(), 0), ("B".to_string(), 1)]
+            .into_iter()
+            .collect();
 
         // Netrelation: A(1) → B(0) forward
         use crate::models::NetRelation;
@@ -1830,7 +1812,7 @@ mod tests {
         let position_probabilities = vec![
             vec![0.9],
             vec![0.85],
-            vec![0.3, 0.9],  // B is much more likely at t2
+            vec![0.3, 0.9], // B is much more likely at t2
         ];
 
         let result = viterbi_decode(
@@ -1866,10 +1848,9 @@ mod tests {
             make_ne("A", vec![(3.0, 50.0), (3.001, 50.0)]),
             make_ne("B", vec![(4.0, 51.0), (4.001, 51.0)]),
         ];
-        let netelement_index: HashMap<String, usize> =
-            [("A".to_string(), 0), ("B".to_string(), 1)]
-                .into_iter()
-                .collect();
+        let netelement_index: HashMap<String, usize> = [("A".to_string(), 0), ("B".to_string(), 1)]
+            .into_iter()
+            .collect();
 
         let (graph, node_map) =
             crate::path::graph::build_topology_graph(&netelements, &[]).unwrap();

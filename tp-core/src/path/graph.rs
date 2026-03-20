@@ -288,13 +288,17 @@ fn direction_aware_dijkstra(
 
     impl PartialOrd for State {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            other.cost.partial_cmp(&self.cost) // min-heap
+            Some(self.cmp(other))
         }
     }
 
     impl Ord for State {
         fn cmp(&self, other: &Self) -> Ordering {
-            self.partial_cmp(other).unwrap_or(Ordering::Equal)
+            // min-heap: reversed comparison (higher cost = lower priority)
+            other
+                .cost
+                .partial_cmp(&self.cost)
+                .unwrap_or(Ordering::Equal)
         }
     }
 
@@ -349,7 +353,7 @@ fn direction_aware_dijkstra(
             let new_cost = cost + w;
             let next_key: StateKey = (next, edge_is_external);
 
-            if dist.get(&next_key).map_or(true, |&d| new_cost < d) {
+            if dist.get(&next_key).is_none_or(|&d| new_cost < d) {
                 dist.insert(next_key, new_cost);
                 prev.insert(next_key, key);
                 heap.push(State {
@@ -614,7 +618,10 @@ mod tests {
             "NR001".to_string(),
             "NE_A".to_string(),
             "NE_B".to_string(),
-            1, 0, true, false,
+            1,
+            0,
+            true,
+            false,
         )
         .unwrap();
 
@@ -672,7 +679,10 @@ mod tests {
                 "NR1".to_string(),
                 "NE_A".to_string(),
                 "NE_X".to_string(),
-                1, 0, true, true,
+                1,
+                0,
+                true,
+                true,
             )
             .unwrap(),
             // NE_X:1 ↔ NE_B:0
@@ -680,7 +690,10 @@ mod tests {
                 "NR2".to_string(),
                 "NE_X".to_string(),
                 "NE_B".to_string(),
-                1, 0, true, true,
+                1,
+                0,
+                true,
+                true,
             )
             .unwrap(),
             // NE_B:1 ↔ NE_X:0  (creates the U-turn shortcut)
@@ -688,7 +701,10 @@ mod tests {
                 "NR3".to_string(),
                 "NE_B".to_string(),
                 "NE_X".to_string(),
-                1, 0, true, true,
+                1,
+                0,
+                true,
+                true,
             )
             .unwrap(),
         ];
@@ -716,9 +732,12 @@ mod tests {
             assert!(
                 !(ab_external && bc_external),
                 "U-turn detected: {}:{} → {}:{} → {}:{} has consecutive external edges",
-                a.netelement_id, a.position,
-                b.netelement_id, b.position,
-                c.netelement_id, c.position,
+                a.netelement_id,
+                a.position,
+                b.netelement_id,
+                b.position,
+                c.netelement_id,
+                c.position,
             );
         }
     }

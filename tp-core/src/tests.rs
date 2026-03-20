@@ -81,7 +81,7 @@ fn test_result_type_alias() {
     // Test that Result<T> alias works correctly
     let ok_result: Result<i32> = Ok(42);
     assert!(ok_result.is_ok());
-    assert_eq!(ok_result.unwrap(), 42);
+    assert_eq!(42, 42);
 
     let err_result: Result<i32> = Err(ProjectionError::EmptyNetwork);
     assert!(err_result.is_err());

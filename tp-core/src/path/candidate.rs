@@ -156,7 +156,10 @@ fn calculate_closest_point_on_linestring(
 
         if dist_sq < min_dist_sq {
             min_dist_sq = dist_sq;
-            closest_point = geo::Coord { x: proj_x, y: proj_y };
+            closest_point = geo::Coord {
+                x: proj_x,
+                y: proj_y,
+            };
             best_seg = i;
             best_t = t;
         }
@@ -399,7 +402,11 @@ pub fn heading_difference(heading1: f64, heading2: f64) -> f64 {
 /// travel matters (the train cannot make a U-turn).
 pub(crate) fn directional_heading_difference(heading1: f64, heading2: f64) -> f64 {
     let diff = (heading1 - heading2).abs() % 360.0;
-    if diff > 180.0 { 360.0 - diff } else { diff }
+    if diff > 180.0 {
+        360.0 - diff
+    } else {
+        diff
+    }
 }
 
 #[cfg(test)]
@@ -644,7 +651,7 @@ mod tests {
     #[test]
     fn test_estimate_headings_straight_north() {
         // Three points along the same meridian heading due north, equally spaced.
-        let positions = vec![
+        let positions = [
             make_gnss(50.000, 4.000),
             make_gnss(50.001, 4.000),
             make_gnss(50.002, 4.000),
@@ -656,13 +663,13 @@ mod tests {
         assert!(headings[2].is_none(), "Last position should be None");
         let h = headings[1].expect("Middle position should have estimated heading");
         // Bearing from position 0 to position 2 should be ≈ 0° (north)
-        assert!(h < 1.0 || h > 359.0, "Expected ~0° north, got {h}");
+        assert!(!(1.0..=359.0).contains(&h), "Expected ~0° north, got {h}");
     }
 
     #[test]
     fn test_estimate_headings_straight_east() {
         // Three points along the same latitude heading due east, equally spaced.
-        let positions = vec![
+        let positions = [
             make_gnss(50.000, 4.000),
             make_gnss(50.000, 4.001),
             make_gnss(50.000, 4.002),
@@ -671,29 +678,26 @@ mod tests {
         let headings = estimate_headings_from_neighbors(&refs);
 
         let h = headings[1].expect("Middle position should have estimated heading");
-        assert!(
-            (h - 90.0).abs() < 1.0,
-            "Expected ~90° east, got {h}"
-        );
+        assert!((h - 90.0).abs() < 1.0, "Expected ~90° east, got {h}");
     }
 
     #[test]
     fn test_estimate_headings_endpoints_none() {
-        let positions = vec![
-            make_gnss(50.000, 4.000),
-            make_gnss(50.001, 4.000),
-        ];
+        let positions = [make_gnss(50.000, 4.000), make_gnss(50.001, 4.000)];
         let refs: Vec<&GnssPosition> = positions.iter().collect();
         let headings = estimate_headings_from_neighbors(&refs);
-        assert!(headings.iter().all(|h| h.is_none()), "With < 3 positions all should be None");
+        assert!(
+            headings.iter().all(|h| h.is_none()),
+            "With < 3 positions all should be None"
+        );
     }
 
     #[test]
     fn test_estimate_headings_unequal_spacing() {
         // Distance from p0→p1 is much larger than p1→p2 → ratio > 20% → None
-        let positions = vec![
+        let positions = [
             make_gnss(50.000, 4.000),
-            make_gnss(50.010, 4.000), // ~1.1 km north
+            make_gnss(50.010, 4.000),  // ~1.1 km north
             make_gnss(50.0101, 4.000), // ~11 m further north
         ];
         let refs: Vec<&GnssPosition> = positions.iter().collect();
@@ -708,7 +712,7 @@ mod tests {
     fn test_estimate_headings_continuity_rejection() {
         // Five points: first three go north, then a sharp 90° turn east.
         // The position after the turn should fail the 5° continuity check.
-        let positions = vec![
+        let positions = [
             make_gnss(50.000, 4.000),
             make_gnss(50.001, 4.000), // heading calc: bearing from 0→2 ≈ north
             make_gnss(50.002, 4.000), // heading calc: bearing from 1→3 ≈ NE (sharp change)
@@ -722,6 +726,9 @@ mod tests {
         assert!(headings[1].is_some(), "Position 1 heading should be valid");
         // Positions 2 or 3 should have None due to the sharp turn
         let has_rejection = headings[2].is_none() || headings[3].is_none();
-        assert!(has_rejection, "Sharp turn should cause at least one heading rejection");
+        assert!(
+            has_rejection,
+            "Sharp turn should cause at least one heading rejection"
+        );
     }
 }

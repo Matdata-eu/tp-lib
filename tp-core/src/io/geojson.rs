@@ -11,17 +11,17 @@ use std::fs;
 const DEFAULT_CRS: &str = "EPSG:4326";
 
 /// Parse CRS from GeoJSON FeatureCollection
-/// 
+///
 /// Extracts CRS from foreign_members or returns default WGS84
 fn parse_crs_from_feature_collection(feature_collection: &geojson::FeatureCollection) -> String {
     let Some(crs_obj) = &feature_collection.foreign_members else {
         return DEFAULT_CRS.to_string();
     };
-    
+
     let Some(crs_value) = crs_obj.get("crs") else {
         return DEFAULT_CRS.to_string();
     };
-    
+
     // Try to extract CRS from properties.name
     crs_value
         .get("properties")
@@ -30,7 +30,10 @@ fn parse_crs_from_feature_collection(feature_collection: &geojson::FeatureCollec
         .and_then(|name_str| {
             // Handle URN format: "urn:ogc:def:crs:EPSG::4326"
             if name_str.contains("EPSG") {
-                name_str.split("::").last().map(|code| format!("EPSG:{}", code))
+                name_str
+                    .split("::")
+                    .last()
+                    .map(|code| format!("EPSG:{}", code))
             } else {
                 None
             }
@@ -527,10 +530,7 @@ fn parse_netrelation_feature(
     // Extract positionOnA (0 or 1) - accept both integer and float
     let position_on_a = properties
         .get("positionOnA")
-        .and_then(|v| {
-            v.as_u64()
-                .or_else(|| v.as_f64().map(|f| f as u64))
-        })
+        .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f as u64)))
         .ok_or_else(|| {
             ProjectionError::GeoJsonError(format!(
                 "Netrelation feature {} missing or invalid 'positionOnA' property",
@@ -541,10 +541,7 @@ fn parse_netrelation_feature(
     // Extract positionOnB (0 or 1) - accept both integer and float
     let position_on_b = properties
         .get("positionOnB")
-        .and_then(|v| {
-            v.as_u64()
-                .or_else(|| v.as_f64().map(|f| f as u64))
-        })
+        .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f as u64)))
         .ok_or_else(|| {
             ProjectionError::GeoJsonError(format!(
                 "Netrelation feature {} missing or invalid 'positionOnB' property",

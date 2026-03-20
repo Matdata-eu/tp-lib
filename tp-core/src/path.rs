@@ -709,18 +709,20 @@ mod tests;
 // Re-exports
 pub use candidate::*;
 pub use debug::{
-    export_all_debug_info,
-    export_gap_fills,
-    export_hmm_candidate_netelements,
-    export_hmm_emission_probabilities,
-    export_hmm_selected_path,
-    export_hmm_viterbi_trace,
+    export_all_debug_info, export_gap_fills, export_hmm_candidate_netelements,
+    export_hmm_emission_probabilities, export_hmm_selected_path, export_hmm_viterbi_trace,
     export_path_sanity_decisions,
 };
-pub use graph::{build_topology_graph, cached_shortest_path_distance, shortest_path_distance, shortest_path_route, validate_netrelation_references, NetelementSide, ShortestPathCache};
+pub use graph::{
+    build_topology_graph, cached_shortest_path_distance, shortest_path_distance,
+    shortest_path_route, validate_netrelation_references, NetelementSide, ShortestPathCache,
+};
 pub use probability::*;
 pub use spacing::{calculate_mean_spacing, select_resampled_subset};
-pub use viterbi::{build_path_from_viterbi, fill_path_gaps, validate_path_navigability, viterbi_decode, GapFill, SanityDecision, ViterbiResult, ViterbiSubsequence};
+pub use viterbi::{
+    build_path_from_viterbi, fill_path_gaps, validate_path_navigability, viterbi_decode, GapFill,
+    SanityDecision, ViterbiResult, ViterbiSubsequence,
+};
 
 // Re-export configuration types
 pub use PathCalculationMode::{FallbackIndependent, TopologyBased};
@@ -912,7 +914,11 @@ pub fn calculate_train_path(
             };
 
             let heading_prob = if let Some(heading_diff) = heading_diff_value {
-                calculate_heading_probability(heading_diff, config.heading_scale, config.heading_cutoff)
+                calculate_heading_probability(
+                    heading_diff,
+                    config.heading_scale,
+                    config.heading_cutoff,
+                )
             } else {
                 1.0 // No heading data, assume heading match
             };
@@ -1034,14 +1040,13 @@ pub fn calculate_train_path(
 
     // Post-sanity gap filling: re-insert bridge netelements where consecutive
     // segments are no longer directly connected after sanity removals.
-    let (path_segments, gap_warnings, gap_fills) =
-        crate::path::viterbi::fill_path_gaps(
-            path_segments,
-            &netelement_index,
-            &topo_graph,
-            &node_map,
-            &mut sp_cache,
-        );
+    let (path_segments, gap_warnings, gap_fills) = crate::path::viterbi::fill_path_gaps(
+        path_segments,
+        &netelement_index,
+        &topo_graph,
+        &node_map,
+        &mut sp_cache,
+    );
 
     // Store gap-fill records in debug info if enabled.
     if let Some(ref mut debug) = debug_info {
@@ -1083,8 +1088,7 @@ pub fn calculate_train_path(
             std::collections::HashSet::new();
         for subseq in &viterbi_result.subsequences {
             for &(t, c_idx) in &subseq.states {
-                viterbi_state_ne_ids
-                    .insert(position_candidates[t][c_idx].netelement_id.clone());
+                viterbi_state_ne_ids.insert(position_candidates[t][c_idx].netelement_id.clone());
             }
         }
 
@@ -1115,28 +1119,20 @@ pub fn calculate_train_path(
             let geometry_coords: Vec<Vec<f64>> = netelements
                 .iter()
                 .find(|ne| ne.id == *ne_id)
-                .map(|ne| {
-                    ne.geometry
-                        .0
-                        .iter()
-                        .map(|c| vec![c.x, c.y])
-                        .collect()
-                })
+                .map(|ne| ne.geometry.0.iter().map(|c| vec![c.x, c.y]).collect())
                 .unwrap_or_default();
 
-            debug.netelement_probabilities.push(NetelementProbabilityInfo {
-                netelement_id: ne_id.clone(),
-                avg_emission_probability: if *count > 0 {
-                    sum / *count as f64
-                } else {
-                    0.0
-                },
-                position_count: *count,
-                geometry_coords,
-                in_viterbi_path: final_path_ne_ids.contains(ne_id),
-                is_bridge: final_path_ne_ids.contains(ne_id)
-                    && !viterbi_state_ne_ids.contains(ne_id),
-            });
+            debug
+                .netelement_probabilities
+                .push(NetelementProbabilityInfo {
+                    netelement_id: ne_id.clone(),
+                    avg_emission_probability: if *count > 0 { sum / *count as f64 } else { 0.0 },
+                    position_count: *count,
+                    geometry_coords,
+                    in_viterbi_path: final_path_ne_ids.contains(ne_id),
+                    is_bridge: final_path_ne_ids.contains(ne_id)
+                        && !viterbi_state_ne_ids.contains(ne_id),
+                });
         }
 
         // Also add bridge-only NEs (in final path but never a candidate)
@@ -1145,23 +1141,19 @@ pub fn calculate_train_path(
                 let geometry_coords: Vec<Vec<f64>> = netelements
                     .iter()
                     .find(|ne| ne.id == *ne_id)
-                    .map(|ne| {
-                        ne.geometry
-                            .0
-                            .iter()
-                            .map(|c| vec![c.x, c.y])
-                            .collect()
-                    })
+                    .map(|ne| ne.geometry.0.iter().map(|c| vec![c.x, c.y]).collect())
                     .unwrap_or_default();
 
-                debug.netelement_probabilities.push(NetelementProbabilityInfo {
-                    netelement_id: ne_id.clone(),
-                    avg_emission_probability: 0.0,
-                    position_count: 0,
-                    geometry_coords,
-                    in_viterbi_path: true,
-                    is_bridge: true,
-                });
+                debug
+                    .netelement_probabilities
+                    .push(NetelementProbabilityInfo {
+                        netelement_id: ne_id.clone(),
+                        avg_emission_probability: 0.0,
+                        position_count: 0,
+                        geometry_coords,
+                        in_viterbi_path: true,
+                        is_bridge: true,
+                    });
             }
         }
 
@@ -1173,7 +1165,7 @@ pub fn calculate_train_path(
             for &(t, c_idx) in &subseq.states {
                 let ne_id = &position_candidates[t][c_idx].netelement_id;
                 let emission = emission_probs[t][c_idx];
-                if segment_ids.last().map_or(true, |last| last != ne_id) {
+                if segment_ids.last() != Some(ne_id) {
                     segment_ids.push(ne_id.clone());
                     segment_probs.push(emission);
                 }
@@ -1221,21 +1213,24 @@ pub fn calculate_train_path(
         }
 
         // Add transition probabilities
-        let chosen_pairs: std::collections::HashSet<(usize, usize, usize, usize)> =
-            viterbi_result.subsequences.iter()
-                .flat_map(|subseq| subseq.states.windows(2))
-                .map(|w| (w[0].0, w[0].1, w[1].0, w[1].1))
-                .collect();
+        let chosen_pairs: std::collections::HashSet<(usize, usize, usize, usize)> = viterbi_result
+            .subsequences
+            .iter()
+            .flat_map(|subseq| subseq.states.windows(2))
+            .map(|w| (w[0].0, w[0].1, w[1].0, w[1].1))
+            .collect();
 
         for &(from_t, from_idx, to_t, to_idx, prob) in &viterbi_result.transition_records {
-            debug.transition_probabilities.push(TransitionProbabilityEntry {
-                from_step: from_t,
-                to_step: to_t,
-                from_netelement_id: position_candidates[from_t][from_idx].netelement_id.clone(),
-                to_netelement_id: position_candidates[to_t][to_idx].netelement_id.clone(),
-                transition_probability: prob,
-                is_viterbi_chosen: chosen_pairs.contains(&(from_t, from_idx, to_t, to_idx)),
-            });
+            debug
+                .transition_probabilities
+                .push(TransitionProbabilityEntry {
+                    from_step: from_t,
+                    to_step: to_t,
+                    from_netelement_id: position_candidates[from_t][from_idx].netelement_id.clone(),
+                    to_netelement_id: position_candidates[to_t][to_idx].netelement_id.clone(),
+                    transition_probability: prob,
+                    is_viterbi_chosen: chosen_pairs.contains(&(from_t, from_idx, to_t, to_idx)),
+                });
         }
     }
 

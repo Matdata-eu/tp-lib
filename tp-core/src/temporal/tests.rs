@@ -104,7 +104,7 @@ fn test_parse_edge_case_dates() {
         "2024-12-31T23:59:59Z", // End of year
         "2024-02-29T12:00:00Z", // Leap year
     ];
-    
+
     for date_str in dates {
         let result = parse_rfc3339_with_timezone(date_str);
         assert!(result.is_ok(), "Failed to parse: {}", date_str);

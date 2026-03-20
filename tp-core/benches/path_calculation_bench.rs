@@ -8,9 +8,9 @@
 use chrono::Utc;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use geo::{Coord, LineString};
+use tp_lib_core::calculate_train_path;
 use tp_lib_core::models::{GnssPosition, NetRelation, Netelement};
 use tp_lib_core::path::PathConfig;
-use tp_lib_core::calculate_train_path;
 
 /// Create a simple linear network for benchmarking
 fn create_benchmark_network(segment_count: usize) -> (Vec<Netelement>, Vec<NetRelation>) {
@@ -64,8 +64,7 @@ fn create_gnss_positions(count: usize, spacing_meters: f64) -> Vec<GnssPosition>
         let lat = 50.0 + (i as f64 * spacing_meters / 111_000.0); // ~111km per degree
         let lon = 4.0;
 
-        let position =
-            GnssPosition::new(lat, lon, timestamp, "EPSG:4326".to_string()).unwrap();
+        let position = GnssPosition::new(lat, lon, timestamp, "EPSG:4326".to_string()).unwrap();
         positions.push(position);
     }
 
@@ -91,12 +90,8 @@ fn resampling_performance_comparison(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let config = PathConfig::default(); // No resampling
-                    let result = calculate_train_path(
-                        &gnss_positions,
-                        &netelements,
-                        &netrelations,
-                        &config,
-                    );
+                    let result =
+                        calculate_train_path(&gnss_positions, &netelements, &netrelations, &config);
                     let _ = black_box(result);
                 });
             },
@@ -108,14 +103,12 @@ fn resampling_performance_comparison(c: &mut Criterion) {
             &pos_count,
             |b, _| {
                 b.iter(|| {
-                    let mut config = PathConfig::default();
-                    config.resampling_distance = Some(10.0);
-                    let result = calculate_train_path(
-                        &gnss_positions,
-                        &netelements,
-                        &netrelations,
-                        &config,
-                    );
+                    let config = PathConfig {
+                        resampling_distance: Some(10.0),
+                        ..PathConfig::default()
+                    };
+                    let result =
+                        calculate_train_path(&gnss_positions, &netelements, &netrelations, &config);
                     let _ = black_box(result);
                 });
             },

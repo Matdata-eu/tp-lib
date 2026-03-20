@@ -65,7 +65,11 @@ struct Cli {
     heading_scale: f64,
 
     /// Maximum distance for candidate selection (meters)
-    #[arg(long = "cutoff-distance", value_name = "VALUE", default_value = "500.0")]
+    #[arg(
+        long = "cutoff-distance",
+        value_name = "VALUE",
+        default_value = "500.0"
+    )]
     cutoff_distance: f64,
 
     /// Maximum heading difference before rejection (degrees)
@@ -284,24 +288,25 @@ fn main() {
                 eprintln!("Warning: --debug-output-dir has no effect without --debug");
             }
             run_calculate_path(
-            &gnss_file,
-            gnss_crs.as_deref(),
-            &network_file,
-            &output_file,
-            &format,
-            distance_scale,
-            heading_scale,
-            cutoff_distance,
-            heading_cutoff,
-            probability_threshold,
-            max_candidates,
-            resampling_distance,
-            debug,
-            debug_output_dir.as_deref(),
-            &lat_col,
-            &lon_col,
-            &time_col,
-        )},
+                &gnss_file,
+                gnss_crs.as_deref(),
+                &network_file,
+                &output_file,
+                &format,
+                distance_scale,
+                heading_scale,
+                cutoff_distance,
+                heading_cutoff,
+                probability_threshold,
+                max_candidates,
+                resampling_distance,
+                debug,
+                debug_output_dir.as_deref(),
+                &lat_col,
+                &lon_col,
+                &time_col,
+            )
+        }
         Some(Commands::SimpleProjection {
             gnss_file,
             gnss_crs,
@@ -523,9 +528,8 @@ fn run_default_command(
         // Export debug info if debug mode was enabled
         if let Some(ref debug_info) = result.debug_info {
             let debug_dir = resolve_debug_dir(debug_output_dir, output_file);
-            export_all_debug_info(debug_info, &debug_dir).map_err(|e| {
-                PipelineError::Io(format!("Failed to write debug files: {}", e))
-            })?;
+            export_all_debug_info(debug_info, &debug_dir)
+                .map_err(|e| PipelineError::Io(format!("Failed to write debug files: {}", e)))?;
             tracing::info!(debug_dir = %debug_dir, "Debug GeoJSON files written");
         }
 
@@ -638,9 +642,8 @@ fn run_calculate_path(
     // Export debug info if debug mode was enabled
     if let Some(ref debug_info) = result.debug_info {
         let debug_dir = resolve_debug_dir(debug_output_dir, output_file);
-        export_all_debug_info(debug_info, &debug_dir).map_err(|e| {
-            PipelineError::Io(format!("Failed to write debug files: {}", e))
-        })?;
+        export_all_debug_info(debug_info, &debug_dir)
+            .map_err(|e| PipelineError::Io(format!("Failed to write debug files: {}", e)))?;
         tracing::info!(debug_dir = %debug_dir, "Debug GeoJSON files written");
     }
 
@@ -821,6 +824,7 @@ fn load_gnss_positions(
 }
 
 /// Build PathConfig from CLI parameters
+#[allow(clippy::too_many_arguments)]
 fn build_path_config(
     distance_scale: f64,
     heading_scale: f64,
@@ -853,9 +857,7 @@ fn resolve_debug_dir(debug_output_dir: Option<&str>, output_file: &str) -> Strin
         Some(dir) if !dir.is_empty() => dir.to_string(),
         _ => {
             let path = std::path::Path::new(output_file);
-            let parent = path
-                .parent()
-                .unwrap_or_else(|| std::path::Path::new("."));
+            let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
             parent.join("debug").to_string_lossy().into_owned()
         }
     }

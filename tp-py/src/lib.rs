@@ -76,6 +76,10 @@ fn convert_error(error: ProjectionError) -> PyErr {
 #[pyclass]
 #[derive(Clone)]
 pub struct ProjectionConfig {
+    /// Maximum search radius for nearest-segment lookup (meters)
+    #[pyo3(get, set)]
+    pub max_search_radius_meters: f64,
+
     /// Warning threshold for large projection distances
     #[pyo3(get, set)]
     pub projection_distance_warning_threshold: f64,
@@ -88,9 +92,14 @@ pub struct ProjectionConfig {
 #[pymethods]
 impl ProjectionConfig {
     #[new]
-    #[pyo3(signature = (projection_distance_warning_threshold=50.0, suppress_warnings=false))]
-    fn new(projection_distance_warning_threshold: f64, suppress_warnings: bool) -> Self {
+    #[pyo3(signature = (max_search_radius_meters=1000.0, projection_distance_warning_threshold=50.0, suppress_warnings=false))]
+    fn new(
+        max_search_radius_meters: f64,
+        projection_distance_warning_threshold: f64,
+        suppress_warnings: bool,
+    ) -> Self {
         Self {
+            max_search_radius_meters,
             projection_distance_warning_threshold,
             suppress_warnings,
         }
@@ -98,8 +107,8 @@ impl ProjectionConfig {
 
     fn __repr__(&self) -> String {
         format!(
-            "ProjectionConfig(projection_distance_warning_threshold={}, suppress_warnings={})",
-            self.projection_distance_warning_threshold, self.suppress_warnings
+            "ProjectionConfig(max_search_radius_meters={}, projection_distance_warning_threshold={}, suppress_warnings={})",
+            self.max_search_radius_meters, self.projection_distance_warning_threshold, self.suppress_warnings
         )
     }
 }
@@ -260,7 +269,7 @@ fn project_gnss(
 ) -> PyResult<Vec<ProjectedPosition>> {
     // Convert Python config to Rust config
     let core_config: CoreProjectionConfig = config
-        .unwrap_or_else(|| ProjectionConfig::new(50.0, false))
+        .unwrap_or_else(|| ProjectionConfig::new(1000.0, 50.0, false))
         .into();
 
     // Parse GNSS positions from CSV

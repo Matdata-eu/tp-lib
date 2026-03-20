@@ -26,14 +26,9 @@ fn path_calculation_real_fixture() {
         parse_network_geojson(network_path).expect("Failed to load network");
 
     // --- load GNSS (real column names from the CSV) ---
-    let gnss_positions = parse_gnss_csv(
-        gnss_path,
-        "EPSG:4326",
-        "latitude",
-        "longitude",
-        "timestamp",
-    )
-    .expect("Failed to load GNSS CSV");
+    let gnss_positions =
+        parse_gnss_csv(gnss_path, "EPSG:4326", "latitude", "longitude", "timestamp")
+            .expect("Failed to load GNSS CSV");
 
     eprintln!("Loaded {} GNSS positions", gnss_positions.len());
     eprintln!(

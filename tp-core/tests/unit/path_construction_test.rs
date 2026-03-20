@@ -548,9 +548,9 @@ mod tests {
     #[test]
     fn test_fallback_detection_logic() {
         use chrono::Utc;
+        use tp_lib_core::calculate_train_path;
         use tp_lib_core::models::GnssPosition;
         use tp_lib_core::path::{PathCalculationMode, PathConfig};
-        use tp_lib_core::calculate_train_path;
 
         // Create GNSS positions far from network to trigger "no candidates" scenario
         // This is the most reliable way to trigger fallback
@@ -560,22 +560,28 @@ mod tests {
         ];
 
         // Create network far away from GNSS positions
-        let netelements = vec![
-            Netelement {
-                id: "NE_A".to_string(),
-                geometry: LineString::new(vec![
-                    Coord { x: 4.350, y: 50.850 }, // ~10km away from GNSS
-                    Coord { x: 4.351, y: 50.851 },
-                ]),
-                crs: "EPSG:4326".to_string(),
-            },
-        ];
+        let netelements = vec![Netelement {
+            id: "NE_A".to_string(),
+            geometry: LineString::new(vec![
+                Coord {
+                    x: 4.350,
+                    y: 50.850,
+                }, // ~10km away from GNSS
+                Coord {
+                    x: 4.351,
+                    y: 50.851,
+                },
+            ]),
+            crs: "EPSG:4326".to_string(),
+        }];
 
         let netrelations: Vec<NetRelation> = vec![];
 
         // Use small cutoff distance to ensure GNSS is beyond reach
-        let mut config = PathConfig::default();
-        config.cutoff_distance = 100.0; // 100m - GNSS is ~10km away
+        let config = PathConfig {
+            cutoff_distance: 100.0, // 100m - GNSS is ~10km away
+            ..PathConfig::default()
+        };
 
         let result = calculate_train_path(&gnss_positions, &netelements, &netrelations, &config);
 
@@ -608,7 +614,8 @@ mod tests {
             path_result
                 .warnings
                 .iter()
-                .any(|w| w.to_lowercase().contains("fallback") || w.to_lowercase().contains("falling back")),
+                .any(|w| w.to_lowercase().contains("fallback")
+                    || w.to_lowercase().contains("falling back")),
             "Should warn about using fallback mode, got: {:?}",
             path_result.warnings
         );
@@ -617,21 +624,26 @@ mod tests {
     #[test]
     fn test_fallback_with_path_only_mode() {
         use chrono::Utc;
+        use tp_lib_core::calculate_train_path;
         use tp_lib_core::models::GnssPosition;
         use tp_lib_core::path::{PathCalculationMode, PathConfig};
-        use tp_lib_core::calculate_train_path;
 
         // GNSS far from network to trigger fallback
         let gnss_positions =
-            vec![GnssPosition::new(50.950, 4.450, Utc::now().into(), "EPSG:4326".to_string()).unwrap()];
+            vec![
+                GnssPosition::new(50.950, 4.450, Utc::now().into(), "EPSG:4326".to_string())
+                    .unwrap(),
+            ];
 
         let netelements = vec![create_test_netelement("NE_A")]; // At default location ~4.35, 50.85
 
         let netrelations: Vec<NetRelation> = vec![];
 
-        let mut config = PathConfig::default();
-        config.path_only = true;
-        config.cutoff_distance = 100.0; // GNSS is ~10km away
+        let config = PathConfig {
+            path_only: true,
+            cutoff_distance: 100.0, // GNSS is ~10km away
+            ..PathConfig::default()
+        };
 
         let result = calculate_train_path(&gnss_positions, &netelements, &netrelations, &config);
 
