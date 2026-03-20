@@ -529,13 +529,18 @@ Good result:
 
 Log file ID: 29584
 
-Same route as log_28573.
+Same route as log_28573. Also difficult situation but it will prove that the path algorithm can recover when the GNSS connection improves. 
+
+![L36-A to L36C-A to L25N-B (log_29584) - Raw](log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-raw.png)
+
 
 #### Simple projection
 
 ```bash
 target/release/tp-cli.exe simple-projection --gnss test-data/log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-simple-projection.geojson
 ```
+
+Expected (bad) result:
 
 ![L36-A to L36C-A to L25N-B (log_29584) - Simple projection](log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-simple-projection.png)
 
@@ -545,25 +550,7 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_29584/log_29584
 target/release/tp-cli.exe calculate-path --gnss test-data/log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-path-calculation.geojson
 ```
 
-Expected output:
-1.  88_L_1388  (prob=0.965)
-2.  88_L_11046 (prob=0.414)
-3.  88_L_11885 (prob=1.000)
-4.  88_L_7137  (prob=1.000)
-5.  88_L_109   (prob=1.000)
-6.  88_L_11721 (prob=1.000)
-7.  88_L_5210  (prob=0.552)
-8.  88_L_1727  (prob=1.000)
-9.  88_L_17875 (prob=1.000)
-10. 88_L_7141  (prob=0.327)
-11. 88_L_6042  (prob=1.000)
-12. 88_L_16654 (prob=1.000)
-13. 88_L_13635 (prob=1.000)
-14. 88_L_7819  (prob=1.000)
-15. 88_L_7154  (prob=0.677)
-16. 88_L_5589  (prob=0.506)
-17. 88_L_18686 (prob=0.147)
-18. 88_L_1728  (prob=0.311)
+Good result:
 
 ![L36-A to L36C-A to L25N-B (log_29584) - Path calculation](log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-path.png)
 
@@ -573,6 +560,8 @@ Expected output:
 target/release/tp-cli.exe --gnss test-data/log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-path-projection.geojson
 ```
 
+Good result (and proves the need to have longitudal redistribution of the gnss positions):
+
 ![L36-A to L36C-A to L25N-B (log_29584) - Path projection](log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
 
 ---
@@ -581,13 +570,17 @@ target/release/tp-cli.exe --gnss test-data/log_29584/log_29584_L36-A_to_L36C-A_t
 
 Log file ID: 29835
 
-Same route as log_28573, but the GNSS data only covers a partial segment of the journey (the path calculation resolves only the first switch area, not the full route to L25N-B).
+Similar route as log_28573. GNSS is of better quality.
+
+![L36-A to L36C-A to L25N-B (log_29835) - Simple projection](log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B-raw.png)
 
 #### Simple projection
 
 ```bash
 target/release/tp-cli.exe simple-projection --gnss test-data/log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B-simple-projection.geojson
 ```
+
+As expected:
 
 ![L36-A to L36C-A to L25N-B (log_29835) - Simple projection](log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B-simple-projection.png)
 
@@ -597,12 +590,7 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_29835/log_29835
 target/release/tp-cli.exe calculate-path --gnss test-data/log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B-path-calculation.geojson
 ```
 
-Expected output (partial route — GNSS data ends before reaching L25N-B):
-1. 88_L_9764 (prob=0.917)
-2. 88_L_7824 (prob=0.465)
-3. 88_L_2026 (prob=0.113)
-4. 88_L_7855 (prob=0.925)
-5. 88_L_7818 (prob=0.927)
+Good result:
 
 ![L36-A to L36C-A to L25N-B (log_29835) - Path calculation](log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B-path.png)
 
@@ -611,6 +599,8 @@ Expected output (partial route — GNSS data ends before reaching L25N-B):
 ```bash
 target/release/tp-cli.exe --gnss test-data/log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B-path-projection.geojson
 ```
+
+Good result:
 
 ![L36-A to L36C-A to L25N-B (log_29835) - Path projection](log_29835/log_29835_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
 
