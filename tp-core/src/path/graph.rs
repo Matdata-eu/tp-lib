@@ -260,7 +260,7 @@ pub fn shortest_path_route(
     direction_aware_dijkstra(graph, from_idx, to_idx).map(|(_, path)| path)
 }
 
-/// Direction-aware Dijkstra that prevents consecutive external-edge traversals.
+/// Direction-aware Dijkstra that prevents U-turns.
 ///
 /// The state is expanded to `(NodeIndex, arrived_via_external)`.  When
 /// `arrived_via_external` is true, only internal edges (source and target
@@ -646,5 +646,80 @@ mod tests {
         let to = NetelementSide::new("NE_B".to_string(), 0).unwrap();
 
         assert!(shortest_path_distance(&graph, &node_map, &from, &to).is_none());
+    }
+
+    #[test]
+    fn test_direction_aware_dijkstra_no_u_turns() {
+        // Y-shaped junction: NE_A and NE_B both connect to NE_X at position 0.
+        //
+        //   NE_A:0 ── NE_A:1 ──ext──► NE_X:0 ── NE_X:1 ──ext──► NE_B:0 ── NE_B:1
+        //                                ▲                                      │
+        //                                └────────────ext─────────────────────  ┘
+        //
+        // Without U-turn prevention the shortcut NE_A:1→NE_X:0→NE_B:1 would
+        // skip NE_X entirely (two consecutive external edges).
+        // The direction-aware Dijkstra must force traversal through NE_X.
+
+        let netelements = vec![
+            create_test_netelement("NE_A"),
+            create_test_netelement("NE_X"),
+            create_test_netelement("NE_B"),
+        ];
+
+        let netrelations = vec![
+            // NE_A:1 ↔ NE_X:0
+            NetRelation::new(
+                "NR1".to_string(),
+                "NE_A".to_string(),
+                "NE_X".to_string(),
+                1, 0, true, true,
+            )
+            .unwrap(),
+            // NE_X:1 ↔ NE_B:0
+            NetRelation::new(
+                "NR2".to_string(),
+                "NE_X".to_string(),
+                "NE_B".to_string(),
+                1, 0, true, true,
+            )
+            .unwrap(),
+            // NE_B:1 ↔ NE_X:0  (creates the U-turn shortcut)
+            NetRelation::new(
+                "NR3".to_string(),
+                "NE_B".to_string(),
+                "NE_X".to_string(),
+                1, 0, true, true,
+            )
+            .unwrap(),
+        ];
+
+        let (graph, node_map) = build_topology_graph(&netelements, &netrelations).unwrap();
+
+        let from = NetelementSide::new("NE_A".to_string(), 0).unwrap();
+        let to = NetelementSide::new("NE_B".to_string(), 0).unwrap();
+
+        let path = shortest_path_route(&graph, &node_map, &from, &to);
+        assert!(path.is_some(), "A path should exist");
+
+        let path = path.unwrap();
+
+        // Verify no U-turns: no two consecutive edges may both be external.
+        // An edge is external when its source and target belong to different netelements.
+        for window in path.windows(3) {
+            let a = &graph[window[0]];
+            let b = &graph[window[1]];
+            let c = &graph[window[2]];
+
+            let ab_external = a.netelement_id != b.netelement_id;
+            let bc_external = b.netelement_id != c.netelement_id;
+
+            assert!(
+                !(ab_external && bc_external),
+                "U-turn detected: {}:{} → {}:{} → {}:{} has consecutive external edges",
+                a.netelement_id, a.position,
+                b.netelement_id, b.position,
+                c.netelement_id, c.position,
+            );
+        }
     }
 }

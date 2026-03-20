@@ -17,6 +17,8 @@ use crate::path::probability::{calculate_transition_probability, is_near_netelem
 use crate::path::PathConfig;
 use geo::{HaversineDistance, Point};
 use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::EdgeRef;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Result of the Viterbi decoding.
@@ -643,6 +645,659 @@ pub fn build_path_from_viterbi(
     Ok(segments)
 }
 
+/// Decision record for a single consecutive-segment pair during sanity validation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SanityDecision {
+    /// Index of this pair (0 = first consecutive pair)
+    pub pair_index: usize,
+    /// Netelement ID of the source segment
+    pub from_netelement_id: String,
+    /// Netelement ID of the target segment
+    pub to_netelement_id: String,
+    /// Whether the target was reachable from the source
+    pub reachable: bool,
+    /// Action taken: "kept", "removed", or "rerouted"
+    pub action: String,
+    /// Netelement IDs inserted by Dijkstra re-routing (empty if not rerouted)
+    pub rerouted_via: Vec<String>,
+    /// Warning message (empty if reachable)
+    pub warning: String,
+}
+
+/// Record of a gap-fill action between two consecutive segments after sanity validation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GapFill {
+    /// Index of this consecutive pair (0-based)
+    pub pair_index: usize,
+    /// Netelement ID of the segment before the gap
+    pub from_netelement_id: String,
+    /// Netelement ID of the segment after the gap
+    pub to_netelement_id: String,
+    /// Whether a Dijkstra route was found between the two segments
+    pub route_found: bool,
+    /// Netelement IDs inserted to bridge the gap (empty if no route)
+    pub inserted_netelements: Vec<String>,
+    /// Warning message (empty if directly connected or successfully filled)
+    pub warning: String,
+}
+
+/// Post-Viterbi navigability validation.
+///
+/// Walks the assembled path segments sequentially, checking each consecutive
+/// pair for topological reachability via the directed topology graph.
+/// When a segment is unreachable from its predecessor:
+///   1. The unreachable segment is removed.
+///   2. A Dijkstra re-route is attempted from the last valid segment to the
+///      *next* remaining segment. If a route exists, bridge NEs are inserted.
+///   3. A warning is recorded.
+///
+/// Returns the validated path segments, a list of warnings, and structured
+/// sanity decisions for debug output.
+#[allow(clippy::too_many_arguments)]
+pub fn validate_path_navigability(
+    segments: Vec<AssociatedNetElement>,
+    _netelements: &[Netelement],
+    netelement_index: &HashMap<String, usize>,
+    graph: &DiGraph<NetelementSide, f64>,
+    node_map: &HashMap<NetelementSide, NodeIndex>,
+    cache: &mut ShortestPathCache,
+) -> (Vec<AssociatedNetElement>, Vec<String>, Vec<SanityDecision>) {
+    if segments.len() < 2 {
+        return (segments, vec![], vec![]);
+    }
+
+    let mut validated: Vec<AssociatedNetElement> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+    let mut decisions: Vec<SanityDecision> = Vec::new();
+    let mut pair_index: usize = 0;
+
+    // Start with the first segment (always kept).
+    validated.push(segments[0].clone());
+
+    let mut i = 1;
+    while i < segments.len() {
+        // Clone data from last valid segment to avoid borrowing `validated` across mutations.
+        let last_ne_id = validated.last().unwrap().netelement_id.clone();
+        let last_gnss_end = validated.last().unwrap().gnss_end_index;
+        let candidate = &segments[i];
+
+        // Same netelement → always valid.
+        if last_ne_id == candidate.netelement_id {
+            decisions.push(SanityDecision {
+                pair_index,
+                from_netelement_id: last_ne_id,
+                to_netelement_id: candidate.netelement_id.clone(),
+                reachable: true,
+                action: "kept".to_string(),
+                rerouted_via: vec![],
+                warning: String::new(),
+            });
+            validated.push(candidate.clone());
+            pair_index += 1;
+            i += 1;
+            continue;
+        }
+
+        // Check reachability across all side combinations.
+        let from_sides = candidate_sides(&last_ne_id);
+        let to_sides = candidate_sides(&candidate.netelement_id);
+        let mut reachable = false;
+        for from in &from_sides {
+            for to in &to_sides {
+                if cached_shortest_path_distance(cache, graph, node_map, from, to).is_some() {
+                    reachable = true;
+                    break;
+                }
+            }
+            if reachable {
+                break;
+            }
+        }
+
+        if reachable {
+            decisions.push(SanityDecision {
+                pair_index,
+                from_netelement_id: last_ne_id,
+                to_netelement_id: candidate.netelement_id.clone(),
+                reachable: true,
+                action: "kept".to_string(),
+                rerouted_via: vec![],
+                warning: String::new(),
+            });
+            validated.push(candidate.clone());
+            pair_index += 1;
+            i += 1;
+            continue;
+        }
+
+        // Unreachable — remove this segment and attempt re-route to the next one.
+        let warn_msg = format!(
+            "Removed unreachable segment {} (no navigable path from {})",
+            candidate.netelement_id, last_ne_id
+        );
+        warnings.push(warn_msg.clone());
+
+        // Look ahead: try to find the next segment reachable from last valid.
+        let mut rerouted = false;
+        let mut rerouted_via: Vec<String> = Vec::new();
+
+        if i + 1 < segments.len() {
+            let next = &segments[i + 1];
+            // Try Dijkstra from last valid to next.
+            let fwd_from_sides = candidate_sides(&last_ne_id);
+            let fwd_to_sides = candidate_sides(&next.netelement_id);
+
+            let mut best_route_cost: Option<f64> = None;
+            let mut best_from_side = 0u8;
+            let mut best_to_side = 0u8;
+            for from in &fwd_from_sides {
+                for to in &fwd_to_sides {
+                    if let Some(d) = cached_shortest_path_distance(cache, graph, node_map, from, to)
+                    {
+                        if best_route_cost.is_none() || d < best_route_cost.unwrap() {
+                            best_route_cost = Some(d);
+                            best_from_side = from.position;
+                            best_to_side = to.position;
+                        }
+                    }
+                }
+            }
+
+            if let Some(cost) = best_route_cost {
+                rerouted = true;
+                // Insert bridge NEs if needed (cost > 0 means non-adjacent).
+                if cost > 1e-9 {
+                    let from_side = NetelementSide {
+                        netelement_id: last_ne_id.clone(),
+                        position: best_from_side,
+                    };
+                    let to_side = NetelementSide {
+                        netelement_id: next.netelement_id.clone(),
+                        position: best_to_side,
+                    };
+                    let bridge_ne_ids = trace_intermediate_netelements(
+                        graph,
+                        node_map,
+                        &from_side,
+                        &to_side,
+                        &last_ne_id,
+                        &next.netelement_id,
+                    );
+                    let gnss_idx = last_gnss_end;
+                    for ne_id in &bridge_ne_ids {
+                        if netelement_index.contains_key(ne_id) {
+                            if let Ok(bridge) = AssociatedNetElement::new(
+                                ne_id.clone(),
+                                1.0,
+                                0.0,
+                                1.0,
+                                gnss_idx,
+                                gnss_idx,
+                            ) {
+                                validated.push(bridge);
+                            }
+                        }
+                    }
+                    rerouted_via = bridge_ne_ids;
+                }
+            }
+        }
+
+        let action = if rerouted { "rerouted" } else { "removed" };
+        decisions.push(SanityDecision {
+            pair_index,
+            from_netelement_id: last_ne_id,
+            to_netelement_id: candidate.netelement_id.clone(),
+            reachable: false,
+            action: action.to_string(),
+            rerouted_via,
+            warning: warn_msg,
+        });
+
+        pair_index += 1;
+        i += 1;
+    }
+
+    // Second pass: detect and collapse oscillation patterns (A→…→A).
+    let validated =
+        remove_oscillations(validated, &mut warnings, &mut decisions, &mut pair_index);
+
+    // Third pass: remove segments that violate directional consistency.
+    // A triple (A, B, C) is consistent if the entry side of B from A and the
+    // exit side of B towards C use opposite sides (i.e. the train passes through
+    // B without reversing direction).
+    let validated = remove_direction_violations(
+        validated,
+        graph,
+        node_map,
+        &mut warnings,
+        &mut decisions,
+        &mut pair_index,
+    );
+
+    (validated, warnings, decisions)
+}
+
+/// Detect and collapse oscillation patterns in the path.
+///
+/// An oscillation is when the same netelement appears more than once with a short
+/// intermediate detour—for example `A→B→C→A` where B and C cover fewer GNSS positions
+/// than the first A occurrence.  The collapse merges the two A-segments and removes
+/// the intermediate segments.
+fn remove_oscillations(
+    segments: Vec<AssociatedNetElement>,
+    warnings: &mut Vec<String>,
+    decisions: &mut Vec<SanityDecision>,
+    pair_index: &mut usize,
+) -> Vec<AssociatedNetElement> {
+    if segments.len() < 3 {
+        return segments;
+    }
+
+    let mut result = segments;
+    let mut changed = true;
+
+    while changed {
+        changed = false;
+        let mut i = 0;
+        while i < result.len() {
+            let ne_id = result[i].netelement_id.clone();
+
+            // Look for the next occurrence of the same netelement.
+            let mut j_opt: Option<usize> = None;
+            for k in (i + 1)..result.len() {
+                if result[k].netelement_id == ne_id {
+                    j_opt = Some(k);
+                    break;
+                }
+            }
+
+            let j = match j_opt {
+                Some(v) => v,
+                None => {
+                    i += 1;
+                    continue;
+                }
+            };
+
+            // Check whether the intermediate segments are short enough to be
+            // oscillation noise.  We compare the total GNSS coverage of the
+            // intermediates against the first occurrence's GNSS coverage.
+            let first_gnss_count = result[i]
+                .gnss_end_index
+                .saturating_sub(result[i].gnss_start_index);
+            let intermediate_gnss_count = if j > i + 1 {
+                result[j - 1]
+                    .gnss_end_index
+                    .saturating_sub(result[i + 1].gnss_start_index)
+            } else {
+                0
+            };
+
+            // Collapse when the intermediate is shorter than the first segment
+            // or very short in absolute terms (< 10 GNSS positions).
+            let is_oscillation =
+                intermediate_gnss_count <= first_gnss_count || intermediate_gnss_count < 10;
+
+            if !is_oscillation {
+                i += 1;
+                continue;
+            }
+
+            // Record the collapsed oscillation.
+            let removed_ne_ids: Vec<String> = result[(i + 1)..j]
+                .iter()
+                .map(|s| s.netelement_id.clone())
+                .collect();
+
+            let warn_msg = format!(
+                "Collapsed oscillation: {} revisited after [{}] (intermediate covered {} GNSS positions)",
+                ne_id,
+                removed_ne_ids.join(", "),
+                intermediate_gnss_count,
+            );
+            warnings.push(warn_msg.clone());
+
+            decisions.push(SanityDecision {
+                pair_index: *pair_index,
+                from_netelement_id: ne_id.clone(),
+                to_netelement_id: ne_id.clone(),
+                reachable: true,
+                action: "collapsed-oscillation".to_string(),
+                rerouted_via: removed_ne_ids,
+                warning: warn_msg,
+            });
+            *pair_index += 1;
+
+            // Merge: extend segment[i] to cover segment[j]'s GNSS range.
+            result[i].gnss_end_index = result[j].gnss_end_index;
+
+            // Update end_intrinsic from the second occurrence, unless it is a
+            // bridge segment (gnss_start == gnss_end) whose intrinsic is just a
+            // placeholder.
+            if result[j].gnss_start_index != result[j].gnss_end_index {
+                result[i].end_intrinsic = result[j].end_intrinsic;
+            }
+
+            // Remove segments (i+1)..=j  (the intermediates plus the duplicate).
+            result.drain((i + 1)..=j);
+            changed = true;
+            // Don't increment i — the merged segment may trigger another collapse.
+        }
+    }
+
+    result
+}
+
+/// Check whether a zero-weight (external) edge exists from `from` to `to` in the
+/// topology graph, indicating a direct netrelation connection.
+fn has_direct_connection(
+    graph: &DiGraph<NetelementSide, f64>,
+    node_map: &HashMap<NetelementSide, NodeIndex>,
+    from: &NetelementSide,
+    to: &NetelementSide,
+) -> bool {
+    let Some(&from_idx) = node_map.get(from) else {
+        return false;
+    };
+    let Some(&to_idx) = node_map.get(to) else {
+        return false;
+    };
+
+    graph
+        .edges_directed(from_idx, petgraph::Direction::Outgoing)
+        .any(|e| e.target() == to_idx && *e.weight() < 1e-9)
+}
+
+/// Check if the triple of consecutive netelements A→B→C is directionally
+/// consistent.  For at least one way the train can enter B from A, the
+/// opposite (exit) side of B must have a direct connection to some side of C.
+fn triple_is_consistent(
+    ne_a: &str,
+    ne_b: &str,
+    ne_c: &str,
+    graph: &DiGraph<NetelementSide, f64>,
+    node_map: &HashMap<NetelementSide, NodeIndex>,
+) -> bool {
+    // Same-NE transitions are always consistent.
+    if ne_a == ne_b || ne_b == ne_c {
+        return true;
+    }
+
+    for a_exit in [0u8, 1] {
+        let a_side = NetelementSide {
+            netelement_id: ne_a.to_string(),
+            position: a_exit,
+        };
+        for b_entry in [0u8, 1] {
+            let b_entry_side = NetelementSide {
+                netelement_id: ne_b.to_string(),
+                position: b_entry,
+            };
+
+            if !has_direct_connection(graph, node_map, &a_side, &b_entry_side) {
+                continue;
+            }
+
+            // Train enters B from b_entry, exits from opposite side.
+            let b_exit_side = NetelementSide {
+                netelement_id: ne_b.to_string(),
+                position: 1 - b_entry,
+            };
+
+            for c_entry in [0u8, 1] {
+                let c_entry_side = NetelementSide {
+                    netelement_id: ne_c.to_string(),
+                    position: c_entry,
+                };
+                if has_direct_connection(graph, node_map, &b_exit_side, &c_entry_side) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+/// Minimum number of GNSS positions a real segment must span to be
+/// protected from automatic removal.  Segments below this threshold are
+/// considered dead-end artefacts eligible for removal; segments at or above
+/// it are kept with a warning.
+const DIRECTION_REMOVAL_GNSS_THRESHOLD: usize = 100;
+
+/// Remove segments that violate directional consistency (U-turns).
+///
+/// Walks the path checking each triple (A, B, C).  When the triple is
+/// inconsistent the function determines which segment to remove:
+///
+///   1. **A == C (oscillation remnant)**: remove C (the second occurrence).
+///   2. **A→B connected (wrong exit)**: target B.  If B exceeds the GNSS
+///      threshold, try C as a fallback.
+///   3. **A→B disconnected (orphan)**: prefer bridge, then smaller of {A, B}.
+///
+/// Segments with fewer than [`DIRECTION_REMOVAL_GNSS_THRESHOLD`] GNSS
+/// positions are always removable.  Larger real segments are kept with a
+/// warning when no smaller alternative exists.
+fn remove_direction_violations(
+    segments: Vec<AssociatedNetElement>,
+    graph: &DiGraph<NetelementSide, f64>,
+    node_map: &HashMap<NetelementSide, NodeIndex>,
+    warnings: &mut Vec<String>,
+    decisions: &mut Vec<SanityDecision>,
+    pair_index: &mut usize,
+) -> Vec<AssociatedNetElement> {
+    if segments.len() < 3 {
+        return segments;
+    }
+
+    let gnss_span = |seg: &AssociatedNetElement| -> usize {
+        seg.gnss_end_index.saturating_sub(seg.gnss_start_index)
+    };
+    let is_bridge = |seg: &AssociatedNetElement| -> bool {
+        seg.gnss_start_index == seg.gnss_end_index
+    };
+    let is_removable = |seg: &AssociatedNetElement| -> bool {
+        is_bridge(seg) || gnss_span(seg) < DIRECTION_REMOVAL_GNSS_THRESHOLD
+    };
+
+    let mut result = segments;
+    let mut changed = true;
+    let mut warned_triples: std::collections::HashSet<(String, String, String)> =
+        std::collections::HashSet::new();
+
+    while changed {
+        changed = false;
+
+        let mut i = 1;
+        while i < result.len().saturating_sub(1) {
+            let ne_a = result[i - 1].netelement_id.clone();
+            let ne_b = result[i].netelement_id.clone();
+            let ne_c = result[i + 1].netelement_id.clone();
+
+            if triple_is_consistent(&ne_a, &ne_b, &ne_c, graph, node_map) {
+                i += 1;
+                continue;
+            }
+
+            // ── 1. Oscillation remnant (A == C): always target C ─────────
+            if ne_a == ne_c {
+                let target_idx = i + 1;
+                let target_ne = result[target_idx].netelement_id.clone();
+
+                if !is_bridge(&result[target_idx]) {
+                    if target_idx > 0 {
+                        let end = result[target_idx].gnss_end_index;
+                        if result[target_idx - 1].gnss_end_index < end {
+                            result[target_idx - 1].gnss_end_index = end;
+                        }
+                    }
+                }
+
+                let warn = format!(
+                    "Removed {} (oscillation remnant: triple {}/{}/{})",
+                    target_ne, ne_a, ne_b, ne_c,
+                );
+                warnings.push(warn.clone());
+                decisions.push(SanityDecision {
+                    pair_index: *pair_index,
+                    from_netelement_id: ne_a,
+                    to_netelement_id: ne_c,
+                    reachable: false,
+                    action: "removed-direction-violation".to_string(),
+                    rerouted_via: vec![target_ne],
+                    warning: warn,
+                });
+                *pair_index += 1;
+
+                result.remove(target_idx);
+                changed = true;
+                break;
+            }
+
+            // ── 2. Determine primary target ──────────────────────────────
+            let a_to_b_connected = (0u8..=1).any(|ap| {
+                (0u8..=1).any(|bp| {
+                    has_direct_connection(
+                        graph,
+                        node_map,
+                        &NetelementSide {
+                            netelement_id: ne_a.clone(),
+                            position: ap,
+                        },
+                        &NetelementSide {
+                            netelement_id: ne_b.clone(),
+                            position: bp,
+                        },
+                    )
+                })
+            });
+
+            let primary_idx = if a_to_b_connected {
+                i // B
+            } else {
+                match (is_bridge(&result[i - 1]), is_bridge(&result[i])) {
+                    (_, true) => i,
+                    (true, false) => i - 1,
+                    _ => {
+                        if gnss_span(&result[i - 1]) <= gnss_span(&result[i]) {
+                            i - 1
+                        } else {
+                            i
+                        }
+                    }
+                }
+            };
+
+            // ── 3. If primary is too large, try fallback ─────────────────
+            //
+            // Fallback to C is only allowed when A→B is connected (wrong-
+            // exit): C may be forcing B to exit on the wrong side.
+            //
+            // When A→B is disconnected the triple fails because of the A/B
+            // gap itself; C is an innocent bystander (possibly a valid
+            // intermediary for B→next) and removing it would make subsequent
+            // connectivity worse.
+            let target_idx = if is_removable(&result[primary_idx]) {
+                primary_idx
+            } else if a_to_b_connected {
+                // Wrong-exit case: try C (i+1) as fallback — it may be
+                // forcing the impossible exit direction on B.
+                if is_removable(&result[i + 1]) {
+                    i + 1
+                } else {
+                    // Both B and C too large — warn and skip.
+                    let triple_key =
+                        (ne_a.clone(), ne_b.clone(), ne_c.clone());
+                    if warned_triples.insert(triple_key) {
+                        let warn = format!(
+                            "Directional violation at {}/{}/{} \
+                             (kept: segments too significant to remove automatically)",
+                            ne_a, ne_b, ne_c,
+                        );
+                        warnings.push(warn.clone());
+                        decisions.push(SanityDecision {
+                            pair_index: *pair_index,
+                            from_netelement_id: ne_a,
+                            to_netelement_id: ne_c,
+                            reachable: false,
+                            action: "kept-direction-warning".to_string(),
+                            rerouted_via: vec![ne_b],
+                            warning: warn,
+                        });
+                        *pair_index += 1;
+                    }
+                    i += 1;
+                    continue;
+                }
+            } else {
+                // Disconnected case: warn and skip — do NOT eat C.
+                let triple_key =
+                    (ne_a.clone(), ne_b.clone(), ne_c.clone());
+                if warned_triples.insert(triple_key) {
+                    let warn = format!(
+                        "Directional violation at {}/{}/{} \
+                         (kept: segments too significant to remove automatically)",
+                        ne_a, ne_b, ne_c,
+                    );
+                    warnings.push(warn.clone());
+                    decisions.push(SanityDecision {
+                        pair_index: *pair_index,
+                        from_netelement_id: ne_a,
+                        to_netelement_id: ne_c,
+                        reachable: false,
+                        action: "kept-direction-warning".to_string(),
+                        rerouted_via: vec![ne_b],
+                        warning: warn,
+                    });
+                    *pair_index += 1;
+                }
+                i += 1;
+                continue;
+            };
+
+            let target_ne = result[target_idx].netelement_id.clone();
+
+            // ── 4. Remove target and extend neighbour ────────────────────
+            if !is_bridge(&result[target_idx]) {
+                if target_idx > 0 {
+                    let end = result[target_idx].gnss_end_index;
+                    if result[target_idx - 1].gnss_end_index < end {
+                        result[target_idx - 1].gnss_end_index = end;
+                    }
+                } else if target_idx + 1 < result.len() {
+                    let start = result[target_idx].gnss_start_index;
+                    if result[target_idx + 1].gnss_start_index > start {
+                        result[target_idx + 1].gnss_start_index = start;
+                    }
+                }
+            }
+
+            let warn = format!(
+                "Removed {} (directional violation: triple {}/{}/{})",
+                target_ne, ne_a, ne_b, ne_c,
+            );
+            warnings.push(warn.clone());
+            decisions.push(SanityDecision {
+                pair_index: *pair_index,
+                from_netelement_id: ne_a,
+                to_netelement_id: ne_c,
+                reachable: false,
+                action: "removed-direction-violation".to_string(),
+                rerouted_via: vec![target_ne],
+                warning: warn,
+            });
+            *pair_index += 1;
+
+            result.remove(target_idx);
+            changed = true;
+            break;
+        }
+    }
+
+    result
+}
+
 /// Temporary grouping of consecutive Viterbi states on the same netelement.
 struct NetelementGroup {
     netelement_id: String,
@@ -771,6 +1426,224 @@ fn insert_bridges(
     }
 
     Ok(())
+}
+
+/// Fill gaps left in the path after sanity validation.
+///
+/// Walks the final path segments and checks each consecutive pair for direct
+/// topological connectivity.  When a gap is found (no direct edge), a Dijkstra
+/// route is attempted and intermediate bridge netelements are inserted.
+///
+/// Before inserting bridges the function checks whether the route would create
+/// a **U-turn** at the target segment (the last bridge NE, the target, and the
+/// segment after the target form a directionally inconsistent triple).  When a
+/// U-turn is detected the target segment is skipped entirely — its GNSS range
+/// is absorbed by the predecessor — and the gap is re-evaluated against the
+/// next segment in the path.
+///
+/// Returns the gap-filled path, any warnings, and structured gap-fill records.
+pub fn fill_path_gaps(
+    segments: Vec<AssociatedNetElement>,
+    netelement_index: &HashMap<String, usize>,
+    graph: &DiGraph<NetelementSide, f64>,
+    node_map: &HashMap<NetelementSide, NodeIndex>,
+    cache: &mut ShortestPathCache,
+) -> (Vec<AssociatedNetElement>, Vec<String>, Vec<GapFill>) {
+    if segments.len() < 2 {
+        return (segments, vec![], vec![]);
+    }
+
+    let mut result: Vec<AssociatedNetElement> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+    let mut gap_fills: Vec<GapFill> = Vec::new();
+
+    result.push(segments[0].clone());
+
+    // Cursor-based loop so we can skip U-turn segments and re-process
+    // the gap from the same predecessor.
+    let mut cursor = 1usize;
+    let mut effective_prev = 0usize; // index in `segments` of the active predecessor
+
+    while cursor < segments.len() {
+        let prev = &segments[effective_prev];
+        let next = &segments[cursor];
+
+        // Same netelement — always connected.
+        if prev.netelement_id == next.netelement_id {
+            result.push(next.clone());
+            effective_prev = cursor;
+            cursor += 1;
+            continue;
+        }
+
+        // Check if any side combination gives a direct connection.
+        let from_sides = candidate_sides(&prev.netelement_id);
+        let to_sides = candidate_sides(&next.netelement_id);
+
+        let mut directly_connected = false;
+        for from in &from_sides {
+            for to in &to_sides {
+                if has_direct_connection(graph, node_map, from, to) {
+                    directly_connected = true;
+                    break;
+                }
+            }
+            if directly_connected {
+                break;
+            }
+        }
+
+        if directly_connected {
+            result.push(next.clone());
+            effective_prev = cursor;
+            cursor += 1;
+            continue;
+        }
+
+        // Not directly connected — try Dijkstra to find a route.
+        let mut best_route_cost: Option<f64> = None;
+        let mut best_from_side = 0u8;
+        let mut best_to_side = 0u8;
+        for from in &from_sides {
+            for to in &to_sides {
+                if let Some(d) = cached_shortest_path_distance(cache, graph, node_map, from, to) {
+                    if best_route_cost.is_none() || d < best_route_cost.unwrap() {
+                        best_route_cost = Some(d);
+                        best_from_side = from.position;
+                        best_to_side = to.position;
+                    }
+                }
+            }
+        }
+
+        if let Some(_cost) = best_route_cost {
+            let from_side = NetelementSide {
+                netelement_id: prev.netelement_id.clone(),
+                position: best_from_side,
+            };
+            let to_side = NetelementSide {
+                netelement_id: next.netelement_id.clone(),
+                position: best_to_side,
+            };
+            let bridge_ne_ids = trace_intermediate_netelements(
+                graph,
+                node_map,
+                &from_side,
+                &to_side,
+                &prev.netelement_id,
+                &next.netelement_id,
+            );
+
+            // ── U-turn detection ─────────────────────────────────────────
+            // If the last bridge NE, the target, and the segment after the
+            // target form a directionally inconsistent triple, the gap-fill
+            // would force the path to enter `next` and immediately reverse.
+            // Skip `next` and re-evaluate the gap from the same predecessor.
+            if !bridge_ne_ids.is_empty() && cursor + 1 < segments.len() {
+                let last_bridge = bridge_ne_ids.last().unwrap();
+                let after_target = &segments[cursor + 1];
+                if !triple_is_consistent(
+                    last_bridge,
+                    &next.netelement_id,
+                    &after_target.netelement_id,
+                    graph,
+                    node_map,
+                ) {
+                    let warn = format!(
+                        "Gap fill: removed {} (U-turn: bridge route via {} \
+                         creates direction violation with successor {})",
+                        next.netelement_id,
+                        last_bridge,
+                        after_target.netelement_id,
+                    );
+                    warnings.push(warn.clone());
+                    gap_fills.push(GapFill {
+                        pair_index: cursor - 1,
+                        from_netelement_id: prev.netelement_id.clone(),
+                        to_netelement_id: next.netelement_id.clone(),
+                        route_found: false,
+                        inserted_netelements: vec![],
+                        warning: warn,
+                    });
+                    // Absorb the skipped segment's GNSS range.
+                    if let Some(last) = result.last_mut() {
+                        if last.gnss_end_index < next.gnss_end_index {
+                            last.gnss_end_index = next.gnss_end_index;
+                        }
+                    }
+                    // Re-process from the same predecessor.
+                    cursor += 1;
+                    continue;
+                }
+            }
+
+            if !bridge_ne_ids.is_empty() {
+                let gnss_idx = result.last().map_or(prev.gnss_end_index, |r| r.gnss_end_index);
+                let mut inserted = Vec::new();
+                for ne_id in &bridge_ne_ids {
+                    if netelement_index.contains_key(ne_id) {
+                        if let Ok(bridge) = AssociatedNetElement::new(
+                            ne_id.clone(),
+                            1.0,
+                            0.0,
+                            1.0,
+                            gnss_idx,
+                            gnss_idx,
+                        ) {
+                            result.push(bridge);
+                            inserted.push(ne_id.clone());
+                        }
+                    }
+                }
+                let warn = format!(
+                    "Gap fill: inserted {} bridge NE(s) between {} and {}: [{}]",
+                    inserted.len(),
+                    prev.netelement_id,
+                    next.netelement_id,
+                    inserted.join(", "),
+                );
+                warnings.push(warn.clone());
+                gap_fills.push(GapFill {
+                    pair_index: cursor - 1,
+                    from_netelement_id: prev.netelement_id.clone(),
+                    to_netelement_id: next.netelement_id.clone(),
+                    route_found: true,
+                    inserted_netelements: inserted,
+                    warning: warn,
+                });
+            } else {
+                // Dijkstra found a route but no intermediate NEs (adjacent via non-zero-weight edge).
+                gap_fills.push(GapFill {
+                    pair_index: cursor - 1,
+                    from_netelement_id: prev.netelement_id.clone(),
+                    to_netelement_id: next.netelement_id.clone(),
+                    route_found: true,
+                    inserted_netelements: vec![],
+                    warning: String::new(),
+                });
+            }
+        } else {
+            let warn = format!(
+                "Gap fill: no route found between {} and {}",
+                prev.netelement_id, next.netelement_id,
+            );
+            warnings.push(warn.clone());
+            gap_fills.push(GapFill {
+                pair_index: cursor - 1,
+                from_netelement_id: prev.netelement_id.clone(),
+                to_netelement_id: next.netelement_id.clone(),
+                route_found: false,
+                inserted_netelements: vec![],
+                warning: warn,
+            });
+        }
+
+        result.push(next.clone());
+        effective_prev = cursor;
+        cursor += 1;
+    }
+
+    (result, warnings, gap_fills)
 }
 
 /// Find intermediate netelement IDs along the direction-aware shortest path

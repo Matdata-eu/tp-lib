@@ -152,6 +152,12 @@ pub struct DebugInfo {
 
     /// Transition probabilities between consecutive candidates (HMM state transitions)
     pub transition_probabilities: Vec<TransitionProbabilityEntry>,
+
+    /// Sanity check decisions for each consecutive segment pair (post-Viterbi validation)
+    pub sanity_decisions: Vec<viterbi::SanityDecision>,
+
+    /// Gap-fill records for each consecutive segment pair after sanity validation
+    pub gap_fills: Vec<viterbi::GapFill>,
 }
 
 /// Probability information for a single netelement in the Viterbi result
@@ -704,15 +710,17 @@ mod tests;
 pub use candidate::*;
 pub use debug::{
     export_all_debug_info,
+    export_gap_fills,
     export_hmm_candidate_netelements,
     export_hmm_emission_probabilities,
     export_hmm_selected_path,
     export_hmm_viterbi_trace,
+    export_path_sanity_decisions,
 };
 pub use graph::{build_topology_graph, cached_shortest_path_distance, shortest_path_distance, shortest_path_route, validate_netrelation_references, NetelementSide, ShortestPathCache};
 pub use probability::*;
 pub use spacing::{calculate_mean_spacing, select_resampled_subset};
-pub use viterbi::{build_path_from_viterbi, viterbi_decode, ViterbiResult, ViterbiSubsequence};
+pub use viterbi::{build_path_from_viterbi, fill_path_gaps, validate_path_navigability, viterbi_decode, GapFill, SanityDecision, ViterbiResult, ViterbiSubsequence};
 
 // Re-export configuration types
 pub use PathCalculationMode::{FallbackIndependent, TopologyBased};
@@ -1007,6 +1015,39 @@ pub fn calculate_train_path(
         &mut sp_cache,
     )?;
 
+    // Post-Viterbi navigability sanity check: remove unreachable segments
+    // and attempt Dijkstra re-routing where possible.
+    let (path_segments, nav_warnings, sanity_decisions) =
+        crate::path::viterbi::validate_path_navigability(
+            path_segments,
+            netelements,
+            &netelement_index,
+            &topo_graph,
+            &node_map,
+            &mut sp_cache,
+        );
+
+    // Store sanity decisions in debug info if enabled.
+    if let Some(ref mut debug) = debug_info {
+        debug.sanity_decisions = sanity_decisions;
+    }
+
+    // Post-sanity gap filling: re-insert bridge netelements where consecutive
+    // segments are no longer directly connected after sanity removals.
+    let (path_segments, gap_warnings, gap_fills) =
+        crate::path::viterbi::fill_path_gaps(
+            path_segments,
+            &netelement_index,
+            &topo_graph,
+            &node_map,
+            &mut sp_cache,
+        );
+
+    // Store gap-fill records in debug info if enabled.
+    if let Some(ref mut debug) = debug_info {
+        debug.gap_fills = gap_fills;
+    }
+
     // Compute overall path probability from Viterbi log-probability.
     let path_probability = if viterbi_result.subsequences.is_empty() {
         0.0
@@ -1214,6 +1255,8 @@ pub fn calculate_train_path(
 
     // Generate warnings if path calculation had issues
     let mut warnings = Vec::new();
+    warnings.extend(nav_warnings);
+    warnings.extend(gap_warnings);
     if config.path_only {
         warnings.push("Path-only mode enabled: skipping projection phase".to_string());
     }

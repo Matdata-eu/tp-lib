@@ -4,15 +4,19 @@
 //! for troubleshooting and parameter tuning.
 //!
 //! Output files are numbered by phase:
-//! 1. `01_emission_probabilities.geojson` â€“ Emission probabilities: links from each GNSS
+//! 1. `01_emission_probabilities.geojson` — Emission probabilities: links from each GNSS
 //!    position to its candidate netelements with distance / heading probabilities.
-//! 2. `02_transition_probabilities.geojson` â€“ Transition probabilities between every
+//! 2. `02_transition_probabilities.geojson` — Transition probabilities between every
 //!    feasible (non-zero) candidate pair across consecutive GNSS steps.
-//! 3. `03_viterbi_trace.geojson` â€“ Viterbi decoding trace: the netelement selected at
+//! 3. `03_viterbi_trace.geojson` — Viterbi decoding trace: the netelement selected at
 //!    each observation step.
-//! 4. `04_candidate_netelements.geojson` â€“ All candidate netelements with aggregate
+//! 4. `04_candidate_netelements.geojson` — All candidate netelements with aggregate
 //!    emission probabilities and Viterbi membership flag.
-//! 5. `05_selected_path.geojson` â€“ Only the netelements that form the final Viterbi
+//! 5. `05_path_sanity_decisions.geojson` — Post-Viterbi navigability sanity check
+//!    decisions for each consecutive segment pair.
+//! 6. `06_filling_gaps.geojson` — Gap-fill decisions: bridge netelements inserted
+//!    between disconnected consecutive segments after sanity validation.
+//! 7. `07_selected_path.geojson` — Only the netelements that form the final validated
 //!    path (including bridge segments).
 use crate::errors::ProjectionError;
 use crate::path::DebugInfo;
@@ -22,12 +26,14 @@ use std::path::Path;
 
 /// Export all HMM debug information to numbered GeoJSON files (T158)
 ///
-/// Writes five phase-numbered files to `output_dir`:
+/// Writes seven phase-numbered files to `output_dir`:
 /// - `01_emission_probabilities.geojson`
 /// - `02_transition_probabilities.geojson`
 /// - `03_viterbi_trace.geojson`
 /// - `04_candidate_netelements.geojson`
-/// - `05_selected_path.geojson`
+/// - `05_path_sanity_decisions.geojson`
+/// - `06_filling_gaps.geojson`
+/// - `07_selected_path.geojson`
 pub fn export_all_debug_info<P: AsRef<Path>>(
     debug_info: &DebugInfo,
     output_dir: P,
@@ -51,7 +57,21 @@ pub fn export_all_debug_info<P: AsRef<Path>>(
             debug_info,
             dir.join("04_candidate_netelements.geojson"),
         )?;
-        export_hmm_selected_path(debug_info, dir.join("05_selected_path.geojson"))?;
+        export_hmm_selected_path(debug_info, dir.join("07_selected_path.geojson"))?;
+    }
+
+    if !debug_info.sanity_decisions.is_empty() {
+        export_path_sanity_decisions(
+            debug_info,
+            dir.join("05_path_sanity_decisions.geojson"),
+        )?;
+    }
+
+    if !debug_info.gap_fills.is_empty() {
+        export_gap_fills(
+            debug_info,
+            dir.join("06_filling_gaps.geojson"),
+        )?;
     }
 
     if !debug_info.transition_probabilities.is_empty() {
@@ -397,11 +417,11 @@ pub fn export_hmm_selected_path<P: AsRef<Path>>(
     }
 
     let mut fc_members = serde_json::Map::new();
-    fc_members.insert("phase".to_string(), JsonValue::from(5i64));
+    fc_members.insert("phase".to_string(), JsonValue::from(6i64));
     fc_members.insert(
         "description".to_string(),
         JsonValue::from(
-            "HMM selected path: netelements in the final Viterbi-decoded path",
+            "HMM selected path: netelements in the final validated path",
         ),
     );
 
@@ -526,6 +546,203 @@ pub fn export_hmm_transition_probabilities<P: AsRef<Path>>(
     let json = serde_json::to_string_pretty(&fc).map_err(|e| {
         ProjectionError::InvalidGeometry(format!(
             "Failed to serialize transition probabilities GeoJSON: {}",
+            e
+        ))
+    })?;
+    let mut file = File::create(output_path.as_ref())?;
+    file.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Export Phase 5 — Post-Viterbi path sanity decisions as GeoJSON
+///
+/// Produces a FeatureCollection with one Point feature per consecutive
+/// segment pair evaluated during navigability validation.  Each feature
+/// is placed at the midpoint of the from-netelement's geometry.
+///
+/// Properties per feature:
+/// - `pair_index`          — sequential index of the pair (0-based)
+/// - `from_netelement_id`  — source netelement
+/// - `to_netelement_id`    — target netelement
+/// - `reachable`           — whether the target was reachable
+/// - `action`              — "kept", "removed", or "rerouted"
+/// - `rerouted_via`        — comma-separated NE IDs of bridge segments (empty if N/A)
+/// - `warning`             — warning message (empty if reachable)
+pub fn export_path_sanity_decisions<P: AsRef<Path>>(
+    debug_info: &DebugInfo,
+    output_path: P,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use serde_json::{Map, Value as JsonValue};
+    use std::collections::HashMap;
+
+    // Build a lookup from netelement ID to geometry coords for spatial placement.
+    let ne_geom: HashMap<&str, &Vec<Vec<f64>>> = debug_info
+        .netelement_probabilities
+        .iter()
+        .map(|np| (np.netelement_id.as_str(), &np.geometry_coords))
+        .collect();
+
+    let mut features = Vec::new();
+
+    for decision in &debug_info.sanity_decisions {
+        // Place the point at the midpoint of the from-netelement's geometry.
+        let coords = ne_geom
+            .get(decision.from_netelement_id.as_str())
+            .and_then(|g| {
+                if g.is_empty() {
+                    return None;
+                }
+                let mid = g.len() / 2;
+                Some(vec![g[mid][0], g[mid][1]])
+            })
+            .unwrap_or_else(|| vec![0.0, 0.0]);
+        let geom = Geometry::new(Value::Point(coords));
+        let mut props = Map::new();
+        props.insert(
+            "pair_index".to_string(),
+            JsonValue::from(decision.pair_index as i64),
+        );
+        props.insert(
+            "from_netelement_id".to_string(),
+            JsonValue::from(decision.from_netelement_id.clone()),
+        );
+        props.insert(
+            "to_netelement_id".to_string(),
+            JsonValue::from(decision.to_netelement_id.clone()),
+        );
+        props.insert(
+            "reachable".to_string(),
+            JsonValue::from(decision.reachable),
+        );
+        props.insert(
+            "action".to_string(),
+            JsonValue::from(decision.action.clone()),
+        );
+        props.insert(
+            "rerouted_via".to_string(),
+            JsonValue::from(decision.rerouted_via.join(",")),
+        );
+        props.insert(
+            "warning".to_string(),
+            JsonValue::from(decision.warning.clone()),
+        );
+
+        features.push(Feature {
+            bbox: None,
+            geometry: Some(geom),
+            id: None,
+            properties: Some(props),
+            foreign_members: None,
+        });
+    }
+
+    let mut fc_members = serde_json::Map::new();
+    fc_members.insert("phase".to_string(), JsonValue::from(5i64));
+    fc_members.insert(
+        "description".to_string(),
+        JsonValue::from(
+            "Path sanity decisions: post-Viterbi navigability validation for each consecutive segment pair",
+        ),
+    );
+
+    let fc = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: Some(fc_members),
+    };
+    let json = serde_json::to_string_pretty(&fc).map_err(|e| {
+        ProjectionError::InvalidGeometry(format!(
+            "Failed to serialize path sanity decisions GeoJSON: {}",
+            e
+        ))
+    })?;
+    let mut file = File::create(output_path.as_ref())?;
+    file.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Export gap-fill records to a GeoJSON file (phase 6).
+///
+/// Each gap-fill decision becomes a Point feature at the midpoint of the
+/// from-netelement's geometry, with tabular properties
+/// describing the pair, whether a route was found, and which bridge NEs were inserted.
+pub fn export_gap_fills<P: AsRef<Path>>(
+    debug_info: &DebugInfo,
+    output_path: P,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, JsonObject, Value as GeoValue};
+    use serde_json::Value as JsonValue;
+
+    // Build a lookup from netelement ID to geometry coords for spatial placement.
+    let ne_geom: std::collections::HashMap<&str, &Vec<Vec<f64>>> = debug_info
+        .netelement_probabilities
+        .iter()
+        .map(|np| (np.netelement_id.as_str(), &np.geometry_coords))
+        .collect();
+
+    let mut features = Vec::new();
+
+    for gf in &debug_info.gap_fills {
+        // Place the point at the midpoint of the from-netelement's geometry.
+        let coords = ne_geom
+            .get(gf.from_netelement_id.as_str())
+            .and_then(|g| {
+                if g.is_empty() {
+                    return None;
+                }
+                let mid = g.len() / 2;
+                Some(vec![g[mid][0], g[mid][1]])
+            })
+            .unwrap_or_else(|| vec![0.0, 0.0]);
+        let geom = Geometry::new(GeoValue::Point(coords));
+        let mut props = JsonObject::new();
+        props.insert("pair_index".to_string(), JsonValue::from(gf.pair_index as u64));
+        props.insert(
+            "from_netelement_id".to_string(),
+            JsonValue::from(gf.from_netelement_id.as_str()),
+        );
+        props.insert(
+            "to_netelement_id".to_string(),
+            JsonValue::from(gf.to_netelement_id.as_str()),
+        );
+        props.insert("route_found".to_string(), JsonValue::from(gf.route_found));
+        props.insert(
+            "inserted_netelements".to_string(),
+            JsonValue::from(gf.inserted_netelements.join(", ")),
+        );
+        props.insert(
+            "inserted_count".to_string(),
+            JsonValue::from(gf.inserted_netelements.len() as u64),
+        );
+        props.insert("warning".to_string(), JsonValue::from(gf.warning.as_str()));
+
+        features.push(Feature {
+            bbox: None,
+            geometry: Some(geom),
+            id: None,
+            properties: Some(props),
+            foreign_members: None,
+        });
+    }
+
+    let mut fc_members = JsonObject::new();
+    fc_members.insert("phase".to_string(), JsonValue::from(6));
+    fc_members.insert(
+        "description".to_string(),
+        JsonValue::from(
+            "Gap filling: bridge netelements inserted between disconnected consecutive segments after sanity validation",
+        ),
+    );
+
+    let fc = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: Some(fc_members),
+    };
+    let json = serde_json::to_string_pretty(&fc).map_err(|e| {
+        ProjectionError::InvalidGeometry(format!(
+            "Failed to serialize gap fills GeoJSON: {}",
             e
         ))
     })?;
@@ -677,7 +894,7 @@ mod tests {
         assert!(temp_dir.join("01_emission_probabilities.geojson").exists());
         assert!(temp_dir.join("03_viterbi_trace.geojson").exists());
         assert!(temp_dir.join("04_candidate_netelements.geojson").exists());
-        assert!(temp_dir.join("05_selected_path.geojson").exists());
+        assert!(temp_dir.join("07_selected_path.geojson").exists());
         assert!(temp_dir.join("02_transition_probabilities.geojson").exists());
 
         std::fs::remove_dir_all(&temp_dir).ok();
