@@ -6,7 +6,7 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
   - [The network file](#the-network-file)
   - [Sample data](#sample-data)
   - [CLI quick reference](#cli-quick-reference)
-  - [Easy cases](#easy-cases)
+  - [Cases](#cases)
     - [L36 track B – log\_28876](#l36-track-b--log_28876)
       - [The GNSS data](#the-gnss-data)
       - [Simple projection](#simple-projection)
@@ -37,7 +37,6 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Simple projection](#simple-projection-6)
       - [Path calculation](#path-calculation-6)
       - [Path projection](#path-projection-6)
-  - [Multi-switch cases](#multi-switch-cases)
     - [L36-B → L36C-B → L25N-A – log\_31241](#l36-b--l36c-b--l25n-a--log_31241)
       - [Simple projection](#simple-projection-7)
       - [Path calculation](#path-calculation-7)
@@ -112,7 +111,7 @@ The three operations available via `tp-cli` are:
 
 Common flags: `--gnss <FILE>`, `--network <FILE>`, `--crs EPSG:4326`, `--output <FILE>` (`.geojson` extension auto-selects GeoJSON format).
 
-## Easy cases
+## Cases
 
 ### L36 track B – log_28876
 
@@ -398,7 +397,9 @@ Path projection is good:
 
 Log file ID: 32870
 
-A longer version of the L36-B → L36N-B route (compare with log_29304), continuing further along L36N-B and then doubling back on L36C.
+Short section, moving from L36 track B to L36N track B.
+
+![L36-B to L36N-B (log_32870) - Raw](log_32870/log_32870_L36-B_to_L36N-B-raw.png)
 
 #### Simple projection
 
@@ -414,29 +415,6 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_32870/log_32870
 target/release/tp-cli.exe calculate-path --gnss test-data/log_32870/log_32870_L36-B_to_L36N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_32870/log_32870_L36-B_to_L36N-B-path-calculation.geojson
 ```
 
-Expected output:
-1.  88_L_9749  (prob=0.861)
-2.  88_L_9670  (prob=0.575)
-3.  88_L_16908 (prob=1.000)
-4.  88_L_2016  (prob=1.000)
-5.  88_L_5900  (prob=1.000)
-6.  88_L_11648 (prob=0.576)
-7.  88_L_127   (prob=0.031)
-8.  88_L_3992  (prob=0.400)
-9.  88_L_9751  (prob=1.000)
-10. 88_L_7815  (prob=1.000)
-11. 88_L_154   (prob=1.000)
-12. 88_L_111   (prob=1.000)
-13. 88_L_2094  (prob=1.000)
-14. 88_L_1932  (prob=1.000)
-15. 88_L_3878  (prob=0.374)
-16. 88_L_9764  (prob=0.774)
-17. 88_L_7824  (prob=1.000)
-18. 88_L_2026  (prob=1.000)
-19. 88_L_5916  (prob=0.077)
-
-Again `88_L_127` (prob=0.031) is the very short connector between two switches — see note in log_28876.
-
 ![L36-B to L36N-B (log_32870) - Path calculation](log_32870/log_32870_L36-B_to_L36N-B-path.png)
 
 #### Path projection
@@ -449,19 +427,33 @@ target/release/tp-cli.exe --gnss test-data/log_32870/log_32870_L36-B_to_L36N-B.c
 
 ---
 
-## Multi-switch cases
-
 ### L36-B → L36C-B → L25N-A – log_31241
 
 Log file ID: 31241
 
-Train takes two switches: from L36 track B onto L36C branch track B, then onto L25N track A.
+More difficult GNSS sequence. Train comes from Leuven, goes through the airport towards Antwerp. Contains many different problematic path decisions. Exact path is unknown but the library should output a best guess:
+
+![L36-B to L36C-B to L25N-A - Simple projection](log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-raw.png)
+
+First takes the junction towards airport:
+
+![L36-B to L36C-B to L25N-A - Simple projection](log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-raw-detail3.png)
+
+Then seems to switch tracks on L36C:
+
+![L36-B to L36C-B to L25N-A - Simple projection](log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-raw-detail2.png)
+
+Then exists the airport tunnel and regains a better GNSS solution:
+
+![L36-B to L36C-B to L25N-A - Simple projection](log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-raw-detail1.png)
 
 #### Simple projection
 
 ```bash
 target/release/tp-cli.exe simple-projection --gnss test-data/log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-simple-projection.geojson
 ```
+
+Obviously, the simple projection will not yield a good result:
 
 ![L36-B to L36C-B to L25N-A - Simple projection](log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-simple-projection.png)
 
@@ -471,23 +463,6 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_31241/log_31241
 target/release/tp-cli.exe calculate-path --gnss test-data/log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-path-calculation.geojson
 ```
 
-Expected output:
-1.  88_L_3842 (prob=0.838)
-2.  88_L_5900 (prob=0.826)
-3.  88_L_3870 (prob=0.850)
-4.  88_L_7817 (prob=0.181)
-5.  88_L_7818 (prob=0.667)
-6.  88_L_5976 (prob=1.000)
-7.  88_L_2010 (prob=1.000)
-8.  88_L_7815 (prob=0.712)
-9.  88_L_154  (prob=0.302)
-10. 88_L_111  (prob=1.000)
-11. 88_L_42   (prob=0.050)
-12. 88_L_2026 (prob=1.000)
-13. 88_L_7855 (prob=0.012)
-
-The very low probabilities on `88_L_7817` (0.181) and `88_L_42` (0.050) are switch connector netelements.
-
 ![L36-B to L36C-B to L25N-A - Path calculation](log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-path.png)
 
 #### Path projection
@@ -496,9 +471,18 @@ The very low probabilities on `88_L_7817` (0.181) and `88_L_42` (0.050) are swit
 target/release/tp-cli.exe --gnss test-data/log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-path-projection.geojson
 ```
 
-![L36-B to L36C-B to L25N-A - Path projection](log_31241/log_31241_L36-B_to_L36C-B_to_L25N-A-path-projection.png)
+Returns the expected result
 
 ---
+
+
+
+
+
+
+
+
+
 
 ### L36-A → L36C-A → L25N-B – log_28573
 
@@ -519,26 +503,6 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_28573/log_28573
 ```bash
 target/release/tp-cli.exe calculate-path --gnss test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-path-calculation.geojson
 ```
-
-Expected output:
-1.  88_L_1388  (prob=0.945)
-2.  88_L_11046 (prob=0.475)
-3.  88_L_11885 (prob=1.000)
-4.  88_L_7137  (prob=1.000)
-5.  88_L_109   (prob=1.000)
-6.  88_L_11721 (prob=1.000)
-7.  88_L_5210  (prob=0.550)
-8.  88_L_1727  (prob=1.000)
-9.  88_L_17875 (prob=1.000)
-10. 88_L_7141  (prob=0.414)
-11. 88_L_6042  (prob=1.000)
-12. 88_L_16654 (prob=1.000)
-13. 88_L_13635 (prob=1.000)
-14. 88_L_7819  (prob=1.000)
-15. 88_L_7154  (prob=0.675)
-16. 88_L_5589  (prob=0.547)
-17. 88_L_18686 (prob=0.028)
-18. 88_L_1728  (prob=0.342)
 
 ![L36-A to L36C-A to L25N-B (log_28573) - Path calculation](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-path.png)
 

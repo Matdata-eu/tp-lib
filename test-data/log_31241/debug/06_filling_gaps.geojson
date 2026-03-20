@@ -1,0 +1,64 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.49168439968,
+          50.882586376619074
+        ]
+      },
+      "properties": {
+        "from_netelement_id": "88_L_3870",
+        "inserted_count": 0,
+        "inserted_netelements": "",
+        "pair_index": 2,
+        "route_found": false,
+        "to_netelement_id": "88_L_7815",
+        "warning": "Gap fill: removed 88_L_7815 (U-turn: bridge route via 88_L_2010 creates direction violation with successor 88_L_2010)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.49168439968,
+          50.882586376619074
+        ]
+      },
+      "properties": {
+        "from_netelement_id": "88_L_3870",
+        "inserted_count": 3,
+        "inserted_netelements": "88_L_7817, 88_L_7818, 88_L_5976",
+        "pair_index": 3,
+        "route_found": true,
+        "to_netelement_id": "88_L_2010",
+        "warning": "Gap fill: inserted 3 bridge NE(s) between 88_L_3870 and 88_L_2010: [88_L_7817, 88_L_7818, 88_L_5976]"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.481704222622102,
+          50.899415019025085
+        ]
+      },
+      "properties": {
+        "from_netelement_id": "88_L_13697",
+        "inserted_count": 3,
+        "inserted_netelements": "88_L_5898, 88_L_9753, 88_L_2012",
+        "pair_index": 6,
+        "route_found": true,
+        "to_netelement_id": "88_L_7819",
+        "warning": "Gap fill: inserted 3 bridge NE(s) between 88_L_13697 and 88_L_7819: [88_L_5898, 88_L_9753, 88_L_2012]"
+      }
+    }
+  ],
+  "description": "Gap filling: bridge netelements inserted between disconnected consecutive segments after sanity validation",
+  "phase": 6
+}

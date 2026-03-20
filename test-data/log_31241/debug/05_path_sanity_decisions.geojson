@@ -1,0 +1,786 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.534341920202019,
+          50.891788136640336
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_3842",
+        "pair_index": 0,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_5900",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.509461088353263,
+          50.88400443739131
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_5900",
+        "pair_index": 1,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_3870",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.49168439968,
+          50.882586376619074
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_3870",
+        "pair_index": 2,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7817",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.488074390162781,
+          50.88751686804275
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7817",
+        "pair_index": 3,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7818",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.486814119645158,
+          50.8926968603907
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7818",
+        "pair_index": 4,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_5976",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485917842393803,
+          50.89406046728603
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_5976",
+        "pair_index": 5,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_2010",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485754132250319,
+          50.8942998394903
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_2010",
+        "pair_index": 6,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7815",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.486836753196148,
+          50.892766685176376
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7815",
+        "pair_index": 7,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_2010",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485754132250319,
+          50.8942998394903
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_2010",
+        "pair_index": 8,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_5976",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485917842393803,
+          50.89406046728603
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_5976",
+        "pair_index": 9,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_2010",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485754132250319,
+          50.8942998394903
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_2010",
+        "pair_index": 10,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7815",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.486836753196148,
+          50.892766685176376
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7815",
+        "pair_index": 11,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_2010",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485754132250319,
+          50.8942998394903
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_2010",
+        "pair_index": 12,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_2011",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 13,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_13697",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.481704222622102,
+          50.899415019025085
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_13697",
+        "pair_index": 14,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_2011",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 15,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7816",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485129209558798,
+          50.89506339467736
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7816",
+        "pair_index": 16,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_5977",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.481726709824952,
+          50.89930874270127
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_5977",
+        "pair_index": 17,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7820",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.480697479806707,
+          50.90023806841864
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7820",
+        "pair_index": 18,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_9755",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.480017453364792,
+          50.90079354354394
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_9755",
+        "pair_index": 19,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_2014",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.479383900696787,
+          50.90141063773197
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_2014",
+        "pair_index": 20,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7819",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.469274286911587,
+          50.90629993782631
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7819",
+        "pair_index": 21,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7154",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.453185071488499,
+          50.90975868343452
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7154",
+        "pair_index": 22,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_7819",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.469274286911587,
+          50.90629993782631
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_7819",
+        "pair_index": 23,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_13635",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.461378161053063,
+          50.90933472389386
+        ]
+      },
+      "properties": {
+        "action": "kept",
+        "from_netelement_id": "88_L_13635",
+        "pair_index": 24,
+        "reachable": true,
+        "rerouted_via": "",
+        "to_netelement_id": "88_L_16654",
+        "warning": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.486836753196148,
+          50.892766685176376
+        ]
+      },
+      "properties": {
+        "action": "collapsed-oscillation",
+        "from_netelement_id": "88_L_7815",
+        "pair_index": 25,
+        "reachable": true,
+        "rerouted_via": "88_L_2010,88_L_5976,88_L_2010",
+        "to_netelement_id": "88_L_7815",
+        "warning": "Collapsed oscillation: 88_L_7815 revisited after [88_L_2010, 88_L_5976, 88_L_2010] (intermediate covered 4 GNSS positions)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.469274286911587,
+          50.90629993782631
+        ]
+      },
+      "properties": {
+        "action": "collapsed-oscillation",
+        "from_netelement_id": "88_L_7819",
+        "pair_index": 26,
+        "reachable": true,
+        "rerouted_via": "88_L_7154",
+        "to_netelement_id": "88_L_7819",
+        "warning": "Collapsed oscillation: 88_L_7819 revisited after [88_L_7154] (intermediate covered 4 GNSS positions)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485917842393803,
+          50.89406046728603
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_5976",
+        "pair_index": 27,
+        "reachable": false,
+        "rerouted_via": "88_L_2010",
+        "to_netelement_id": "88_L_7815",
+        "warning": "Removed 88_L_2010 (directional violation: triple 88_L_5976/88_L_2010/88_L_7815)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.486814119645158,
+          50.8926968603907
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_7818",
+        "pair_index": 28,
+        "reachable": false,
+        "rerouted_via": "88_L_5976",
+        "to_netelement_id": "88_L_7815",
+        "warning": "Removed 88_L_5976 (directional violation: triple 88_L_7818/88_L_5976/88_L_7815)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.488074390162781,
+          50.88751686804275
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_7817",
+        "pair_index": 29,
+        "reachable": false,
+        "rerouted_via": "88_L_7818",
+        "to_netelement_id": "88_L_7815",
+        "warning": "Removed 88_L_7818 (directional violation: triple 88_L_7817/88_L_7818/88_L_7815)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.49168439968,
+          50.882586376619074
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_3870",
+        "pair_index": 30,
+        "reachable": false,
+        "rerouted_via": "88_L_7817",
+        "to_netelement_id": "88_L_7815",
+        "warning": "Removed 88_L_7817 (directional violation: triple 88_L_3870/88_L_7817/88_L_7815)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.509461088353263,
+          50.88400443739131
+        ]
+      },
+      "properties": {
+        "action": "kept-direction-warning",
+        "from_netelement_id": "88_L_5900",
+        "pair_index": 31,
+        "reachable": false,
+        "rerouted_via": "88_L_3870",
+        "to_netelement_id": "88_L_7815",
+        "warning": "Directional violation at 88_L_5900/88_L_3870/88_L_7815 (kept: segments too significant to remove automatically)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.49168439968,
+          50.882586376619074
+        ]
+      },
+      "properties": {
+        "action": "kept-direction-warning",
+        "from_netelement_id": "88_L_3870",
+        "pair_index": 32,
+        "reachable": false,
+        "rerouted_via": "88_L_7815",
+        "to_netelement_id": "88_L_2010",
+        "warning": "Directional violation at 88_L_3870/88_L_7815/88_L_2010 (kept: segments too significant to remove automatically)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 33,
+        "reachable": false,
+        "rerouted_via": "88_L_2011",
+        "to_netelement_id": "88_L_2011",
+        "warning": "Removed 88_L_2011 (oscillation remnant: triple 88_L_2011/88_L_13697/88_L_2011)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 34,
+        "reachable": false,
+        "rerouted_via": "88_L_7816",
+        "to_netelement_id": "88_L_7816",
+        "warning": "Removed 88_L_7816 (directional violation: triple 88_L_2011/88_L_13697/88_L_7816)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 35,
+        "reachable": false,
+        "rerouted_via": "88_L_5977",
+        "to_netelement_id": "88_L_5977",
+        "warning": "Removed 88_L_5977 (directional violation: triple 88_L_2011/88_L_13697/88_L_5977)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 36,
+        "reachable": false,
+        "rerouted_via": "88_L_7820",
+        "to_netelement_id": "88_L_7820",
+        "warning": "Removed 88_L_7820 (directional violation: triple 88_L_2011/88_L_13697/88_L_7820)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 37,
+        "reachable": false,
+        "rerouted_via": "88_L_9755",
+        "to_netelement_id": "88_L_9755",
+        "warning": "Removed 88_L_9755 (directional violation: triple 88_L_2011/88_L_13697/88_L_9755)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "removed-direction-violation",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 38,
+        "reachable": false,
+        "rerouted_via": "88_L_2014",
+        "to_netelement_id": "88_L_2014",
+        "warning": "Removed 88_L_2014 (directional violation: triple 88_L_2011/88_L_13697/88_L_2014)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.485714880090668,
+          50.8943477024468
+        ]
+      },
+      "properties": {
+        "action": "kept-direction-warning",
+        "from_netelement_id": "88_L_2011",
+        "pair_index": 39,
+        "reachable": false,
+        "rerouted_via": "88_L_13697",
+        "to_netelement_id": "88_L_7819",
+        "warning": "Directional violation at 88_L_2011/88_L_13697/88_L_7819 (kept: segments too significant to remove automatically)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.481704222622102,
+          50.899415019025085
+        ]
+      },
+      "properties": {
+        "action": "kept-direction-warning",
+        "from_netelement_id": "88_L_13697",
+        "pair_index": 40,
+        "reachable": false,
+        "rerouted_via": "88_L_7819",
+        "to_netelement_id": "88_L_13635",
+        "warning": "Directional violation at 88_L_13697/88_L_7819/88_L_13635 (kept: segments too significant to remove automatically)"
+      }
+    }
+  ],
+  "description": "Path sanity decisions: post-Viterbi navigability validation for each consecutive segment pair",
+  "phase": 5
+}
