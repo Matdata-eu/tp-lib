@@ -226,12 +226,27 @@ A developer troubleshooting path calculation issues exports intermediate results
 - **FR-024**: System MUST calculate transition probability between consecutive candidate netelements using the formula `exp(-|d_route - d_gc| / β)` where `d_route` = shortest-path distance through the topology graph, `d_gc` = great-circle distance between projected points, and `β` = configurable scale parameter (default 50.0 meters)
 - **FR-025**: System MUST implement an edge-zone optimization: candidates whose projected point is farther than the configured `edge_zone_distance` (default 50.0 meters) from the nearest netelement endpoint are classified as interior; interior candidates on different netelements receive transition probability 0.0 (candidates on the same netelement receive 1.0)
 - **FR-026**: System MUST decode the globally optimal netelement sequence using a log-space Viterbi algorithm, combining emission probabilities (from FR-019) and transition probabilities (from FR-024) at each time-step
-- **FR-027**: System MUST detect Viterbi breaks (time-steps where all transition scores are −∞) and immediately reinitialize a new sub-sequence from emission-only probabilities at the same time-step
+- **FR-027**: When all transition scores at a time-step are −∞ (no feasible transition), system MUST use penalty carry-forward: assign the best previous candidate a heavy penalty score (`ln(1×10⁻¹⁰) ≈ −23`) and propagate to current candidates, maintaining a single continuous chain within a Viterbi processing window rather than creating a break
 - **FR-028**: System MUST cache shortest-path distances to avoid redundant Dijkstra computations for recurring origin–destination pairs
 - **FR-029**: System MUST insert bridge netelements (not directly observed by GNSS) between consecutive Viterbi states on non-adjacent netelements by tracing Dijkstra predecessors to ensure path continuity
 - **FR-030**: System MUST calculate overall path probability as the exponentiated average log-probability per Viterbi state, clamped to [0, 1]
 - **FR-031**: System MUST produce a single optimal path (the Viterbi-decoded sequence with bridge insertions) rather than multiple candidate paths
 - **FR-032**: System MUST select the Viterbi-decoded path as the train path; if no Viterbi states are produced (all candidates have zero emission probability), the system falls back to FR-044
+
+#### Post-Viterbi Path Validation
+
+- **FR-032a**: After Viterbi decoding and bridge insertion, system MUST validate path navigability by checking each consecutive segment pair for topological reachability via Dijkstra; unreachable segments MUST be removed with optional Dijkstra re-routing to the next reachable segment
+- **FR-032b**: System MUST detect and collapse oscillation patterns where the same netelement appears more than once with a short intermediate detour (≤ `MAX_OSCILLATION_INTERMEDIATE_NES` distinct intermediate netelements, default 3), merging the repeated occurrences and removing intermediate segments
+- **FR-032c**: System MUST detect direction violations (U-turns) by checking each triple of consecutive segments for directional consistency in the topology graph, and remove the offending segment using a priority strategy: cascade detection first, then oscillation remnants, then connected/disconnected heuristics
+- **FR-032d**: During direction violation removal, system MUST track per-netelement cascade counters (anchor and protected) and force-remove a netelement when either counter reaches `MAX_DIRECTION_CASCADE_REMOVALS` (default 3) and the next segment would also be removable
+- **FR-032e**: Segments with fewer than `DIRECTION_REMOVAL_GNSS_THRESHOLD` (default 100) GNSS positions MUST be considered automatically removable during direction violation processing; segments exceeding this threshold MUST be kept with a warning when no smaller alternative exists
+- **FR-032f**: System MUST record structured `SanityDecision` records for each validation action (kept, removed, rerouted, collapsed-oscillation, removed-direction-violation, removed-direction-cascade)
+
+#### Gap Filling
+
+- **FR-032g**: After path validation, system MUST check each consecutive segment pair for direct topological connectivity and insert bridge netelements via Dijkstra shortest-path when a gap is found
+- **FR-032h**: Before inserting bridge netelements, system MUST check for U-turns: if the last bridge netelement, the target segment, and the segment after the target form a directionally inconsistent triple, the target segment MUST be skipped (its GNSS range absorbed by the predecessor) and the gap re-evaluated against the next segment
+- **FR-032i**: System MUST record structured `GapFill` records for each gap-fill action (route found with inserted netelements, no route found, U-turn skip)
 
 #### Performance Optimization
 
@@ -258,10 +273,10 @@ A developer troubleshooting path calculation issues exports intermediate results
 
 #### Debugging and Diagnostics
 
-- **FR-047**: System MUST support exporting intermediate path calculation results when debug mode is enabled
-- **FR-048**: Intermediate results MUST include list of all candidate paths with their probability scores
-- **FR-049**: Intermediate results MUST include for each GNSS coordinate the candidate netelements and their calculated probabilities
-- **FR-050**: Intermediate results MUST include the decision tree showing path selection criteria and outcomes
+- **FR-047**: System MUST support exporting intermediate path calculation results when debug mode is enabled, producing 7 GeoJSON files in the configured debug output directory
+- **FR-048**: Debug output MUST include `01_emission_probabilities.geojson` (links from each GNSS position to candidate netelements with probabilities), `02_transition_probabilities.geojson` (transition probabilities between consecutive candidates), `03_viterbi_trace.geojson` (netelement selected at each time-step), and `04_candidate_netelements.geojson` (all candidates with aggregate probabilities)
+- **FR-049**: Debug output MUST include `05_path_sanity_decisions.geojson` showing post-Viterbi validation decisions for each consecutive segment pair (action taken, re-routing details, warnings)
+- **FR-050**: Debug output MUST include `06_filling_gaps.geojson` showing gap-fill decisions (bridge netelements inserted, U-turn skips) and `07_selected_path.geojson` showing only the netelements that form the final validated path
 
 ### Key Entities
 
@@ -331,5 +346,8 @@ The following configuration parameters are referenced in the requirements with d
 - **Beta (β)**: Default 50.0 meters — transition probability scale parameter (Newson & Krumm). Controls tolerance for mismatch between route distance and great-circle distance.
 - **Edge-zone distance**: Default 50.0 meters — distance threshold from projected point to nearest netelement endpoint. Interior candidates on different netelements receive transition probability 0.
 - **Turn-angle penalty scale**: Default 30.0 degrees — controls how aggressively sharp turns at netelement connections are penalised in transition probability (`exp(-turn_angle / turn_scale)`).
+- **Direction removal GNSS threshold**: Default 100 positions — minimum GNSS positions a segment must span to be protected from automatic removal during direction-violation processing in post-Viterbi validation.
+- **Max oscillation intermediate NEs**: Default 3 — maximum number of distinct intermediate netelements that can be collapsed as an oscillation pattern.
+- **Max direction cascade removals**: Default 3 — maximum number of neighbour removals a single netelement can cause during direction-violation processing before it is force-removed.
 
 These parameters should be exposed through configuration or command-line arguments to allow tuning for different operational scenarios.

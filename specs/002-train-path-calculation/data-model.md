@@ -28,6 +28,8 @@
     - [Rust Structure](#rust-structure-3)
     - [GeoJSON Representation](#geojson-representation-1)
     - [CSV Representation](#csv-representation-1)
+  - [6. SanityDecision (Post-Viterbi Validation Record)](#6-sanitydecision-post-viterbi-validation-record)
+  - [7. GapFill (Gap-Fill Action Record)](#7-gapfill-gap-fill-action-record)
   - [Entity Relationships](#entity-relationships)
   - [Validation Summary](#validation-summary)
   - [Backward Compatibility](#backward-compatibility)
@@ -949,6 +951,95 @@ With metadata in separate file or header comments.
 
 ---
 
+## 6. SanityDecision (Post-Viterbi Validation Record)
+
+### Purpose
+Records the outcome of each consecutive-segment-pair evaluation during post-Viterbi path validation (Phase 4). Used for debug output (`05_path_sanity_decisions.geojson`).
+
+### Rust Structure
+
+```rust
+/// Decision record for a single consecutive-segment pair during sanity validation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SanityDecision {
+    /// Index of this pair (0 = first consecutive pair)
+    pub pair_index: usize,
+
+    /// Netelement ID of the source segment
+    pub from_netelement_id: String,
+
+    /// Netelement ID of the target segment
+    pub to_netelement_id: String,
+
+    /// Whether the target was reachable from the source
+    pub reachable: bool,
+
+    /// Action taken: "kept", "removed", "rerouted", "collapsed-oscillation",
+    /// "removed-direction-violation", or "removed-direction-cascade"
+    pub action: String,
+
+    /// Netelement IDs inserted by Dijkstra re-routing (empty if not rerouted),
+    /// or removed intermediate NEs (for oscillation collapse / direction removals)
+    pub rerouted_via: Vec<String>,
+
+    /// Warning message (empty if reachable and kept)
+    pub warning: String,
+}
+```
+
+### Validation Rules
+
+| Field | Constraint |
+|-------|-----------|
+| `pair_index` | Sequential, starting from 0 |
+| `from_netelement_id` | Non-empty, must reference an existing netelement |
+| `to_netelement_id` | Non-empty, must reference an existing netelement |
+| `action` | One of: `"kept"`, `"removed"`, `"rerouted"`, `"collapsed-oscillation"`, `"removed-direction-violation"`, `"removed-direction-cascade"` |
+
+---
+
+## 7. GapFill (Gap-Fill Action Record)
+
+### Purpose
+Records the outcome of each gap-fill evaluation during Phase 5 (gap filling after sanity validation). Used for debug output (`06_filling_gaps.geojson`).
+
+### Rust Structure
+
+```rust
+/// Record of a gap-fill action between two consecutive segments after sanity validation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GapFill {
+    /// Index of this consecutive pair (0-based)
+    pub pair_index: usize,
+
+    /// Netelement ID of the segment before the gap
+    pub from_netelement_id: String,
+
+    /// Netelement ID of the segment after the gap
+    pub to_netelement_id: String,
+
+    /// Whether a Dijkstra route was found between the two segments
+    pub route_found: bool,
+
+    /// Netelement IDs inserted to bridge the gap (empty if no route)
+    pub inserted_netelements: Vec<String>,
+
+    /// Warning message (empty if directly connected or successfully filled)
+    pub warning: String,
+}
+```
+
+### Validation Rules
+
+| Field | Constraint |
+|-------|-----------|
+| `pair_index` | Sequential, starting from 0 |
+| `from_netelement_id` | Non-empty, must reference an existing netelement |
+| `to_netelement_id` | Non-empty, must reference an existing netelement |
+| `inserted_netelements` | Each element must reference an existing netelement |
+
+---
+
 ## Entity Relationships
 
 ```
@@ -1042,6 +1133,8 @@ With metadata in separate file or header comments.
 | `GnssNetElementLink` | Non-empty ID, distance ≥ 0, intrinsic in [0, 1], heading_diff in [0, 180°], probability in [0, 1] |
 | `AssociatedNetElement` | Non-empty ID, probability in [0, 1], intrinsics in [0, 1], start_index ≤ end_index |
 | `TrainPath` | Non-empty segments, probability in [0, 1], continuous GNSS indices |
+| `SanityDecision` | Sequential pair_index, non-empty netelement IDs, action is one of the defined enum values |
+| `GapFill` | Sequential pair_index, non-empty netelement IDs, inserted_netelements reference existing netelements |
 
 ---
 
@@ -1061,6 +1154,8 @@ With metadata in separate file or header comments.
 - `NetRelation`: New model, no breaking changes to existing code
 - `AssociatedNetElement`: New model for path representation
 - `TrainPath`: New model for path representation
+- `SanityDecision`: New model for post-Viterbi validation debug output
+- `GapFill`: New model for gap-fill action debug output
 
 ---
 

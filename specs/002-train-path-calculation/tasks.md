@@ -136,14 +136,28 @@
 #### Phase 4: Path Decoding (HMM / Viterbi)
 
 - [X] T065 [P] [US1] Create tp-core/src/path/construction.rs module file
-- [ ] T066 [P] [US1] Implement candidate_netelements_for_positions() to select candidate netelements per GNSS position (top-N by probability with navigability constraints)
-- [ ] T067 [P] [US1] Implement emission_probability() functions using per-position/per-netelements probability components (position, heading, coverage)
-- [ ] T068 [US1] Implement transition_probability() modeling between consecutive candidate netelements using topology connectivity and direction of travel
-- [ ] T069 [US1] Implement viterbi_decode_path() HMM decoder over the candidate lattice to select the most probable netelement sequence
-- [ ] T070 [US1] Implement insert_bridge_segments() to add required connecting segments between chosen netelements based on network topology
-- [ ] T071 [US1] Implement calculate_train_path() orchestrator calling candidate selection, emission/transition probability, Viterbi decoding, and bridge insertion
-- [ ] T072 [US1] Write unit tests for viterbi_decode_path() in tests/unit/path_construction_test.rs
-- [ ] T073 [US1] Write unit tests for insert_bridge_segments() and calculate_train_path() in tests/unit/path_construction_test.rs
+- [X] T066 [P] [US1] Implement candidate_netelements_for_positions() to select candidate netelements per GNSS position (top-N by probability with navigability constraints)
+- [X] T067 [P] [US1] Implement emission_probability() functions using per-position/per-netelements probability components (position, heading, coverage)
+- [X] T068 [US1] Implement transition_probability() modeling between consecutive candidate netelements using topology connectivity and direction of travel
+- [X] T069 [US1] Implement viterbi_decode_path() HMM decoder over the candidate lattice to select the most probable netelement sequence
+- [X] T070 [US1] Implement insert_bridge_segments() to add required connecting segments between chosen netelements based on network topology
+- [X] T071 [US1] Implement calculate_train_path() orchestrator calling candidate selection, emission/transition probability, Viterbi decoding, and bridge insertion
+- [X] T072 [US1] Write unit tests for viterbi_decode_path() in tests/unit/path_construction_test.rs
+- [X] T073 [US1] Write unit tests for insert_bridge_segments() and calculate_train_path() in tests/unit/path_construction_test.rs
+
+#### Phase 4b: Post-Viterbi Path Validation
+
+- [X] T073a [US1] Implement validate_path_navigability() — Pass 1: reachability check with Dijkstra re-routing for unreachable consecutive pairs
+- [X] T073b [US1] Implement remove_oscillations() — Pass 2: collapse A→B→A oscillation patterns (max 3 intermediate NEs)
+- [X] T073c [US1] Implement remove_direction_violations() — Pass 3: remove direction-inconsistent segments with cascade detection (max 3 cascade removals, C-removability guard)
+- [X] T073d [US1] Implement SanityDecision struct for recording per-pair validation outcomes
+- [X] T073e [US1] Write unit tests for post-Viterbi validation passes in tests/integration/
+
+#### Phase 4c: Gap Filling
+
+- [X] T073f [US1] Implement fill_path_gaps() — Dijkstra-based gap filling between non-adjacent validated segments with U-turn detection
+- [X] T073g [US1] Implement GapFill struct for recording per-gap fill outcomes
+- [X] T073h [US1] Write unit tests for gap filling in tests/integration/
 
 #### Phase 5: Path Selection
 

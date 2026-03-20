@@ -1,8 +1,8 @@
 # Train Path Calculation Algorithm
 
 **Feature**: Continuous Train Path Calculation with Network Topology  
-**Document Version**: 2.0  
-**Last Updated**: June 2025
+**Document Version**: 3.0  
+**Last Updated**: July 2025
 
 - [Train Path Calculation Algorithm](#train-path-calculation-algorithm)
   - [Overview](#overview)
@@ -29,12 +29,23 @@
     - [Bridge Netelement Insertion](#bridge-netelement-insertion)
     - [Path Probability Calculation](#path-probability-calculation)
     - [Output](#output-2)
+  - [Phase 4: Post-Viterbi Path Validation](#phase-4-post-viterbi-path-validation)
+    - [Objective](#objective-3)
+    - [Pass 1: Reachability Validation and Bridge Re-Routing](#pass-1-reachability-validation-and-bridge-re-routing)
+    - [Pass 2: Oscillation Collapse](#pass-2-oscillation-collapse)
+    - [Pass 3: Direction Violation Removal](#pass-3-direction-violation-removal)
+    - [Output](#output-3)
+  - [Phase 5: Gap Filling](#phase-5-gap-filling)
+    - [Objective](#objective-4)
+    - [Process](#process-2)
+    - [U-Turn Detection](#u-turn-detection)
+    - [Output](#output-4)
   - [Fallback Behavior](#fallback-behavior)
     - [Conditions for Fallback](#conditions-for-fallback)
     - [Fallback Strategy](#fallback-strategy)
   - [Performance Optimization: Resampling](#performance-optimization-resampling)
-    - [Objective](#objective-3)
-    - [Process](#process-1)
+    - [Objective](#objective-5)
+    - [Process](#process-3)
   - [Configuration Parameters](#configuration-parameters)
   - [Algorithm Properties](#algorithm-properties)
     - [Strengths](#strengths)
@@ -49,11 +60,13 @@ This document describes the HMM-based map matching algorithm for calculating a c
 
 ## Algorithm Phases
 
-The path calculation consists of three main phases:
+The path calculation consists of five main phases:
 
 1. **Candidate Selection** — Identify potential track segments for each GNSS coordinate
 2. **Emission Probability** — Calculate the likelihood that each GNSS position was on each candidate segment (HMM emission model)
-3. **Viterbi Decoding & Path Reconstruction** — Decode the globally optimal netelement sequence using a log-space Viterbi algorithm with transition probabilities derived from shortest-path routing, then insert bridge netelements to produce the final continuous path
+3. **Viterbi Decoding & Path Reconstruction** — Decode the globally optimal netelement sequence using a log-space Viterbi algorithm with transition probabilities derived from shortest-path routing, then insert bridge netelements to produce the initial continuous path
+4. **Post-Viterbi Path Validation** — Three-pass sanity validation: reachability check with bridge re-routing, oscillation collapse, and direction violation removal with cascade detection
+5. **Gap Filling** — Re-insert bridge netelements where consecutive segments lost direct connectivity after sanity removals, with U-turn detection to prevent direction reversals
 
 ---
 
@@ -281,7 +294,105 @@ path_probability = min(exp(avg_log_prob), 1.0)
 This represents the geometric mean of per-state probabilities, clamped to [0, 1].
 
 ### Output
-A single optimal `TrainPath` consisting of an ordered list of `AssociatedNetElement` segments with intrinsic coordinate ranges, plus an overall probability score.
+An initial `TrainPath` consisting of an ordered list of `AssociatedNetElement` segments with intrinsic coordinate ranges, plus an overall probability score. This path is then refined by Phase 4 (validation) and Phase 5 (gap filling).
+
+---
+
+## Phase 4: Post-Viterbi Path Validation
+
+### Objective
+Refine the Viterbi-decoded path by removing segments that are topologically unreachable, collapse oscillation artefacts, and resolve directional inconsistencies. The Viterbi algorithm operates at the candidate-lattice level and may produce locally optimal but globally inconsistent paths — for example, when penalty carry-forward forces transitions through disconnected regions, or when GNSS noise causes the same netelement to appear multiple times with short intermediate detours.
+
+Validation consists of three sequential passes, each producing structured `SanityDecision` records for debug output.
+
+### Pass 1: Reachability Validation and Bridge Re-Routing
+
+Walks the path segments sequentially, checking each consecutive pair for topological reachability via Dijkstra on the directed topology graph.
+
+**For each consecutive pair (A, B):**
+1. If A and B are the same netelement → always valid (kept)
+2. If any (from_side, to_side) combination yields a Dijkstra path → reachable (kept)
+3. Otherwise → **unreachable**:
+   - Remove B from the path
+   - Look ahead to the next segment C: attempt Dijkstra from A to C
+   - If a route exists, insert bridge netelements between A and C
+   - Record a warning and a `SanityDecision` with action `"removed"` or `"rerouted"`
+
+### Pass 2: Oscillation Collapse
+
+Detects and collapses oscillation patterns where the same netelement appears more than once with a short intermediate detour — e.g., `A → B → C → A` where B and C are noise.
+
+**Detection criteria** — an oscillation is detected when the same netelement `NE` appears at positions `i` and `j` (with `j > i + 1`) and:
+- The number of distinct intermediate netelements is ≤ `MAX_OSCILLATION_INTERMEDIATE_NES` (default: 3)
+- The intermediate GNSS coverage is less than the first occurrence's coverage, or < 10 GNSS positions in absolute terms
+
+**Collapse action:**
+- Merge segments `i` and `j`: extend segment `i`'s GNSS range to cover segment `j`'s range
+- Remove all intermediate segments (`i+1` through `j`)
+- Record a `SanityDecision` with action `"collapsed-oscillation"`
+
+The process iterates until no more oscillations are found (fixed-point).
+
+**Guard**: Sequences with more than `MAX_OSCILLATION_INTERMEDIATE_NES` distinct intermediate netelements are treated as genuine path segments (the train actually traversed them), even when their total GNSS coverage is small relative to the repeated netelement.
+
+### Pass 3: Direction Violation Removal
+
+Detects and removes segments that create directional inconsistencies (U-turns). Walks the path checking each triple (A, B, C) for consistency using the topology graph.
+
+**Consistency check** (`triple_is_consistent`): A triple (A, B, C) is consistent if there exists any combination of netelement sides such that A has a direct netrelation edge to B AND B has a direct netrelation edge to C, with the exit side from A→B being the same netelement side as the entry for B→C (i.e., the train can traverse B without reversing).
+
+**Removal strategy for inconsistent triples:**
+
+1. **Cascade detection**: If segment B has caused ≥ `MAX_DIRECTION_CASCADE_REMOVALS` (default: 3) neighbour removals (tracked separately as *anchor* removals and *protected* removals) **and** the next segment C would be removable, force-remove B as the likely source of path corruption. Two separate counters prevent conflating unrelated removal patterns:
+   - *anchor*: incremented for A when B is removed and A→B was connected (A stays, successive Bs get eaten)
+   - *protected*: incremented for B when C is removed as fallback because B was too significant (B stays, successive Cs get eaten)
+
+2. **Oscillation remnant (A == C)**: Remove C (the second occurrence of A)
+
+3. **Connected A→B (wrong exit)**: Target B for removal. If B exceeds the GNSS threshold, try removing C as a fallback instead
+
+4. **Disconnected A→B (orphan)**: Prefer bridge segments; otherwise remove the smaller of {A, B}
+
+**Removability**: A segment is automatically removable if it is a bridge (zero GNSS span) or has fewer than `DIRECTION_REMOVAL_GNSS_THRESHOLD` (default: 100) GNSS positions. Segments exceeding this threshold are kept with a warning when no smaller alternative exists.
+
+The process iterates until no more violations are found (fixed-point).
+
+### Output
+A validated path with unreachable, oscillating, and direction-violating segments removed. Structured `SanityDecision` records for each action taken, exported as `05_path_sanity_decisions.geojson` in debug mode.
+
+---
+
+## Phase 5: Gap Filling
+
+### Objective
+After sanity validation may have removed segments, consecutive pairs in the path may no longer be directly connected. Gap filling re-inserts bridge netelements to restore path continuity.
+
+### Process
+
+Walks the validated path and checks each consecutive pair for direct topological connectivity (a zero-weight netrelation edge in the topology graph).
+
+**For each gap (no direct edge between consecutive segments A and B):**
+1. Try all (from_side, to_side) combinations via Dijkstra to find the cheapest route
+2. Trace intermediate netelements along the shortest path
+3. Before inserting bridges, check for U-turns (see below)
+4. Insert bridge netelements with zero GNSS span between A and B
+5. Record a `GapFill` record for debug output
+
+**When no Dijkstra route exists**: Record a warning and leave the gap as-is.
+
+### U-Turn Detection
+
+Before inserting bridge netelements, the algorithm checks whether the route would create a directional reversal at the target segment. Specifically, if the last bridge netelement, the target segment, and the segment after the target form a directionally inconsistent triple, the gap-fill would force the path to enter the target and immediately reverse.
+
+**When a U-turn is detected:**
+- Skip the target segment entirely
+- Absorb its GNSS range into the predecessor
+- Re-evaluate the gap from the same predecessor to the next segment in the path
+
+This prevents gap filling from introducing new direction violations that would require another round of sanity passes.
+
+### Output
+A gap-filled path with bridge netelements restoring continuity. Structured `GapFill` records for each action, exported as `06_filling_gaps.geojson` in debug mode.
 
 ---
 
@@ -347,6 +458,9 @@ The algorithm exposes several tunable parameters:
 | Beta (β) | 50.0 meters | Transition probability scale (Newson & Krumm). Controls tolerance for mismatch between route distance and great-circle distance. Higher values are more forgiving of detours. |
 | Edge-zone distance | 50.0 meters | Distance threshold from projected point to nearest netelement endpoint. Candidates farther than this from any endpoint are considered interior and cannot transition to a different netelement (transition probability = 0). |
 | Turn-angle penalty scale | 30.0 degrees | Controls how aggressively sharp turns at netelement connections are penalised. `exp(-turn_angle / turn_scale)`: smaller values yield stronger penalty for the same angle. |
+| Direction removal GNSS threshold | 100 positions | Minimum GNSS positions a segment must span to be protected from automatic removal during direction-violation processing. Segments below this threshold are considered artefacts eligible for removal. |
+| Max oscillation intermediate NEs | 3 | Maximum number of distinct intermediate netelements that can be collapsed as an oscillation. Sequences with more intermediates are treated as genuine path segments. |
+| Max direction cascade removals | 3 | Maximum number of neighbour removals a single netelement can cause during direction-violation processing before it is force-removed as the likely source of path corruption. |
 
 ---
 
@@ -363,7 +477,7 @@ The algorithm exposes several tunable parameters:
 
 ### Limitations
 
-- **Assumes Single Traversal:** Cannot handle loops where the same segment is traversed multiple times
+- **Assumes Single Traversal:** Oscillation collapse (Phase 4, Pass 2) handles cases where the same segment appears multiple times due to GNSS noise, but the algorithm assumes the train does not intentionally traverse the same physical segment more than once in a journey
 - **Offline Only:** Not designed for real-time streaming processing
 - **Requires Quality Topology:** Network data must be accurate and complete
 - **Parameter Sensitivity:** The β parameter and edge-zone distance require tuning for different network geometries
