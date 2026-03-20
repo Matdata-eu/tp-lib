@@ -473,12 +473,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 640,
+        "end_intrinsic": 0.69103616058089,
+        "gnss_end_index": 81,
         "gnss_start_index": 0,
         "netelement_id": "88_L_1932",
-        "probability": 0.8481689020432307,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.002968822874944379
       }
     },
     {
@@ -1721,12 +1721,12 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
-        "gnss_end_index": 640,
-        "gnss_start_index": 0,
+        "end_intrinsic": 0.9974856354186167,
+        "gnss_end_index": 419,
+        "gnss_start_index": 82,
         "netelement_id": "88_L_3878",
-        "probability": 0.9085884967111629,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.0013107799732454677
       }
     },
     {
@@ -1945,17 +1945,17 @@
         ]
       },
       "properties": {
-        "end_intrinsic": 1.0,
+        "end_intrinsic": 0.9993766589575167,
         "gnss_end_index": 640,
-        "gnss_start_index": 0,
+        "gnss_start_index": 420,
         "netelement_id": "88_L_9764",
-        "probability": 0.8995245559795767,
-        "start_intrinsic": 0.0
+        "probability": 1.0,
+        "start_intrinsic": 0.07597841039823924
       }
     }
   ],
   "properties": {
     "calculated_at": "2023-09-12T11:27:46+00:00",
-    "overall_probability": 0.8738467290114037
+    "overall_probability": 0.8567136066476057
   }
 }
