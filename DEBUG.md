@@ -1,6 +1,6 @@
 # Debug Output Reference
 
-The `--debug` flag on `tp-cli` writes five GeoJSON files to a `debug/` subdirectory next to the output file (or to a custom directory specified via `--debug-output-dir`).
+The `--debug` flag on `tp-cli` writes seven GeoJSON files to a `debug/` subdirectory next to the output file (or to a custom directory specified via `--debug-output-dir`).
 
 All files use **EPSG:4326 (WGS84)** coordinates and are compatible with any GeoJSON viewer such as QGIS, geojson.io, or VS Code with a GeoJSON extension.
 
@@ -37,7 +37,9 @@ They are only written when the corresponding algorithm phase produced data — i
 | `02_transition_probabilities.geojson` | Transition model | All feasible candidate-pair links across consecutive GNSS steps, with probability scores |
 | `03_viterbi_trace.geojson` | Viterbi decoding | Link from each GNSS point to the projected location on the chosen netelement |
 | `04_candidate_netelements.geojson` | State space | All netelements that were ever a candidate, scored and flagged |
-| `05_selected_path.geojson` | Final result | Only the netelements that form the decoded path |
+| `05_path_sanity_decisions.geojson` | Sanity check | Post-Viterbi navigability decisions for each consecutive segment pair |
+| `06_filling_gaps.geojson` | Gap filling | Bridge netelements inserted between disconnected segments after sanity validation |
+| `07_selected_path.geojson` | Final result | Only the netelements that form the decoded path |
 
 ---
 
@@ -181,7 +183,61 @@ Each feature represents one netelement that was in the candidate pool for at lea
 
 ---
 
-### `05_selected_path.geojson` — Selected path
+### `05_path_sanity_decisions.geojson` — Path sanity decisions
+
+**Geometry**: `Point` at (0, 0) — this is a tabular export, not spatial.
+
+Each feature represents one consecutive-segment pair evaluated during the post-Viterbi navigability sanity check (reachability validation, oscillation collapse, direction violation removal).
+
+**FeatureCollection properties**
+
+| Property | Value |
+|----------|-------|
+| `phase` | `5` |
+| `description` | `"Path sanity decisions: post-Viterbi navigability validation for each consecutive segment pair"` |
+
+**Feature properties**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `pair_index` | integer | Index of the consecutive-segment pair (0-based) |
+| `from_netelement_id` | string | Source segment netelement ID |
+| `to_netelement_id` | string | Target segment netelement ID |
+| `reachable` | boolean | Whether the target was reachable from the source |
+| `action` | string | Action taken: `"kept"`, `"removed"`, or `"rerouted"` |
+| `rerouted_via` | string | Comma-separated netelement IDs inserted by Dijkstra re-routing (empty if not rerouted) |
+| `warning` | string | Warning message (empty if reachable) |
+
+---
+
+### `06_filling_gaps.geojson` — Gap filling
+
+**Geometry**: `Point` at (0, 0) — this is a tabular export, not spatial.
+
+Each feature represents one consecutive-segment pair that was checked for direct connectivity after sanity validation. Only pairs where a gap was detected (and optionally filled with bridge netelements) are recorded.
+
+**FeatureCollection properties**
+
+| Property | Value |
+|----------|-------|
+| `phase` | `6` |
+| `description` | `"Gap filling: bridge netelements inserted between disconnected consecutive segments after sanity validation"` |
+
+**Feature properties**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `pair_index` | integer | Index of the consecutive-segment pair (0-based) |
+| `from_netelement_id` | string | Segment before the gap |
+| `to_netelement_id` | string | Segment after the gap |
+| `route_found` | boolean | Whether a Dijkstra route was found between the two segments |
+| `inserted_netelements` | string | Comma-separated netelement IDs inserted as bridges |
+| `inserted_count` | integer | Number of bridge netelements inserted |
+| `warning` | string | Warning message (empty if directly connected or successfully filled) |
+
+---
+
+### `07_selected_path.geojson` — Selected path
 
 **Geometry**: `LineString` along each netelement's track centreline.
 
@@ -191,7 +247,7 @@ This is a filtered subset of file 04 — only the netelements where `in_viterbi_
 
 | Property | Value |
 |----------|-------|
-| `phase` | `5` |
+| `phase` | `7` |
 | `description` | `"HMM selected path: netelements in the final Viterbi-decoded path"` |
 
 **Feature properties**
@@ -213,7 +269,7 @@ This is a filtered subset of file 04 — only the netelements where `in_viterbi_
 
 ## Typical Debugging Workflow
 
-1. **Start with `05_selected_path.geojson`** — load it alongside the GNSS trace in QGIS to confirm the path follows the train route visually.
+1. **Start with `07_selected_path.geojson`** — load it alongside the GNSS trace in QGIS to confirm the path follows the train route visually.
 2. **If the path diverges**, open `04_candidate_netelements.geojson` and filter on `in_viterbi_path = false` to see which netelements were available but not selected.
 3. **For a specific problematic position**, open `01_emission_probabilities.geojson` and filter on the `step` value. Check whether the correct netelement has a competitive `emission_probability`. If all probabilities are very low, the GNSS point may be too far from the network.
 4. **Step through `03_viterbi_trace.geojson`** ordered by `step` to follow the algorithm's decision sequence. A sudden netelement change accompanied by a low `selected_probability` signals a weak transition. The LineString geometry connects each raw GNSS point directly to its projected location, making snap errors immediately visible.
