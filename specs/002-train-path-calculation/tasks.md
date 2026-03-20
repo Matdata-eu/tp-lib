@@ -133,18 +133,17 @@
 - [X] T063 [US1] Write unit test for consecutive position identification in tests/unit/path_probability_test.rs
 - [X] T064 [US1] Write unit test for coverage factor calculation in tests/unit/path_probability_test.rs
 
-#### Phase 4: Path Construction (Bidirectional)
+#### Phase 4: Path Decoding (HMM / Viterbi)
 
 - [X] T065 [P] [US1] Create tp-core/src/path/construction.rs module file
-- [X] T066 [P] [US1] Implement construct_forward_path() starting from highest probability netelement at first position
-- [X] T067 [P] [US1] Implement construct_backward_path() starting from highest probability netelement at last position
-- [X] T068 [US1] Implement graph traversal with navigability constraints using petgraph neighbors()
-- [X] T069 [US1] Implement probability threshold filtering (default 25%, except when only navigable option)
-- [X] T070 [US1] Implement path reversal for backward path (reverse segment order + swap intrinsic coordinates)
-- [X] T071 [US1] Implement bidirectional validation comparing forward and reversed backward paths
-- [X] T072 [US1] Write unit test for forward path construction in tests/unit/path_construction_test.rs
-- [X] T073 [US1] Write unit test for backward path construction and reversal in tests/unit/path_construction_test.rs
-- [X] T074 [US1] Write unit test for bidirectional agreement detection in tests/unit/path_construction_test.rs
+- [ ] T066 [P] [US1] Implement candidate_netelements_for_positions() to select candidate netelements per GNSS position (top-N by probability with navigability constraints)
+- [ ] T067 [P] [US1] Implement emission_probability() functions using per-position/per-netelements probability components (position, heading, coverage)
+- [ ] T068 [US1] Implement transition_probability() modeling between consecutive candidate netelements using topology connectivity and direction of travel
+- [ ] T069 [US1] Implement viterbi_decode_path() HMM decoder over the candidate lattice to select the most probable netelement sequence
+- [ ] T070 [US1] Implement insert_bridge_segments() to add required connecting segments between chosen netelements based on network topology
+- [ ] T071 [US1] Implement calculate_train_path() orchestrator calling candidate selection, emission/transition probability, Viterbi decoding, and bridge insertion
+- [ ] T072 [US1] Write unit tests for viterbi_decode_path() in tests/unit/path_construction_test.rs
+- [ ] T073 [US1] Write unit tests for insert_bridge_segments() and calculate_train_path() in tests/unit/path_construction_test.rs
 
 #### Phase 5: Path Selection
 

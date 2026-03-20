@@ -543,7 +543,7 @@ Good result:
 target/release/tp-cli.exe --gnss test-data/log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-path-projection.geojson
 ```
 
-Good result (and proves the need to have longitudal redistribution of the gnss positions):
+Good result (and proves the need to have longitudinal redistribution of the gnss positions):
 
 ![L36-A to L36C-A to L25N-B (log_29584) - Path projection](log_29584/log_29584_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
 
@@ -640,7 +640,7 @@ Zoom on detail:
 target/release/tp-cli.exe --gnss test-data/log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-very-bad-path-projection.geojson
 ```
 
-Expected result, again showing the need to also perform longitudal post processing:
+Expected result, again showing the need to also perform longitudinal post processing:
 
 ![L36-A to L36C-A to L25N-B very bad GNSS - Path projection](log_28586/log_28586_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
 

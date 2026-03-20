@@ -9,7 +9,7 @@
 
 **Status**: Under construction
 
-Train positioning library excels in post-processing the GNSS positions of your measurement train to achieve an unambiguous network location. This library is your a map matching assistant specifically for railway.
+Train positioning library excels in post-processing the GNSS positions of your measurement train to achieve an unambiguous network location. This library is your map matching assistant specifically for railway.
 
 ## Features
 
@@ -52,7 +52,7 @@ tp-cli --gnss positions.csv --network network.geojson --train-path path.csv --ou
 ### Debug Output
 
 Pass `--debug` to write intermediate HMM calculation results as GeoJSON files to a `debug/` subdirectory next to the output file.  
-See **[DEBUG.md](DEBUG.md)** for a full description of the four output files, their properties, and a typical debugging workflow.
+See **[DEBUG.md](DEBUG.md)** for a full description of the debug output files, their properties, and a typical debugging workflow.
 
 ### Algorithm Parameters
 
