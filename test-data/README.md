@@ -488,13 +488,20 @@ Returns the expected result
 
 Log file ID: 28573
 
-Train takes two switches: L36 track A → L36C branch track A → L25N track B. This is one of five logs covering the same route (see also 29493, 29584, 29835, 31259).
+This is a very difficult GNSS sequence. Train start on L36 track A from Brussels to Leuven, goes thorugh the airport and exists towards Brussels again.
+
+![L36-A to L36C-A to L25N-B (log_28573) - Raw](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-raw.png)
+
+![L36-A to L36C-A to L25N-B (log_28573) - Raw detail](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-raw-detail.png)
+
 
 #### Simple projection
 
 ```bash
 target/release/tp-cli.exe simple-projection --gnss test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-simple-projection.geojson
 ```
+
+Expected result:
 
 ![L36-A to L36C-A to L25N-B (log_28573) - Simple projection](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-simple-projection.png)
 
@@ -504,6 +511,8 @@ target/release/tp-cli.exe simple-projection --gnss test-data/log_28573/log_28573
 target/release/tp-cli.exe calculate-path --gnss test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-path-calculation.geojson
 ```
 
+Good result:
+
 ![L36-A to L36C-A to L25N-B (log_28573) - Path calculation](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-path.png)
 
 #### Path projection
@@ -511,6 +520,8 @@ target/release/tp-cli.exe calculate-path --gnss test-data/log_28573/log_28573_L3
 ```bash
 target/release/tp-cli.exe --gnss test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-path-projection.geojson
 ```
+
+Good result:
 
 ![L36-A to L36C-A to L25N-B (log_28573) - Path projection](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
 
