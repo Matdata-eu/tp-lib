@@ -212,7 +212,7 @@ pub async fn put_path(
         .segments
         .into_iter()
         .map(|seg| {
-            let origin = parse_origin(&seg.origin);
+            let origin = parse_origin(&seg.origin)?;
             let mut element = tp_lib_core::AssociatedNetElement::new(
                 seg.netelement_id,
                 seg.probability,
@@ -243,10 +243,14 @@ pub async fn put_path(
         .into_response()
 }
 
-fn parse_origin(s: &str) -> tp_lib_core::PathOrigin {
+fn parse_origin(s: &str) -> Result<tp_lib_core::PathOrigin, String> {
     match s {
-        "manual" => tp_lib_core::PathOrigin::Manual,
-        _ => tp_lib_core::PathOrigin::Algorithm,
+        "manual" => Ok(tp_lib_core::PathOrigin::Manual),
+        "algorithm" => Ok(tp_lib_core::PathOrigin::Algorithm),
+        other => Err(format!(
+            "unknown origin '{}': expected 'algorithm' or 'manual'",
+            other
+        )),
     }
 }
 
@@ -389,7 +393,7 @@ pub async fn post_abort(State(state): State<SharedState>) -> Response {
     }
 
     match state.confirm_tx.take() {
-        None => error_response(StatusCode::CONFLICT, "already confirmed"),
+        None => error_response(StatusCode::CONFLICT, "already handled"),
         Some(tx) => {
             let _ = tx.send(ConfirmResult::Aborted);
             (StatusCode::OK, Json(json!({"ok": true}))).into_response()
