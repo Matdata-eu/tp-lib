@@ -13,9 +13,8 @@ use std::process;
 use tp_lib_core::{
     calculate_train_path, export_all_debug_info, parse_gnss_csv, parse_gnss_geojson,
     parse_network_geojson, parse_trainpath_csv, parse_trainpath_geojson, project_gnss,
-    project_onto_path, write_csv,
-    write_geojson, write_trainpath_csv, write_trainpath_geojson, Netelement, PathConfig,
-    PathConfigBuilder, ProjectionConfig, RailwayNetwork,
+    project_onto_path, write_csv, write_geojson, write_trainpath_csv, write_trainpath_geojson,
+    Netelement, PathConfig, PathConfigBuilder, ProjectionConfig, RailwayNetwork,
 };
 #[cfg(feature = "webapp")]
 use tp_webapp::{run_webapp_integrated, run_webapp_standalone, WebConfirmResult};

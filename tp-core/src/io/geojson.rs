@@ -671,9 +671,7 @@ pub fn write_geojson(
 ///
 /// Returns [`ProjectionError::GeoJsonError`] when a required property is missing or
 /// has an unexpected type, or when the file is not a valid FeatureCollection.
-pub fn parse_trainpath_geojson(
-    path: &str,
-) -> Result<crate::models::TrainPath, ProjectionError> {
+pub fn parse_trainpath_geojson(path: &str) -> Result<crate::models::TrainPath, ProjectionError> {
     use crate::models::AssociatedNetElement;
 
     let geojson_str = fs::read_to_string(path)?;
@@ -731,15 +729,12 @@ pub fn parse_trainpath_geojson(
         }
         macro_rules! get_f64 {
             ($key:expr) => {
-                props
-                    .get($key)
-                    .and_then(|v| v.as_f64())
-                    .ok_or_else(|| {
-                        ProjectionError::GeoJsonError(format!(
-                            "TrainPath feature {} missing or invalid '{}' property",
-                            idx, $key
-                        ))
-                    })
+                props.get($key).and_then(|v| v.as_f64()).ok_or_else(|| {
+                    ProjectionError::GeoJsonError(format!(
+                        "TrainPath feature {} missing or invalid '{}' property",
+                        idx, $key
+                    ))
+                })
             };
         }
         macro_rules! get_usize {
