@@ -6122,8 +6122,8 @@
       },
       "properties": {
         "end_intrinsic": 1.0,
-        "gnss_end_index": 0,
-        "gnss_start_index": 0,
+        "gnss_end_index": 1452,
+        "gnss_start_index": 1452,
         "netelement_id": "88_L_5977",
         "probability": 1.0,
         "start_intrinsic": 0.0
@@ -6150,8 +6150,8 @@
       },
       "properties": {
         "end_intrinsic": 1.0,
-        "gnss_end_index": 0,
-        "gnss_start_index": 0,
+        "gnss_end_index": 1452,
+        "gnss_start_index": 1452,
         "netelement_id": "88_L_3955",
         "probability": 1.0,
         "start_intrinsic": 0.0
@@ -6242,8 +6242,8 @@
       },
       "properties": {
         "end_intrinsic": 1.0,
-        "gnss_end_index": 0,
-        "gnss_start_index": 0,
+        "gnss_end_index": 1452,
+        "gnss_start_index": 1452,
         "netelement_id": "88_L_7820",
         "probability": 1.0,
         "start_intrinsic": 0.0
