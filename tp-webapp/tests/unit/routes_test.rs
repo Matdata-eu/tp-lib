@@ -279,6 +279,34 @@ async fn test_put_path_422_on_probability_out_of_range() {
     assert_eq!(resp.status(), 422);
 }
 
+#[tokio::test]
+async fn test_put_path_422_on_unknown_origin() {
+    let (base, _h) = start_server(standalone_state()).await;
+
+    let body = json!({
+        "segments": [{
+            "netelement_id": "NE001",
+            "probability": 0.9,
+            "start_intrinsic": 0.0,
+            "end_intrinsic": 1.0,
+            "gnss_start_index": 0,
+            "gnss_end_index": 0,
+            "origin": "manul"  // typo: not a valid origin
+        }]
+    });
+
+    let resp = Client::new()
+        .put(format!("{base}/api/path"))
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 422);
+    let json: Value = resp.json().await.unwrap();
+    assert_eq!(json["ok"], false);
+}
+
 // ---------------------------------------------------------------------------
 // T011 — POST /api/save
 // ---------------------------------------------------------------------------
@@ -401,6 +429,27 @@ async fn test_post_abort_409_in_standalone_mode() {
         .unwrap();
 
     assert_eq!(resp.status(), 409);
+}
+
+#[tokio::test]
+async fn test_post_abort_409_already_handled_when_tx_consumed() {
+    // confirm_tx is None → session already handled (confirmed or aborted)
+    let state = WebAppState {
+        mode: AppMode::Integrated,
+        confirm_tx: None,
+        ..standalone_state()
+    };
+    let (base, _h) = start_server(state).await;
+
+    let resp = Client::new()
+        .post(format!("{base}/api/abort"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 409);
+    let json: Value = resp.json().await.unwrap();
+    assert_eq!(json["error"], "already handled");
 }
 
 // ---------------------------------------------------------------------------

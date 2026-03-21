@@ -159,10 +159,27 @@ function confidenceColor(conf) {
   return '#dc2626';                  // red
 }
 
+/**
+ * Escape a value for safe insertion into an HTML context.
+ * Converts `&`, `<`, `>`, `"`, and `'` to their HTML entity equivalents.
+ * Use this whenever embedding untrusted data (e.g. netelement IDs from a
+ * network file) into Leaflet tooltip HTML to prevent XSS injection.
+ * @param {*} str - Value to escape (coerced to string).
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function makeTooltip(props, seg) {
   const conf = props.confidence != null ? (props.confidence * 100).toFixed(1) + '%' : '—';
-  const origin = props.origin ?? '—';
-  return `<b>${props.netelement_id}</b><br>Confidence: ${conf}<br>Origin: ${origin}`;
+  const origin = escapeHtml(props.origin ?? '—');
+  return `<b>${escapeHtml(props.netelement_id)}</b><br>Confidence: ${conf}<br>Origin: ${origin}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -221,7 +238,8 @@ function updateSidebar(pathData) {
 async function onSave() {
   const pathData = await apiFetch('/api/path');
   if (pathData && pathData.segments.length === 0) {
-    if (!confirm('The path is empty. Save anyway?')) return;
+    setStatus('Cannot save: path is empty.');
+    return;
   }
   const result = await apiPost('/api/save');
   if (result && result.ok) {
@@ -230,6 +248,11 @@ async function onSave() {
 }
 
 async function onConfirm() {
+  const pathData = await apiFetch('/api/path');
+  if (pathData && pathData.segments.length === 0) {
+    setStatus('Cannot confirm: path is empty.');
+    return;
+  }
   const result = await apiPost('/api/confirm');
   if (result && result.ok) {
     setStatus('Path confirmed — you may close this window.');

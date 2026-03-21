@@ -17,20 +17,25 @@
 //! All manually-added segments are created with:
 //! - `probability = 1.0`
 //! - `origin = PathOrigin::Manual`
-//! - `gnss_start_index = gnss_end_index = 0`
+//! - `gnss_start_index = gnss_end_index` = the adjacent segment's end index (append) or
+//!   start index (prepend), so GNSS ordering invariants are preserved
 //! - `start_intrinsic = 0.0`, `end_intrinsic = 1.0`
 
 use tp_lib_core::{AssociatedNetElement, PathOrigin, RailwayNetwork, TrainPath};
 
 /// Build a manual [`AssociatedNetElement`] with fixed invariants.
-fn manual_segment(netelement_id: String) -> AssociatedNetElement {
+fn manual_segment(
+    netelement_id: String,
+    gnss_start_index: usize,
+    gnss_end_index: usize,
+) -> AssociatedNetElement {
     let mut seg = AssociatedNetElement::new(
         netelement_id,
         1.0, // probability
         0.0, // start_intrinsic
         1.0, // end_intrinsic
-        0,   // gnss_start_index
-        0,   // gnss_end_index
+        gnss_start_index,
+        gnss_end_index,
     )
     .expect("invariants guarantee valid construction");
     seg.origin = PathOrigin::Manual;
@@ -86,13 +91,20 @@ fn near(a: [f64; 2], b: [f64; 2]) -> bool {
 /// - `path` – the current train path
 pub fn add_segment(netelement_id: &str, network: &RailwayNetwork, path: &TrainPath) -> TrainPath {
     // If the path is empty, just add the segment as the sole element.
+    // There is no adjacent segment, so GNSS indices start at 0.
     if path.segments.is_empty() {
         let mut new_path = path.clone();
         new_path
             .segments
-            .push(manual_segment(netelement_id.to_string()));
+            .push(manual_segment(netelement_id.to_string(), 0, 0));
         return new_path;
     }
+
+    // GNSS indices inherited from the adjacent segment at each potential insertion point.
+    // • Prepend: inherit the current first segment's gnss_start_index (preserves ordering).
+    // • Append:  inherit the current last segment's gnss_end_index (preserves ordering).
+    let first_gnss = path.segments[0].gnss_start_index;
+    let last_gnss = path.segments[path.segments.len() - 1].gnss_end_index;
 
     // Look up the new segment's endpoints from the network geometry.
     let new_head = first_coord(network, netelement_id);
@@ -118,15 +130,18 @@ pub fn add_segment(netelement_id: &str, network: &RailwayNetwork, path: &TrainPa
     };
 
     let mut new_path = path.clone();
-    let seg = manual_segment(netelement_id.to_string());
 
     match (can_prepend, can_append) {
         (true, false) => {
-            new_path.segments.insert(0, seg);
+            new_path
+                .segments
+                .insert(0, manual_segment(netelement_id.to_string(), first_gnss, first_gnss));
         }
         (false, true) | (false, false) => {
             // Append (also the fallback / disconnected case)
-            new_path.segments.push(seg);
+            new_path
+                .segments
+                .push(manual_segment(netelement_id.to_string(), last_gnss, last_gnss));
         }
         (true, true) => {
             // Ambiguous: segment connects to both ends.
@@ -134,7 +149,9 @@ pub fn add_segment(netelement_id: &str, network: &RailwayNetwork, path: &TrainPa
             let new_mid = match (new_head, new_tail) {
                 (Some(h), Some(t)) => [(h[0] + t[0]) / 2.0, (h[1] + t[1]) / 2.0],
                 _ => {
-                    new_path.segments.push(seg);
+                    new_path
+                        .segments
+                        .push(manual_segment(netelement_id.to_string(), last_gnss, last_gnss));
                     return new_path;
                 }
             };
@@ -142,9 +159,13 @@ pub fn add_segment(netelement_id: &str, network: &RailwayNetwork, path: &TrainPa
             let d_tail = path_tail_end.map_or(f64::MAX, |t| dist2(new_mid, t));
 
             if d_head <= d_tail {
-                new_path.segments.insert(0, seg);
+                new_path
+                    .segments
+                    .insert(0, manual_segment(netelement_id.to_string(), first_gnss, first_gnss));
             } else {
-                new_path.segments.push(seg);
+                new_path
+                    .segments
+                    .push(manual_segment(netelement_id.to_string(), last_gnss, last_gnss));
             }
         }
     }

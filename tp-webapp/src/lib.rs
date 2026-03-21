@@ -82,7 +82,7 @@ pub fn run_webapp_standalone(
         let port_range = if port == 0 {
             DEFAULT_PORTS
         } else {
-            port..=port + 9
+            port..=port.saturating_add(9)
         };
 
         let (listener, bound_port) = bind_port(port_range)?;
@@ -139,7 +139,7 @@ pub fn run_webapp_integrated(
         let port_range = if port == 0 {
             DEFAULT_PORTS
         } else {
-            port..=port + 9
+            port..=port.saturating_add(9)
         };
 
         let (listener, bound_port) = bind_port(port_range)?;
