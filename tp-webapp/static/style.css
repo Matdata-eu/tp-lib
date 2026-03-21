@@ -1,0 +1,285 @@
+/* ---------------------------------------------------------------------------
+   CSS custom properties — light theme (default)
+   ------------------------------------------------------------------------- */
+:root {
+  --bg: #f0f0f0;
+  --surface: rgba(255, 255, 255, 0.96);
+  --text: #222;
+  --text-sub: #555;
+  --text-muted: #444;
+  --segment-bg: #f3f4f6;
+  --segment-border: #9ca3af;
+  --map-bg: #ffffff;
+  --btn-secondary-bg: #e5e7eb;
+  --btn-secondary-text: #374151;
+  --shadow: rgba(0, 0, 0, 0.25);
+}
+
+/* Dark theme overrides */
+body.dark {
+  --bg: #111827;
+  --surface: rgba(22, 28, 45, 0.97);
+  --text: #f3f4f6;
+  --text-sub: #9ca3af;
+  --text-muted: #d1d5db;
+  --segment-bg: #1f2937;
+  --segment-border: #4b5563;
+  --map-bg: #0f172a;
+  --btn-secondary-bg: #374151;
+  --btn-secondary-text: #f3f4f6;
+  --shadow: rgba(0, 0, 0, 0.6);
+}
+
+/* Base layout */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* Map fills the whole viewport */
+#map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--map-bg);
+}
+
+/* Sidebar */
+#sidebar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 280px;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px var(--shadow);
+  padding: 14px 16px;
+  z-index: 1000;
+  color: var(--text);
+}
+
+#sidebar-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Mode badge */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.badge.standalone {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.badge.integrated {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Status bar */
+#status-bar {
+  min-height: 20px;
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-bottom: 10px;
+}
+
+/* Action buttons */
+#action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn:active {
+  opacity: 0.8;
+}
+
+.btn.btn-primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn.btn-success {
+  background: #16a34a;
+  color: #fff;
+}
+
+.btn.btn-danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.btn.btn-secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Path stats */
+#path-stats {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+#path-stats div {
+  margin-bottom: 3px;
+}
+
+/* Legend */
+#legend {
+  margin-bottom: 12px;
+}
+
+#legend h3 {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.high       { background: #16a34a; }
+.legend-dot.medium     { background: #ca8a04; }
+.legend-dot.low        { background: #dc2626; }
+.legend-dot.not-in-path { background: #6b7280; }
+
+/* Map layer controls */
+#map-controls h3 {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+.map-control-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+/* Segment list */
+#segment-list-container h3 {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+#segment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#segment-list li {
+  padding: 5px 8px;
+  border-radius: 4px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  background: var(--segment-bg);
+  border-left: 3px solid var(--segment-border);
+  color: var(--text);
+}
+
+#segment-list li.origin-algorithm {
+  border-left-color: #2563eb;
+}
+
+#segment-list li.origin-manual {
+  border-left-color: #7c3aed;
+}
+
+/* --- Leaflet polyline overrides --- */
+
+/* Segments in path: coloured by confidence */
+.path-high    { stroke: #16a34a !important; }
+.path-medium  { stroke: #ca8a04 !important; }
+.path-low     { stroke: #dc2626 !important; }
+
+/* Manually-placed segments drawn dashed */
+.path-manual  { stroke-dasharray: 10, 5; }
+
+/* Segments not in path */
+.not-in-path  { stroke: #9ca3af !important; opacity: 0.5; }
+
+/* Hovered segment */
+.hovered      { stroke-width: 6 !important; opacity: 1 !important; }
+
+/* GNSS markers */
+.gnss-marker {
+  stroke: #f97316;
+  fill: #f97316;
+  fill-opacity: 0.7;
+}
+
+/* Leaflet dark mode overrides */
+body.dark .leaflet-tooltip {
+  background: #1f2937;
+  color: #f3f4f6;
+  border-color: #4b5563;
+}
+body.dark .leaflet-popup-content-wrapper,
+body.dark .leaflet-popup-tip {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+body.dark .leaflet-bar a {
+  background: #1f2937;
+  color: #f3f4f6;
+  border-color: #4b5563;
+}
+body.dark .leaflet-bar a:hover {
+  background: #374151;
+}

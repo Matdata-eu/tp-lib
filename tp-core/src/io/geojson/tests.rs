@@ -383,6 +383,7 @@ fn test_write_trainpath_geojson_basic() {
             probability: 0.95,
             gnss_start_index: 0,
             gnss_end_index: 10,
+            origin: Default::default(),
         }],
         0.95,
         None,

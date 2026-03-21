@@ -1,0 +1,36 @@
+[package]
+name = "tp-webapp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Web application for visual review and editing of train paths"
+readme = "README.md"
+keywords = ["gnss", "railway", "web", "review"]
+categories = ["command-line-utilities", "web-programming"]
+
+[dependencies]
+tp-lib-core = { version = "0.0.1", path = "../tp-core" }
+axum.workspace = true
+tokio.workspace = true
+rust-embed.workspace = true
+open.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+mime_guess = "2"
+tokio-util = { version = "0.7", features = ["rt"] }
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tempfile = "3.8"
+axum = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+geo = { workspace = true }
+serde_json = { workspace = true }
+tp-lib-core = { version = "0.0.1", path = "../tp-core" }

@@ -1,6 +1,7 @@
 //! Netelement within a calculated train path
 
 use crate::errors::ProjectionError;
+use crate::models::PathOrigin;
 use serde::{Deserialize, Serialize};
 
 /// Represents a netelement within a calculated train path
@@ -49,6 +50,12 @@ pub struct AssociatedNetElement {
 
     /// Index of the last GNSS position associated with this segment
     pub gnss_end_index: usize,
+
+    /// Whether this segment was placed by the algorithm or manually added by a user.
+    /// Defaults to [`PathOrigin::Algorithm`] for backward compatibility with older path files
+    /// that do not carry this field.
+    #[serde(default)]
+    pub origin: PathOrigin,
 }
 
 impl AssociatedNetElement {
@@ -68,6 +75,7 @@ impl AssociatedNetElement {
             end_intrinsic,
             gnss_start_index,
             gnss_end_index,
+            origin: PathOrigin::Algorithm,
         };
 
         element.validate()?;
@@ -154,5 +162,52 @@ mod tests {
         );
 
         assert!(segment.is_err());
+    }
+
+    /// Backward-compatibility guard: deserialising a JSON row **without** an `origin` field
+    /// must produce `PathOrigin::Algorithm` (via `#[serde(default)]`).
+    /// This ensures existing path files produced before the `origin` field was introduced
+    /// can still be loaded without errors.
+    #[test]
+    fn test_origin_defaults_to_algorithm_when_missing() {
+        let json = r#"{
+            "netelement_id": "NE_A",
+            "probability": 0.87,
+            "start_intrinsic": 0.25,
+            "end_intrinsic": 0.78,
+            "gnss_start_index": 5,
+            "gnss_end_index": 12
+        }"#;
+
+        let segment: AssociatedNetElement =
+            serde_json::from_str(json).expect("deserialization must succeed");
+        assert_eq!(
+            segment.origin,
+            PathOrigin::Algorithm,
+            "missing origin field must default to Algorithm"
+        );
+    }
+
+    #[test]
+    fn test_origin_manual_roundtrip() {
+        let json = r#"{
+            "netelement_id": "NE_B",
+            "probability": 1.0,
+            "start_intrinsic": 0.0,
+            "end_intrinsic": 1.0,
+            "gnss_start_index": 0,
+            "gnss_end_index": 0,
+            "origin": "manual"
+        }"#;
+
+        let segment: AssociatedNetElement =
+            serde_json::from_str(json).expect("deserialization must succeed");
+        assert_eq!(segment.origin, PathOrigin::Manual);
+
+        let serialised = serde_json::to_string(&segment).expect("serialization must succeed");
+        assert!(
+            serialised.contains(r#""origin":"manual""#),
+            "manual origin must serialise as lowercase"
+        );
     }
 }

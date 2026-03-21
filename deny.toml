@@ -78,6 +78,12 @@ ignore = [
     # Updating to 0.24.1+ causes memory allocation issues during compilation
     # Will be resolved once polars supports newer pyo3 versions
     { id = "RUSTSEC-2025-0020", reason = "pyo3 upgrade to 0.24.1+ blocked by polars dependency compatibility" },
+
+    # bytes 1.11.0 integer overflow in BytesMut::reserve; only exploitable with
+    # intentional usize::MAX-sized allocations and overflow-wrapping builds.
+    # Upgrade to bytes 1.10.1+ blocked by tokio/axum transitive constraint - will
+    # be resolved when the dependency graph allows a compatible bytes upgrade.
+    { id = "RUSTSEC-2026-0007", reason = "bytes 1.11.0 integer overflow in BytesMut::reserve; transitive dependency via tokio/axum, upgrade tracked" },
 ]
 
 # This section is considered when running `cargo deny check licenses`

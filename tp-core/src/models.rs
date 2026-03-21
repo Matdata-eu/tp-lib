@@ -6,6 +6,7 @@ pub mod gnss_net_element_link;
 pub mod netelement;
 pub mod netrelation;
 pub mod path_metadata;
+pub mod path_origin;
 pub mod projected_position;
 pub mod train_path;
 
@@ -15,5 +16,6 @@ pub use gnss_net_element_link::GnssNetElementLink;
 pub use netelement::Netelement;
 pub use netrelation::NetRelation;
 pub use path_metadata::{PathDiagnosticInfo, PathMetadata, SegmentDiagnostic};
+pub use path_origin::PathOrigin;
 pub use projected_position::ProjectedPosition;
 pub use train_path::TrainPath;
