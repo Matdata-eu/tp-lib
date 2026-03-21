@@ -68,7 +68,7 @@ A railway data analyst runs the standard GNSS projection pipeline but wants to r
 3. **Given** the user has reviewed and optionally edited the path, **When** they click "Confirm", **Then** the webapp signals the CLI process to continue, the server shuts down, and projection proceeds using the (possibly modified) confirmed path
 4. **Given** the user closes the browser without confirming, **When** the CLI detects this, **Then** it waits for reconnection rather than proceeding silently; the CLI must not advance the pipeline without explicit user confirmation
 5. **Given** the user decides the path is unrecoverable, **When** they click the "Abort" button in the webapp, **Then** the browser sends `POST /abort` to the local server, the server shuts down, and the CLI exits with a non-zero exit code and prints a clear cancellation message
-5. **Given** the projection completes after review, **When** inspecting the output, **Then** the output reflects the path as confirmed in the review session, not the originally calculated path if changes were made
+6. **Given** the projection completes after review, **When** inspecting the output, **Then** the output reflects the path as confirmed in the review session, not the originally calculated path if changes were made
 
 ---
 

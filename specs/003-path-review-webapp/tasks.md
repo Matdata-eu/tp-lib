@@ -20,8 +20,8 @@
 
 **Purpose**: Register the new crate in the workspace and lay down the static asset scaffold.
 
-- [ ] T001 Add `tp-webapp` to workspace members list and `reqwest` to dev-dependencies in Cargo.toml
-- [ ] T002 Create tp-webapp/Cargo.toml with `axum ^0.8`, `tokio ^1 (full)`, `rust-embed ^8 (debug-embed)`, `open ^5`, `serde`, `serde_json`, `tp-core` path dep
+- [ ] T001 Add `tp-webapp` to workspace members list in the root Cargo.toml; add workspace-level shared dependencies for `axum`, `tokio`, `rust-embed`, `open`, `serde`, `serde_json`; do **not** add `reqwest` at workspace level — it belongs in tp-webapp's own `[dev-dependencies]` (B2 fix)
+- [ ] T002 Create tp-webapp/Cargo.toml with `[dependencies]`: `axum ^0.8`, `tokio ^1 (full)`, `rust-embed ^8 (debug-embed)`, `open ^5`, `serde`, `serde_json`, `tp-core` path dep; `[dev-dependencies]`: `reqwest` (with `json` feature, for integration tests), `tokio-util ^0.7` (with `rt` feature, for graceful shutdown in tests) — B2+B3 fix
 - [ ] T003 [P] Add Leaflet.js 1.9 distribution files to tp-webapp/static/leaflet/ (leaflet.js, leaflet.css, images/)
 
 **Checkpoint**: `cargo build --package tp-webapp` compiles the empty crate; Leaflet assets are present in static/leaflet/
@@ -35,11 +35,11 @@
 ⚠️ **CRITICAL**: No user story work begins until this phase is complete.
 
 - [ ] T004 Create `PathOrigin` enum (`Algorithm | Manual`, `#[default = Algorithm]`, `serde rename_all = "lowercase"`) in tp-core/src/models/path_origin.rs
-- [ ] T005 Add `origin: PathOrigin` field with `#[serde(default)]` to `AssociatedNetElement` in tp-core/src/models/associated_net_element.rs; add `pub use path_origin::PathOrigin` to tp-core/src/models.rs; add `mod path_origin;` to tp-core/src/models.rs
+- [ ] T005 Add `origin: PathOrigin` field with `#[serde(default)]` to `AssociatedNetElement` in tp-core/src/models/associated_net_element.rs; add `pub use path_origin::PathOrigin` to tp-core/src/models.rs; add `mod path_origin;` to tp-core/src/models.rs; add unit test: deserialize a JSON/CSV row **without** an `origin` field → assert `origin == PathOrigin::Algorithm` (backward-compat guard for existing path files produced before this change; validates `#[serde(default)]` is effective) — C4 fix
 - [ ] T006 [P] Create tp-webapp/src/embed.rs with `rust_embed::RustEmbed` `EmbeddedAssets` struct pointing to `../static/`; implement static-file axum handler `static_handler()`
 - [ ] T007 [P] Create tp-webapp/src/server/state.rs with `WebAppState` struct, `AppMode` enum (`Standalone | Integrated`), and `ConfirmResult` enum (`Confirmed | Aborted`) per data-model.md
 - [ ] T008 Create tp-webapp/src/server.rs: axum router builder wiring all routes + `Arc<RwLock<WebAppState>>`; port-selection loop (try 8765–8774, return bound `TcpListener` + actual port); expose `build_router()` and `bind_port()` functions
-- [ ] T009 Create tp-webapp/src/lib.rs: define `WebAppError`; implement stub signatures for `run_webapp_standalone()` and `run_webapp_integrated()` that compile and return `Err(WebAppError::NotImplemented)`
+- [ ] T009 Create tp-webapp/src/lib.rs: define `WebAppError`; implement **final** stub signatures — `run_webapp_standalone(network: &RailNetwork, path: TrainPath, output_path: Option<PathBuf>, gnss: Option<Vec<GnssPosition>>, port: u16, open_browser: bool) -> Result<(), WebAppError>` and `run_webapp_integrated(network: &RailNetwork, path: TrainPath, gnss: Option<Vec<GnssPosition>>, port: u16, open_browser: bool) -> Result<(ConfirmResult, TrainPath), WebAppError>` — both return `Err(WebAppError::NotImplemented)` for now; these signatures are **final** and MUST NOT change in later tasks (C1+C2 fix)
 
 **Checkpoint**: `cargo build --package tp-webapp` clean; `cargo test --package tp-core` still passes (backward compat via `#[serde(default)]`)
 
@@ -54,7 +54,7 @@
 ### Tests for User Story 1 ⚠️ Write first — must FAIL before implementation
 
 - [ ] T010 [P] [US1] Write unit tests for `add_segment()` (snap insertion: topologically adjacent, ambiguous case → append-nearest-end, disconnected marker) and `remove_segment()` in tp-webapp/tests/unit/edit_test.rs
-- [ ] T011 [P] [US1] Write unit tests for GET `/`, GET `/api/network` (in_path/origin/confidence annotated), GET `/api/path` (ordered segments + path_index + mode), PUT `/api/path` (replace path, 422 on unknown netelement_id), POST `/api/save` (writes file, keeps server alive) using axum `TestClient` in tp-webapp/tests/unit/routes_test.rs
+- [ ] T011 [P] [US1] Write unit tests for GET `/`, GET `/api/network` (in_path/origin/confidence annotated), GET `/api/path` (ordered segments + path_index + mode), PUT `/api/path` (replace path, 422 on unknown netelement_id), POST `/api/save` (writes file, keeps server alive), POST `/api/save` with empty path segments (assert 200 + `{"ok": true}`; the empty-path guard is client-side per EC-3 — server saves as-is) using axum `TestClient` in tp-webapp/tests/unit/routes_test.rs — EC-3/C3 partial
 - [ ] T012 [US1] Write end-to-end integration test for US1 standalone flow: spin up server on random port, POST network + path via setup, add segment, save, read output CSV, assert result is valid via `parse_trainpath_csv` in tp-webapp/tests/integration/webapp_integration_test.rs
 
 ### Implementation for User Story 1
@@ -67,8 +67,8 @@
 - [ ] T018 [US1] Implement POST `/api/save` handler: call `write_trainpath_csv` to `state.output_path` (derive default name `tp_reviewed_<timestamp>.csv` when `None`), return `{"ok": true, "path": "<written path>"}`, keep server alive in tp-webapp/src/server/routes.rs
 - [ ] T019 [P] [US1] Create tp-webapp/static/index.html: map container div, sidebar panel (segment list, confidence legend), Save button (standalone only), status bar; link Leaflet CSS + app.js + style.css
 - [ ] T020 [P] [US1] Create tp-webapp/static/style.css: full-page map layout, sidebar positioned right, confidence colour gradient (red 0.0 → yellow 0.5 → green 1.0), manual segment dashed-stroke style, disconnected segment cross-hatch style
-- [ ] T021 [US1] Create tp-webapp/static/app.js: fetch `/api/network` on load → render all netelements as Leaflet polylines coloured by confidence; click non-path segment → call `add_segment` logic (PUT /api/path with updated list); click in-path segment → remove (PUT /api/path); Save button → POST /api/save → show status; handle standalone/integrated mode field from GET /api/path
-- [ ] T022 [US1] Extend tp-cli/src/main.rs with `webapp` subcommand (clap): `--network <FILE>` (required), `--train-path <FILE>` (required), `--output <FILE>` (optional), `--port <u16>` (optional, default 8765), `--no-browser` flag; load files via tp-core I/O; call `run_webapp_standalone()`; open browser unless `--no-browser`; print URL to stdout
+- [ ] T021 [US1] Create tp-webapp/static/app.js: fetch `/api/network` on load → render all netelements as Leaflet polylines coloured by confidence; click non-path segment → call `add_segment` logic (PUT /api/path with updated list); click in-path segment → remove (PUT /api/path); Save button → **if current rendered segment list is empty, show a browser confirmation dialog ('Save an empty path? This cannot be undone.') before proceeding (EC-3)** → POST /api/save → show status; handle standalone/integrated mode field from GET /api/path — C3 fix
+- [ ] T022 [US1] Extend tp-cli/src/main.rs with `webapp` subcommand (clap): `--network <FILE>` (required), `--train-path <FILE>` (required), `--output <FILE>` (optional), `--port <u16>` (optional, default 8765), `--no-browser` flag; load files via tp-core I/O; call `run_webapp_standalone(network, path, output, gnss: None, port, open_browser)` — pass `None` for `gnss` here; GNSS wiring is added in T034; print URL to stdout
 
 **Checkpoint**: US1 is fully functional end-to-end. Standalone launch, map loads, segments add/remove, Save writes valid CSV.
 
@@ -89,9 +89,9 @@
 
 - [ ] T025 [US2] Implement POST `/api/confirm` handler: take `confirm_tx` from `WebAppState` under write lock (error 409 if already consumed), send `ConfirmResult::Confirmed`, initiate server shutdown in tp-webapp/src/server/routes.rs
 - [ ] T026 [US2] Implement POST `/api/abort` handler: take `confirm_tx` from `WebAppState` under write lock (error 409 if already consumed), send `ConfirmResult::Aborted`, initiate server shutdown in tp-webapp/src/server/routes.rs
-- [ ] T027 [US2] Implement `run_webapp_integrated()` in tp-webapp/src/lib.rs: build `WebAppState` with `AppMode::Integrated` and `oneshot::channel()`; spawn server on tokio runtime; block `await` on the oneshot receiver; return `Ok(ConfirmResult)` or `Err(WebAppError::ChannelClosed)`
+- [ ] T027 [US2] Implement `run_webapp_integrated(network, path, gnss: Option<Vec<GnssPosition>>, port, open_browser)` in tp-webapp/src/lib.rs: build `WebAppState` with `AppMode::Integrated`, `oneshot::channel()`, and the provided `gnss` data (enables GNSS markers in integrated review per US2 AS-2); spawn server on tokio runtime; block `await` on the oneshot receiver; return `Ok((ConfirmResult, TrainPath))` or `Err(WebAppError::ChannelClosed)` — C1 fix
 - [ ] T028 [P] [US2] Extend tp-webapp/static/app.js: when GET `/api/path` returns `mode: "integrated"`, show Confirm + Abort buttons (hide Save button); wire Confirm button → POST `/api/confirm`; wire Abort button → POST `/api/abort`; show "Confirmed — projection continuing…" or "Aborted — pipeline cancelled" feedback
-- [ ] T029 [US2] Extend tp-cli/src/main.rs: add `--review` flag to the existing pipeline command; after `calculate_path()` succeeds, call `run_webapp_integrated()` inside a tokio runtime; if `ConfirmResult::Aborted`, print cancellation message to stderr and `std::process::exit(1)`; if `ConfirmResult::Confirmed`, continue pipeline with the (possibly edited) path
+- [ ] T029 [US2] Extend tp-cli/src/main.rs: add `--review` flag to the existing pipeline command; after `calculate_path()` succeeds, call `run_webapp_integrated(network, path, gnss, port, open_browser)` inside a tokio runtime, passing the already-parsed `gnss` data from the pipeline's `--gnss` argument (or `None`) so GNSS markers appear per US2 AS-2 — C1 fix; if `ConfirmResult::Aborted`, print cancellation message to stderr and `std::process::exit(1)`; if `ConfirmResult::Confirmed`, continue pipeline with the (possibly edited) path
 
 **Checkpoint**: US1 and US2 both work independently. `--review` pipeline pauses, review is applied, projection continues.
 
@@ -112,7 +112,7 @@
 
 - [ ] T032 [US3] Implement GET `/api/gnss` handler in tp-webapp/src/server/routes.rs: returns GeoJSON `FeatureCollection` of `Point` features (`[lon, lat]`) one per `GnssPosition`; returns empty FeatureCollection when `state.gnss` is `None`
 - [ ] T033 [P] [US3] Extend tp-webapp/static/app.js: fetch GET `/api/gnss` on load; if `features.length > 0`, render each point as a small Leaflet `circleMarker` (low z-index, non-interactive, distinct colour); skip rendering silently when array is empty
-- [ ] T034 [US3] Add `--gnss <FILE>` (optional) to the `webapp` subcommand in tp-cli/src/main.rs; when present, parse via `parse_gnss_csv()` and pass GNSS positions to `run_webapp_standalone()`; update `run_webapp_standalone()` signature in tp-webapp/src/lib.rs to accept `Option<Vec<GnssPosition>>`
+- [ ] T034 [US3] Add `--gnss <FILE>` (optional) to the `webapp` subcommand in tp-cli/src/main.rs; when present, parse via `parse_gnss_csv()` and pass positions as `Some(gnss)` to `run_webapp_standalone()`; when absent, pass `None` — the signature already accepts `Option<Vec<GnssPosition>>` as finalized in T009; **no signature changes needed** (C2 fix)
 
 **Checkpoint**: All three user stories work independently. GNSS markers appear/disappear based on CLI flag.
 
@@ -158,7 +158,7 @@ Phase 6 (Polish)  ◄── Requires all story phases complete
 - T025/T026 depend on T007 (ConfirmResult type) from Foundational phase
 - T027 depends on T025/T026 and T009
 - T029 depends on T027
-- T034 requires updating `run_webapp_standalone()` signature in T009 — do not finalize that signature until US3 requirements are clear
+- T034 wires the `--gnss` CLI argument to `run_webapp_standalone()`; the function signature is already finalized in T009 (both entry-point functions accept `gnss: Option<Vec<GnssPosition>>`)
 
 ---
 
