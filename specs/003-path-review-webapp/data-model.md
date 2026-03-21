@@ -125,6 +125,22 @@ pub enum ConfirmResult {
 }
 ```
 
+### `PathEditRequest`
+
+**File**: `tp-webapp/src/server/routes.rs`
+
+```rust
+/// Request body for POST /api/path/add and POST /api/path/remove
+#[derive(Deserialize)]
+pub struct PathEditRequest {
+    pub netelement_id: String,
+}
+```
+
+Used by both `POST /api/path/add` and `POST /api/path/remove`. The server resolves the actual segment data and ordering via `edit::add_segment()` / `edit::remove_segment()` using the loaded network; the browser only needs to supply the target netelement ID.
+
+> **Note**: `PUT /api/path` (full segment list replacement) from the original design was superseded by these two granular endpoints. See `contracts/api.md` for details.
+
 ---
 
 ## REST API JSON Shapes
@@ -219,36 +235,46 @@ Returns the current ordered path.
 
 ---
 
-### `PUT /api/path` — Request
+### ~~`PUT /api/path`~~ — ~~superseded~~
 
-Replaces the entire in-memory path. Sent by the browser after any edit.
+> **Post-implementation note**: `PUT /api/path` was superseded by two granular POST endpoints (see below). The client-managed full-list approach was abandoned because it required the browser to know the correct snap-insertion position, duplicating server-side logic. See `contracts/api.md` and `plan.md § Post-Implementation Changes` for details.
+
+---
+
+### `POST /api/path/add` — Request
+
+Adds a single netelement to the path using server-side snap insertion.
 
 ```json
-{
-  "segments": [
-    {
-      "netelement_id": "NE001",
-      "probability": 0.87,
-      "start_intrinsic": 0.0,
-      "end_intrinsic": 1.0,
-      "gnss_start_index": 0,
-      "gnss_end_index": 12,
-      "origin": "algorithm"
-    }
-  ]
-}
+{ "netelement_id": "NE003" }
 ```
 
 **Response** (200 OK):
 
 ```json
-{ "ok": true, "segments_count": 1 }
+{ "ok": true, "segments_count": 3 }
 ```
 
-**Error response** (422 Unprocessable Entity):
+**Error** (404 Not Found — netelement not in network):
 
 ```json
-{ "ok": false, "error": "invalid netelement_id: NE999 not found in network" }
+{ "ok": false, "error": "netelement not found: NE999" }
+```
+
+---
+
+### `POST /api/path/remove` — Request
+
+Removes a single netelement from the path.
+
+```json
+{ "netelement_id": "NE002" }
+```
+
+**Response** (200 OK):
+
+```json
+{ "ok": true, "segments_count": 2 }
 ```
 
 ---

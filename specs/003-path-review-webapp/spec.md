@@ -110,6 +110,9 @@ An analyst uses the standalone webapp and also provides a GNSS positions file to
 - **FR-004**: Manually added segments MUST be visually distinguished from those selected by the algorithm, using a distinct style (e.g., different colour or pattern), in addition to showing the 1.0 confidence colour
 - **FR-005**: When a GNSS positions file is provided, positions MUST be rendered as markers on the map
 - **FR-006**: The map MUST support standard pan and zoom interactions
+- **FR-022**: The webapp MUST provide a **dark mode** toggle in the map controls; when enabled, the entire UI (sidebar, buttons, map chrome) switches to a dark colour scheme using CSS custom properties; the webapp MUST also auto-detect the OS/browser `prefers-color-scheme: dark` system preference and activate dark mode on initial load if the system preference is dark
+- **FR-023**: The webapp MUST provide a **basemap toggle** checkbox in the map controls that shows or hides the OpenStreetMap tile background layer; hiding OSM keeps the map fully usable (vector segments remain visible) and avoids network requests in offline or air-gapped environments
+- **FR-024**: The webapp MUST display a **Close Tab** button that closes the current browser tab (`window.close()`); this is useful in integrated mode after Confirm or Abort when the server has shut down
 
 #### Path Editing
 
@@ -129,7 +132,7 @@ An analyst uses the standalone webapp and also provides a GNSS positions file to
 #### CLI Integration
 
 - **FR-015**: The standalone command MUST be `tp-cli webapp --network <file> --train-path <file> [--gnss <file>] [--output <file>]`; the network file MUST include both netelements and netrelations (same format required by the path calculation pipeline)
-- **FR-016**: The integrated review mode MUST be triggered by adding `--review` to the standard pipeline command
+- **FR-016**: The integrated review mode MUST be triggered by adding `--review` to the standard pipeline command; when the user confirms the path in the webapp, the CLI MUST automatically save the reviewed (possibly edited) path to an artifact file named `<output-stem>-path.<ext>` (derived from the `--output` flag) before continuing with GNSS projection; the artifact path is printed to stderr
 - **FR-017**: The CLI MUST start a local-only server (not exposed to the network) when the webapp is launched
 - **FR-018**: The CLI MUST attempt to open the default browser automatically when the server starts
 - **FR-019**: The CLI MUST print the local URL to the terminal as a fallback, regardless of whether the browser opened successfully

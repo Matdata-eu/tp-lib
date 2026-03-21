@@ -84,18 +84,10 @@ tp-cli \
 2. A local server starts and the browser opens to the review map
 3. CLI prints a waiting message with the URL
 4. Review and optionally edit the path in the browser
-5. Click **Confirm** → projection runs with the confirmed path; CLI exits 0
+5. Click **Confirm** → the reviewed path is saved to `result-path.csv`, then projection runs with the confirmed path; CLI exits 0
    or Click **Abort** → CLI exits with code 1 and prints a cancellation message
 
-To also save the confirmed path to a file:
-```sh
-tp-cli \
-  --gnss positions.csv \
-  --network network.geojson \
-  --output result.csv \
-  --review \
-  --save-path confirmed_path.csv
-```
+The path artifact (`result-path.csv`) is always saved automatically on Confirm, derived from `--output` by inserting `-path` before the file extension. No extra flag is needed.
 
 ---
 
@@ -108,7 +100,9 @@ tp-cli \
 | Identify a segment | Hover over any segment to see its netelement ID |
 | Pan the map | Click and drag |
 | Zoom | Scroll wheel / pinch / zoom buttons |
-| Toggle OSM background tiles | Use the layers control button (top-right) |
+| Toggle OSM background tiles | Use the **Basemap** checkbox in the map controls (sidebar) |
+| Toggle dark mode | Use the **Dark mode** checkbox in the map controls (sidebar); dark mode also activates automatically if the OS/browser `prefers-color-scheme: dark` preference is set |
+| Close the browser tab | Click the **Close Tab** button in the sidebar |
 | Save (standalone) | Click the **Save** button in the sidebar |
 | Confirm (integrated) | Click the **Confirm** button in the sidebar |
 | Abort (integrated) | Click the **Abort** button in the sidebar |

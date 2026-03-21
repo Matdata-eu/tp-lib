@@ -231,3 +231,24 @@ All unknowns from Technical Context are resolved:
 | Snap insertion | netrelations graph scan, O(|path|) |
 | Feature flag | `webapp` feature, default-enabled in tp-cli |
 | Testing approach | Three-tier: unit handlers, unit edit, integration |
+| Dark mode / theming | CSS custom properties + `body.dark` class + `prefers-color-scheme` detection |
+
+---
+
+## Decision 11: Dark Mode and Theming Strategy
+
+**Decision**: CSS custom properties (`var()`) with a `body.dark` class toggle; `window.matchMedia('(prefers-color-scheme: dark)')` checked at startup to auto-apply.
+
+**Rationale**: CSS custom properties allow a complete colour-scheme swap by changing a single class on `<body>`. This avoids duplicating any style rules — only the variable values differ between light and dark. The approach has zero runtime cost (no JS colour manipulation, no DOM traversal) and works with the existing vanilla-JS, no-build-step frontend without introducing a framework dependency. Detecting `prefers-color-scheme` at startup means users with a dark OS theme get the correct appearance immediately without manual action.
+
+**Implementation**:
+- `:root` defines light-theme variables (`--bg`, `--surface`, `--text`, `--text-sub`, `--segment-bg`, etc.)
+- `body.dark` overrides each variable with dark-theme values
+- Leaflet's `.leaflet-tooltip`, `.leaflet-popup-content-wrapper`, `.leaflet-popup-tip`, and `.leaflet-bar a` elements receive explicit dark overrides (Leaflet styles are not CSS-variable-aware)
+- `app.js` startup: `if (window.matchMedia('(prefers-color-scheme: dark)').matches) { document.body.classList.add('dark'); darkToggle.checked = true; }`
+- Manual toggle: `darkToggle.addEventListener('change', e => document.body.classList.toggle('dark', e.target.checked))`
+
+**Alternatives considered**:
+- Separate light/dark CSS stylesheets: Requires a full duplicate of style rules; hard to keep in sync
+- CSS `prefers-color-scheme` media query only (no manual toggle): Does not allow the user to override the OS preference within the webapp
+- CSS-in-JS or a theming library: Incompatible with the no-npm, no-build-step constraint (Decision 3)

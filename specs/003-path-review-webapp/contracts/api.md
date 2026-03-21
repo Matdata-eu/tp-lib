@@ -181,56 +181,75 @@ PathSegment {
 
 ---
 
-### `PUT /api/path`
+### ~~`PUT /api/path`~~ *(superseded — see `POST /api/path/add` and `POST /api/path/remove`)*
 
-Replaces the entire in-memory path. Called by the browser after any successful edit operation (add, remove, reorder). The body must include all segments in their desired order.
+> **Implementation note**: The original design sent the full ordered segment list from the client on every edit. During implementation this was replaced by two granular endpoints that trigger server-side snap insertion directly. `PUT /api/path` is no longer used by the browser frontend.
+
+---
+
+### `POST /api/path/add`
+
+Adds a single netelement to the in-memory path. The server calls `edit::add_segment()` which performs snap insertion using netrelations topology (FR-009). The browser does **not** need to manage segment ordering.
 
 | Property | Value |
 |----------|-------|
-| Method | PUT |
-| Path | `/api/path` |
+| Method | POST |
+| Path | `/api/path/add` |
 | Authentication | None |
 | Request content-type | `application/json` |
 | Request body | See schema below |
-| Response status | 200 (success) / 422 (validation failure) |
+| Response status | 200 (success) / 404 (netelement not found) / 500 (internal error) |
 | Response content-type | `application/json` |
 
 #### Request Schema
 
-```
-{
-  segments: InputSegment[]
-}
-
-InputSegment {
-  netelement_id:    string
-  probability:      number
-  start_intrinsic:  number
-  end_intrinsic:    number
-  gnss_start_index: integer
-  gnss_end_index:   integer
-  origin:           "algorithm" | "manual"
-}
+```json
+{ "netelement_id": "NE001" }
 ```
 
 #### Response (200 OK)
 
 ```json
-{ "ok": true, "segments_count": 3 }
+{ "ok": true }
 ```
 
-#### Response (422 Unprocessable Entity)
+#### Response (404 Not Found)
 
 ```json
-{ "ok": false, "error": "invalid netelement_id: NE999 not found in loaded network" }
+{ "ok": false, "error": "netelement NE999 not found in loaded network" }
 ```
 
-#### Validation Rules
+After a successful response, the browser refreshes both `GET /api/path` and `GET /api/network` to reflect the updated state.
 
-- Every `netelement_id` in the request must exist in the loaded network.
-- `probability` must be in `[0.0, 1.0]`.
-- `start_intrinsic` and `end_intrinsic` must be in `[0.0, 1.0]`.
-- Empty segments array is allowed (represents an empty path); a UI confirmation is the browser's responsibility (see FR Edge Case).
+---
+
+### `POST /api/path/remove`
+
+Removes a single netelement from the in-memory path. The server calls `edit::remove_segment()`.
+
+| Property | Value |
+|----------|-------|
+| Method | POST |
+| Path | `/api/path/remove` |
+| Authentication | None |
+| Request content-type | `application/json` |
+| Request body | See schema below |
+| Response status | 200 (success) / 500 (internal error) |
+| Response content-type | `application/json` |
+
+#### Request Schema
+
+```json
+{ "netelement_id": "NE001" }
+```
+
+#### Response (200 OK)
+
+```json
+{ "ok": true }
+```
+
+After a successful response, the browser refreshes both `GET /api/path` and `GET /api/network` to reflect the updated state.
 
 ---
 
@@ -340,7 +359,8 @@ The CLI will print a cancellation message to stderr and exit with exit code 1.
 | `GET /` | ✅ | ✅ |
 | `GET /api/network` | ✅ | ✅ |
 | `GET /api/path` | ✅ | ✅ |
-| `PUT /api/path` | ✅ | ✅ |
+| `POST /api/path/add` | ✅ | ✅ |
+| `POST /api/path/remove` | ✅ | ✅ |
 | `POST /api/save` | ✅ | ❌ 409 |
 | `POST /api/confirm` | ❌ 409 | ✅ |
 | `POST /api/abort` | ❌ 409 | ✅ |

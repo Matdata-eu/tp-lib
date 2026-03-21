@@ -102,11 +102,17 @@ Runs the full GNSS projection pipeline but pauses after path calculation to open
 |------|-------|-------|---------|-------------|
 | `--review` | | | (false) | Pause after path calculation and launch the review webapp before projecting GNSS positions |
 
-### Interaction with Existing Flags
+### Path Artifact (auto-saved on Confirm)
 
-- `--review` is only valid when a path is being calculated (i.e., `--train-path` is **not** provided and `--gnss` + `--network` are both provided).
-- When `--review` is provided alongside `--train-path`, the CLI prints a warning and loads the pre-calculated path into the webapp for review before projection.
-- `--save-path` is honoured after confirmation: the confirmed (possibly edited) path is saved to the `--save-path` file.
+When the user clicks **Confirm**, the reviewed path is automatically saved to a file derived from `--output` **before** projection proceeds. The filename is formed by inserting `-path` before the file extension:
+
+| `--output` value | Path artifact file |
+|------------------|--------------------|
+| `result.csv` | `result-path.csv` |
+| `result.geojson` | `result-path.geojson` |
+| `result` (no extension) | `result-path` |
+
+The CLI prints `Path saved to: <file>` to stderr after writing the artifact. No explicit flag is required — the artifact is always produced when `--review` is used and the user confirms. The `--output` flag must be provided (this is already required for projection output).
 
 ### Exit Codes
 
@@ -149,9 +155,10 @@ tp-cli \
   --gnss positions.csv \
   --network network.geojson \
   --output result.csv \
-  --review \
-  --save-path reviewed_path.csv
+  --review
 ```
+
+This will: calculate the path, open the review webapp, wait for the user to confirm, then save `result-path.csv` (the reviewed path) and proceed with GNSS projection to produce `result.csv`.
 
 ---
 

@@ -255,3 +255,51 @@ tp-cli/
 - `tp-core/` changes: ~30 lines (`PathOrigin` enum + `origin` field)
 - `tp-cli/` changes: ~60 lines (`webapp` subcommand + `--review` flag + feature gate)
 - Tests: ~400 lines (unit handlers + unit edit logic + CLI integration)
+
+---
+
+## Post-Implementation Changes
+
+The following deviations from the original plan occurred during and after core implementation. These are recorded here for traceability.
+
+### API Endpoint Redesign: `PUT /api/path` → `POST /api/path/add` + `POST /api/path/remove`
+
+**Original design**: The browser maintained the full ordered segment list and sent it via `PUT /api/path` on every edit.
+
+**Actual implementation**: Two granular endpoints were introduced. The browser sends a single `{ netelement_id }` body; the server handles all ordering via the existing `edit::add_segment()` / `edit::remove_segment()` logic.
+
+- `POST /api/path/add` — calls `edit::add_segment()` (snap insertion via netrelations)
+- `POST /api/path/remove` — calls `edit::remove_segment()`
+- Browser refreshes `GET /api/path` + `GET /api/network` after each call
+
+**Rationale**: The client-managed list approach required the browser to know the correct insertion position, which duplicates the snap insertion logic from `edit.rs`. The server-side approach keeps ordering canonical and eliminates a class of client–server desync bugs.
+
+### UI Additions: Dark Mode, Basemap Toggle, Close Tab Button
+
+Three UI controls were added after core user story implementation, covering practical usability gaps not specified in the original requirements:
+
+1. **Dark mode** (`FR-022`): Full CSS custom property system (`--bg`, `--surface`, `--text`, etc.) with `body.dark` class toggle. `prefers-color-scheme: dark` is checked at startup to auto-apply. Leaflet tooltip/popup/bar elements also receive dark overrides.
+
+2. **Basemap toggle** (`FR-023`): Checkbox in the map controls area of the sidebar. Toggles the OpenStreetMap tile layer on/off. Useful in offline/air-gapped environments.
+
+3. **Close Tab button** (`FR-024`): Always-visible button in the action buttons area. Calls `window.close()`. Useful after Confirm/Abort when the server has shut down but the tab remains open.
+
+### Non-Path Element Visibility Improvement
+
+Default style for non-path netelements was adjusted for better visibility:
+
+| Property | Original | Actual |
+|----------|----------|--------|
+| Color | `#9ca3af` | `#6b7280` |
+| Weight | `2` | `3` |
+| Opacity | `0.6` | `0.9` |
+
+### `--review` Path Artifact (no `--save-path` flag)
+
+**Original design**: An optional `--save-path <FILE>` flag was planned to allow saving the confirmed path.
+
+**Actual implementation**: No `--save-path` flag. Instead, the confirmed path is always saved automatically on Confirm as `<output-stem>-path.<ext>`, derived from the existing `--output` flag by the `derive_path_output()` function in `tp-cli/src/main.rs`. The file is written before projection proceeds; the path is printed to stderr.
+
+### Bug Fix: `pathData` Module Scope
+
+The JavaScript `pathData` variable was originally declared as `const pathData = null` inside `init()`. The `onNetElementClick` handler's assignment `pathData = await apiFetch(...)` threw a `ReferenceError` in strict mode, silently aborting the post-edit network refresh when removing a middle segment. Fixed by declaring `let pathData = null` at module scope.
