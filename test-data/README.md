@@ -6,7 +6,7 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
   - [The network file](#the-network-file)
   - [Sample data](#sample-data)
   - [CLI quick reference](#cli-quick-reference)
-  - [Cases](#cases)
+  - [Simple projection, path calculation \& path projection](#simple-projection-path-calculation--path-projection)
     - [L36 track B – log\_28876](#l36-track-b--log_28876)
       - [The GNSS data](#the-gnss-data)
       - [Simple projection](#simple-projection)
@@ -58,7 +58,11 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Simple projection](#simple-projection-11)
       - [Path calculation](#path-calculation-11)
       - [Path projection](#path-projection-11)
-  - [File reorganisation](#file-reorganisation)
+  - [Path reviewed](#path-reviewed)
+    - [L36-A → L36C-A → L25N-B – log\_28573-path-review](#l36-a--l36c-a--l25n-b--log_28573-path-review)
+      - [Original path calculation](#original-path-calculation)
+      - [Path review process](#path-review-process)
+      - [Path projection](#path-projection-12)
 
 Root folder for release exe: `target/release/`
 
@@ -90,7 +94,7 @@ The three operations available via `tp-cli` are:
 
 Common flags: `--gnss <FILE>`, `--network <FILE>`, `--crs EPSG:4326`, `--output <FILE>` (`.geojson` extension auto-selects GeoJSON format).
 
-## Cases
+## Simple projection, path calculation & path projection
 
 ### L36 track B – log_28876
 
@@ -454,15 +458,6 @@ Returns the expected result
 
 ---
 
-
-
-
-
-
-
-
-
-
 ### L36-A → L36C-A → L25N-B – log_28573
 
 Log file ID: 28573
@@ -505,8 +500,6 @@ Good result:
 ![L36-A to L36C-A to L25N-B (log_28573) - Path projection](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-path-projection.png)
 
 ---
-
-
 
 ### L36-A → L36C-A → L25N-B – log_29584
 
@@ -646,6 +639,45 @@ Expected result, again showing the need to also perform longitudinal post proces
 
 ---
 
-## File reorganisation
+## Path reviewed
 
-All source GNSS files and computed outputs are organized into per-log subdirectories (`log_XXXXX/`). The helper scripts (`move_files.ps1`, `run_calculations.ps1`, `extract_paths.ps1`) at the root of this directory were used to generate the current structure and can be removed once no longer needed.
+### L36-A → L36C-A → L25N-B – log_28573-path-review
+
+Log file ID: 28573
+
+We are going to test the new path-review feature on this test-data set. As explained before, this is a very difficult GNSS sequence. Train start on L36 track A from Brussels to Leuven, goes thorugh the airport and exists towards Brussels again.
+
+This is the path
+
+![L36-A to L36C-A to L25N-B (log_28573) - Raw](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-raw.png)
+
+#### Original path calculation
+
+The original path:
+
+![L36-A to L36C-A to L25N-B (log_28573) - Path calculation](log_28573-path-review/log_28573_L36-A_to_L36C-A_to_L25N-B-path-original.png)
+
+#### Path review process
+
+After executing the command (notice the additional `--review` flag):
+
+```bash
+target/release/tp-cli.exe --gnss test-data/log_28573-path-review/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --crs EPSG:4326 --network test-data/network_airport.geojson --output test-data/log_28573-path-review/log_28573_L36-A_to_L36C-A_to_L25N-B-reviewed.geojson --review
+```
+
+A browser window will open and allow the user to modify the calculated train path. For this example, we are going to correct the train path so that the train takes the middle track in the airport station:
+
+![L36-A to L36C-A to L25N-B (log_28573) - Path review](log_28573-path-review/log_28586_L36-A_to_L36C-A_to_L25N-B-path-review-process.gif)
+
+The resulting path can be presented in a GIS application:
+
+![L36-A to L36C-A to L25N-B (log_28573) - Reviewed path](log_28573-path-review/log_28586_L36-A_to_L36C-A_to_L25N-B-path-reviewed.png)
+
+
+#### Path projection
+
+The result:
+
+![L36-A to L36C-A to L25N-B (log_28573) - Reviewed path projection](log_28573-path-review/log_28586_L36-A_to_L36C-A_to_L25N-B-path-reviewed-projection.png)
+
+---

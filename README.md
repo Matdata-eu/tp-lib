@@ -16,6 +16,7 @@ Train positioning library excels in post-processing the GNSS positions of your m
 - 🚄 **High Performance**: R-tree spatial indexing for O(log n) nearest-track search
 - 📍 **Accurate Projection**: Haversine distance and geodesic calculations with geo-rs
 - 🛤️ **Train Path Calculation**: Probabilistic path calculation through rail networks using topology
+- 🗺️ **Interactive Path Review**: Browser-based map webapp to visually review and edit calculated paths before projection
 - 🌍 **CRS Aware**: Explicit coordinate reference system handling (EPSG codes)
 - ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; timezone-less ISO 8601 datetimes assumed UTC
 - 📊 **Multiple Formats**: CSV and GeoJSON input/output
@@ -47,6 +48,12 @@ tp-cli simple-projection --gnss positions.csv --network network.geojson --output
 
 # Use pre-calculated path for projection
 tp-cli --gnss positions.csv --network network.geojson --train-path path.csv --output result.csv
+
+# Review calculated path in browser before projection (integrated mode)
+tp-cli --gnss positions.csv --network network.geojson --output result.csv --review
+
+# Launch standalone webapp to review/edit a path file
+tp-cli webapp --network network.geojson --train-path path.csv --output reviewed_path.csv
 ```
 
 ### Debug Output
@@ -72,13 +79,70 @@ See **[DEBUG.md](DEBUG.md)** for a full description of the debug output files, t
 - **Scalability**: Sub-linear scaling with R-tree spatial indexing
 - **Memory**: Handles 10,000+ positions efficiently
 
+## Train Path Review Webapp
+
+The library ships a companion browser-based map webapp (`tp-webapp`) that lets you visually inspect and edit a calculated train path before using it for projection. No npm, no Node.js, no frontend build step required — the web assets are embedded in the binary at compile time using `rust-embed`.
+
+### Modes
+
+| Mode | Command | Use case |
+|------|---------|----------|
+| **Standalone** | `tp-cli webapp` | Review/edit an existing path file; save result to disk; server stays alive |
+| **Integrated** | `tp-cli … --review` | Pause the projection pipeline after path calculation; confirm or abort in the browser |
+
+### What You Can Do in the Browser
+
+- View all network segments on a Leaflet map (OpenStreetMap basemap, toggleable)
+- Path segments are highlighted with a colour-coded confidence scale
+- **Add** a netelement to the path by clicking it on the map — snapped to the correct topological position
+- **Remove** a path segment by clicking it — segment reverts to the default style
+- Sidebar shows an ordered list of segments with probability scores
+- **Dark mode** toggle (auto-activates from OS `prefers-color-scheme`)
+- **Close Tab** button for clean exit after the server shuts down
+
+### Standalone Usage
+
+```sh
+tp-cli webapp \
+  --network network.geojson \
+  --train-path path.csv \
+  --output reviewed_path.csv
+```
+
+A browser opens at `http://127.0.0.1:8765`. Click **Save** to write the reviewed path; the server stays alive for further edits. Press Ctrl+C when done.
+
+The saved file is accepted directly by `--train-path`:
+
+```sh
+tp-cli --gnss positions.csv --network network.geojson \
+  --train-path reviewed_path.csv --output result.csv
+```
+
+### Integrated Usage
+
+```sh
+tp-cli --gnss positions.csv --network network.geojson \
+  --output result.csv --review
+```
+
+1. CLI calculates the train path
+2. Browser opens automatically — review and edit the path
+3. Click **Confirm** → path artifact saved as `result-path.csv`; projection continues
+4. Click **Abort** → CLI exits with non-zero code
+
+### Build Without Web Server
+
+```sh
+cargo build --package tp-cli --no-default-features
+```
+
 ## Project Structure
 
 ```
 tp-lib/                    # Rust workspace root
 ├── tp-core/               # Core Rust library
 │   ├── src/
-│   │   ├── models/        # Data models (GnssPosition, Netelement, ProjectedPosition)
+│   │   ├── models/        # Data models (GnssPosition, Netelement, ProjectedPosition, PathOrigin)
 │   │   ├── projection/    # Projection algorithms (geom, spatial indexing)
 │   │   ├── path/          # Train path calculation (candidate, probability, graph, viterbi)
 │   │   ├── io/            # Input/output (CSV, GeoJSON, Arrow)
@@ -90,6 +154,7 @@ tp-lib/                    # Rust workspace root
 │   │   └── integration/   # Integration tests
 │   └── benches/           # Performance benchmarks
 ├── tp-cli/                # Command-line interface
+├── tp-webapp/             # Interactive path review web server (axum + Leaflet.js)
 └── tp-py/                 # Python bindings (PyO3)
 ```
 
@@ -383,12 +448,27 @@ xdg-open target/doc/index.html  # Linux
 
 ### Specification Documents
 
+**Feature 001 — GNSS Projection**
 - [Feature Specification](specs/001-gnss-projection/spec.md)
 - [Implementation Plan](specs/001-gnss-projection/plan.md)
 - [Data Model](specs/001-gnss-projection/data-model.md)
 - [CLI Contract](specs/001-gnss-projection/contracts/cli.md)
-- [API Contracts](specs/001-gnss-projection/contracts/)
 - [Tasks](specs/001-gnss-projection/tasks.md)
+
+**Feature 002 — Train Path Calculation**
+- [Feature Specification](specs/002-train-path-calculation/spec.md)
+- [Implementation Plan](specs/002-train-path-calculation/plan.md)
+- [Data Model](specs/002-train-path-calculation/data-model.md)
+- [Tasks](specs/002-train-path-calculation/tasks.md)
+
+**Feature 003 — Train Path Review Webapp**
+- [Feature Specification](specs/003-path-review-webapp/spec.md)
+- [Implementation Plan](specs/003-path-review-webapp/plan.md)
+- [Data Model](specs/003-path-review-webapp/data-model.md)
+- [REST API Contract](specs/003-path-review-webapp/contracts/api.md)
+- [CLI Contract](specs/003-path-review-webapp/contracts/cli.md)
+- [Quickstart](specs/003-path-review-webapp/quickstart.md)
+- [Tasks](specs/003-path-review-webapp/tasks.md)
 
 ### CI/CD & Workflows
 

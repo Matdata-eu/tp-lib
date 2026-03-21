@@ -16,10 +16,15 @@ path = "src/main.rs"
 
 [dependencies]
 tp-lib-core = { version = "0.0.1", path = "../tp-core" }
+tp-webapp = { version = "0.0.1", path = "../tp-webapp", optional = true }
 clap.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[features]
+default = ["webapp"]
+webapp = ["dep:tp-webapp"]
 
 [dev-dependencies]
 assert_cmd = "2.0"

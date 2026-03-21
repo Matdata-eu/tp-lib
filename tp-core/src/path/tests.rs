@@ -828,6 +828,7 @@ fn test_path_result_helper_methods() {
         probability: 0.9,
         gnss_start_index: 0,
         gnss_end_index: 10,
+        origin: Default::default(),
     };
 
     let result_with_path = PathResult::new(

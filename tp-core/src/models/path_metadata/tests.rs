@@ -79,6 +79,7 @@ fn test_path_diagnostic_info_from_segments() {
             probability: 0.9,
             gnss_start_index: 0,
             gnss_end_index: 5,
+            origin: Default::default(),
         },
         AssociatedNetElement {
             netelement_id: "NE002".to_string(),
@@ -87,6 +88,7 @@ fn test_path_diagnostic_info_from_segments() {
             probability: 0.85,
             gnss_start_index: 6,
             gnss_end_index: 15,
+            origin: Default::default(),
         },
     ];
 
@@ -115,6 +117,7 @@ fn test_path_diagnostic_info_single_segment() {
         probability: 0.75,
         gnss_start_index: 0,
         gnss_end_index: 20,
+        origin: Default::default(),
     }];
 
     let diagnostic_info = PathDiagnosticInfo::from_segments(&segments);
@@ -159,6 +162,7 @@ fn test_path_metadata_with_diagnostic_info() {
         probability: 0.9,
         gnss_start_index: 0,
         gnss_end_index: 10,
+        origin: Default::default(),
     }];
 
     let diagnostic_info = PathDiagnosticInfo::from_segments(&segments);
@@ -191,6 +195,7 @@ fn test_segment_diagnostic_preserves_indices() {
             probability: 0.9,
             gnss_start_index: 5,
             gnss_end_index: 15,
+            origin: Default::default(),
         },
         AssociatedNetElement {
             netelement_id: "NE002".to_string(),
@@ -199,6 +204,7 @@ fn test_segment_diagnostic_preserves_indices() {
             probability: 0.85,
             gnss_start_index: 16,
             gnss_end_index: 30,
+            origin: Default::default(),
         },
     ];
 

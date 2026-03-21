@@ -63,6 +63,7 @@ impl PointDistance for NetelementIndexEntry {
 }
 
 /// Spatial index for netelements using R-tree
+#[derive(Clone)]
 pub struct NetworkIndex {
     tree: RTree<NetelementIndexEntry>,
     netelements: Vec<Netelement>,

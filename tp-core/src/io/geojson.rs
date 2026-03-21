@@ -659,6 +659,123 @@ pub fn write_geojson(
     Ok(())
 }
 
+/// Parse a [`TrainPath`] from a GeoJSON FeatureCollection file.
+///
+/// Expects the format produced by [`write_trainpath_geojson`]: a FeatureCollection where
+/// each Feature carries segment properties (`netelement_id`, `probability`,
+/// `start_intrinsic`, `end_intrinsic`, `gnss_start_index`, `gnss_end_index`).
+/// The FeatureCollection's `properties` object (stored in `foreign_members`) may
+/// optionally contain `overall_probability` (float) and `calculated_at` (RFC3339).
+///
+/// # Errors
+///
+/// Returns [`ProjectionError::GeoJsonError`] when a required property is missing or
+/// has an unexpected type, or when the file is not a valid FeatureCollection.
+pub fn parse_trainpath_geojson(path: &str) -> Result<crate::models::TrainPath, ProjectionError> {
+    use crate::models::AssociatedNetElement;
+
+    let geojson_str = fs::read_to_string(path)?;
+    let geojson = geojson_str.parse::<GeoJson>().map_err(|e| {
+        ProjectionError::GeoJsonError(format!("Failed to parse TrainPath GeoJSON: {}", e))
+    })?;
+
+    let fc = match geojson {
+        GeoJson::FeatureCollection(fc) => fc,
+        _ => {
+            return Err(ProjectionError::GeoJsonError(
+                "TrainPath GeoJSON must be a FeatureCollection".to_string(),
+            ))
+        }
+    };
+
+    // Extract overall_probability and calculated_at from the top-level "properties" object
+    // stored in foreign_members (written by write_trainpath_geojson).
+    let (overall_probability, calculated_at) = fc
+        .foreign_members
+        .as_ref()
+        .and_then(|fm| fm.get("properties"))
+        .and_then(|v| v.as_object())
+        .map(|props| {
+            let prob = props.get("overall_probability").and_then(|v| v.as_f64());
+            let calc_at = props
+                .get("calculated_at")
+                .and_then(|v| v.as_str())
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| dt.with_timezone(&chrono::Utc));
+            (prob, calc_at)
+        })
+        .unwrap_or((None, None));
+
+    let mut segments = Vec::new();
+
+    for (idx, feature) in fc.features.iter().enumerate() {
+        let props = feature.properties.as_ref().ok_or_else(|| {
+            ProjectionError::GeoJsonError(format!("TrainPath feature {} missing properties", idx))
+        })?;
+
+        macro_rules! get_str {
+            ($key:expr) => {
+                props
+                    .get($key)
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| {
+                        ProjectionError::GeoJsonError(format!(
+                            "TrainPath feature {} missing or invalid '{}' property",
+                            idx, $key
+                        ))
+                    })
+            };
+        }
+        macro_rules! get_f64 {
+            ($key:expr) => {
+                props.get($key).and_then(|v| v.as_f64()).ok_or_else(|| {
+                    ProjectionError::GeoJsonError(format!(
+                        "TrainPath feature {} missing or invalid '{}' property",
+                        idx, $key
+                    ))
+                })
+            };
+        }
+        macro_rules! get_usize {
+            ($key:expr) => {
+                props
+                    .get($key)
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize)
+                    .ok_or_else(|| {
+                        ProjectionError::GeoJsonError(format!(
+                            "TrainPath feature {} missing or invalid '{}' property",
+                            idx, $key
+                        ))
+                    })
+            };
+        }
+
+        let segment = AssociatedNetElement::new(
+            get_str!("netelement_id")?,
+            get_f64!("probability")?,
+            get_f64!("start_intrinsic")?,
+            get_f64!("end_intrinsic")?,
+            get_usize!("gnss_start_index")?,
+            get_usize!("gnss_end_index")?,
+        )?;
+
+        segments.push(segment);
+    }
+
+    let overall_prob = overall_probability.unwrap_or_else(|| {
+        if segments.is_empty() {
+            1.0
+        } else {
+            let sum: f64 = segments.iter().map(|s| s.probability).sum();
+            sum / segments.len() as f64
+        }
+    });
+
+    crate::models::TrainPath::new(segments, overall_prob, calculated_at, None)
+}
+
 /// Write TrainPath as GeoJSON FeatureCollection
 ///
 /// Serializes a TrainPath to GeoJSON, with each segment as a separate feature.

@@ -12,10 +12,12 @@ use std::io::BufWriter;
 use std::process;
 use tp_lib_core::{
     calculate_train_path, export_all_debug_info, parse_gnss_csv, parse_gnss_geojson,
-    parse_network_geojson, parse_trainpath_csv, project_gnss, project_onto_path, write_csv,
-    write_geojson, write_trainpath_csv, write_trainpath_geojson, Netelement, PathConfig,
-    PathConfigBuilder, ProjectionConfig, RailwayNetwork,
+    parse_network_geojson, parse_trainpath_csv, parse_trainpath_geojson, project_gnss,
+    project_onto_path, write_csv, write_geojson, write_trainpath_csv, write_trainpath_geojson,
+    Netelement, PathConfig, PathConfigBuilder, ProjectionConfig, RailwayNetwork,
 };
+#[cfg(feature = "webapp")]
+use tp_webapp::{run_webapp_integrated, run_webapp_standalone, WebConfirmResult};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
@@ -46,6 +48,12 @@ struct Cli {
     /// Pre-calculated train path file (skip path calculation)
     #[arg(long = "train-path", value_name = "FILE")]
     train_path_file: Option<String>,
+
+    /// After path calculation open the webapp for visual review (integrated mode).
+    /// Requires the `webapp` feature. The CLI continues only after the review is closed.
+    #[cfg(feature = "webapp")]
+    #[arg(long = "review")]
+    review: bool,
 
     /// Save calculated path to this file (in addition to projected output)
     #[arg(long = "save-path", value_name = "FILE")]
@@ -240,6 +248,42 @@ enum Commands {
         #[arg(long = "time-col", default_value = "timestamp")]
         time_col: String,
     },
+
+    /// Launch the webapp to visually review and edit a pre-calculated train path.
+    ///
+    /// In standalone mode (default) the user saves the edited path to a CSV file.
+    /// Requires the `webapp` feature (enabled by default).
+    #[cfg(feature = "webapp")]
+    #[command(name = "webapp")]
+    Webapp {
+        /// Path to railway network GeoJSON file
+        #[arg(short = 'n', long = "network", value_name = "FILE")]
+        network_file: String,
+
+        /// Pre-calculated train path CSV file to review
+        #[arg(long = "train-path", value_name = "FILE")]
+        train_path_file: String,
+
+        /// Output file for the reviewed path (standalone mode)
+        #[arg(short = 'o', long = "output", value_name = "FILE")]
+        output_file: Option<String>,
+
+        /// Optional GNSS positions GeoJSON file to overlay on the map
+        #[arg(long = "gnss", value_name = "FILE")]
+        gnss_file: Option<String>,
+
+        /// CRS of GNSS data (required for CSV input)
+        #[arg(long = "crs", value_name = "CRS")]
+        gnss_crs: Option<String>,
+
+        /// Port to bind the server on (0 = scan default range 8765–8774)
+        #[arg(long = "port", default_value = "0")]
+        port: u16,
+
+        /// Do not open the browser automatically after binding
+        #[arg(long = "no-browser")]
+        no_browser: bool,
+    },
 }
 
 fn main() {
@@ -328,6 +372,24 @@ fn main() {
             &lon_col,
             &time_col,
         ),
+        #[cfg(feature = "webapp")]
+        Some(Commands::Webapp {
+            network_file,
+            train_path_file,
+            output_file,
+            gnss_file,
+            gnss_crs,
+            port,
+            no_browser,
+        }) => run_webapp_subcommand(
+            &network_file,
+            &train_path_file,
+            output_file.as_deref(),
+            gnss_file.as_deref(),
+            gnss_crs.as_deref(),
+            port,
+            !no_browser,
+        ),
         None => {
             // Default command: path-based projection
             // Handle legacy arguments for backward compatibility
@@ -386,6 +448,16 @@ fn main() {
                 &cli.lat_col,
                 &cli.lon_col,
                 &cli.time_col,
+                {
+                    #[cfg(feature = "webapp")]
+                    {
+                        cli.review
+                    }
+                    #[cfg(not(feature = "webapp"))]
+                    {
+                        false
+                    }
+                },
             )
         }
     };
@@ -425,6 +497,20 @@ impl std::fmt::Display for PipelineError {
     }
 }
 
+/// Load a pre-calculated train path, auto-detecting format from the file extension.
+///
+/// Files with a `.geojson` or `.json` extension are parsed with
+/// [`parse_trainpath_geojson`]; all other files are assumed to be CSV and
+/// parsed with [`parse_trainpath_csv`].
+fn load_train_path(path: &str) -> Result<tp_lib_core::TrainPath, tp_lib_core::ProjectionError> {
+    let lower = path.to_lowercase();
+    if lower.ends_with(".geojson") || lower.ends_with(".json") {
+        parse_trainpath_geojson(path)
+    } else {
+        parse_trainpath_csv(path)
+    }
+}
+
 /// Determine output format from --format argument or file extension
 fn determine_format(format: &str, output_path: &str) -> Result<&'static str, PipelineError> {
     match format.to_lowercase().as_str() {
@@ -444,6 +530,19 @@ fn determine_format(format: &str, output_path: &str) -> Result<&'static str, Pip
             "Invalid format '{}'. Must be 'csv', 'geojson', or 'auto'",
             format
         ))),
+    }
+}
+
+/// Derive the path output filename by inserting `-path` before the file extension.
+///
+/// Examples:
+/// - `output.geojson` → `output-path.geojson`
+/// - `output.csv`     → `output-path.csv`
+/// - `output`         → `output-path`
+fn derive_path_output(output_file: &str) -> String {
+    match output_file.rfind('.') {
+        Some(dot) => format!("{}-path{}", &output_file[..dot], &output_file[dot..]),
+        None => format!("{}-path", output_file),
     }
 }
 
@@ -470,7 +569,12 @@ fn run_default_command(
     lat_col: &str,
     lon_col: &str,
     time_col: &str,
+    review: bool,
 ) -> Result<(), PipelineError> {
+    // Suppress unused warning when webapp feature is disabled
+    #[cfg(not(feature = "webapp"))]
+    let _ = review;
+
     let output_format = determine_format(format, output_file)?;
 
     // Load network
@@ -483,7 +587,7 @@ fn run_default_command(
         "Railway network loaded"
     );
 
-    let _network = RailwayNetwork::new(netelements.clone())
+    let network = RailwayNetwork::new(netelements.clone())
         .map_err(|e| PipelineError::Processing(format!("Failed to build network index: {}", e)))?;
 
     // Build netelement lookup map for write_trainpath_geojson
@@ -500,10 +604,10 @@ fn run_default_command(
     );
 
     // Get or calculate train path
-    let train_path = if let Some(path_file) = train_path_file {
+    let mut train_path = if let Some(path_file) = train_path_file {
         // Use pre-calculated path
         tracing::info!(path_file = %path_file, "Loading pre-calculated train path");
-        parse_trainpath_csv(path_file)
+        load_train_path(path_file)
             .map_err(|e| PipelineError::Io(format!("Failed to load train path: {}", e)))?
     } else {
         // Calculate path
@@ -556,6 +660,47 @@ fn run_default_command(
             PipelineError::Processing("Path calculation failed - no valid path found".to_string())
         })?
     };
+
+    // Optional webapp review before projection (T029)
+    #[cfg(feature = "webapp")]
+    if review {
+        tracing::info!("Launching path review webapp in integrated mode");
+        match run_webapp_integrated(&network, train_path, Some(gnss_positions.clone()), 0, true)
+            .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?
+        {
+            (WebConfirmResult::Confirmed, edited_path) => {
+                tracing::info!(
+                    "Review confirmed — continuing pipeline with (possibly edited) path"
+                );
+                train_path = edited_path;
+
+                // Save the (possibly edited) path as <output_stem>-path.<ext>
+                let path_output_file = derive_path_output(output_file);
+                let path_save_format = determine_format("auto", &path_output_file)?;
+                let mut path_file = File::create(&path_output_file).map_err(|e| {
+                    PipelineError::Io(format!("Failed to create path output file: {}", e))
+                })?;
+                let mut path_writer = BufWriter::new(&mut path_file);
+                match path_save_format {
+                    "csv" => write_trainpath_csv(&train_path, &mut path_writer).map_err(|e| {
+                        PipelineError::Io(format!("Failed to write path CSV: {}", e))
+                    })?,
+                    _ => write_trainpath_geojson(&train_path, &netelement_map, &mut path_writer)
+                        .map_err(|e| {
+                            PipelineError::Io(format!("Failed to write path GeoJSON: {}", e))
+                        })?,
+                }
+                tracing::info!(path_output_file = %path_output_file, "Reviewed path saved");
+                eprintln!("Path saved to: {}", path_output_file);
+            }
+            (WebConfirmResult::Aborted, _) => {
+                tracing::info!("Review aborted — stopping pipeline");
+                return Err(PipelineError::Processing(
+                    "Pipeline aborted by user during review".to_string(),
+                ));
+            }
+        }
+    }
 
     // Build path config for projection (needed by project_onto_path)
     let path_config = build_path_config(
@@ -881,5 +1026,53 @@ fn write_output(
     }
 
     tracing::info!(output_file = %output_file, "Output written");
+    Ok(())
+}
+
+/// Launch the webapp in standalone mode for visual path review (T022, T034)
+#[cfg(feature = "webapp")]
+#[allow(clippy::too_many_arguments)]
+fn run_webapp_subcommand(
+    network_file: &str,
+    train_path_file: &str,
+    output_file: Option<&str>,
+    gnss_file: Option<&str>,
+    gnss_crs: Option<&str>,
+    port: u16,
+    open_browser: bool,
+) -> Result<(), PipelineError> {
+    // Load network
+    tracing::info!(network_file = %network_file, "Loading railway network for webapp");
+    let (netelements, _netrelations) = parse_network_geojson(network_file)
+        .map_err(|e| PipelineError::Io(format!("Failed to load network: {}", e)))?;
+    let network = RailwayNetwork::new(netelements)
+        .map_err(|e| PipelineError::Processing(format!("Failed to build network index: {}", e)))?;
+
+    // Load train path
+    tracing::info!(train_path_file = %train_path_file, "Loading train path for webapp");
+    let path = load_train_path(train_path_file)
+        .map_err(|e| PipelineError::Io(format!("Failed to load train path: {}", e)))?;
+
+    // Load optional GNSS positions (T034)
+    let gnss = if let Some(gf) = gnss_file {
+        let positions = load_gnss_positions(gf, gnss_crs, "latitude", "longitude", "timestamp")?;
+        tracing::info!(
+            position_count = positions.len(),
+            "GNSS positions loaded for webapp"
+        );
+        Some(positions)
+    } else {
+        None
+    };
+
+    let output_path = output_file.map(std::path::PathBuf::from);
+
+    tracing::info!(
+        port = port,
+        "Launching path review webapp in standalone mode"
+    );
+    run_webapp_standalone(&network, path, output_path, gnss, port, open_browser)
+        .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?;
+
     Ok(())
 }

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Train Path Review</title>
+  <link rel="stylesheet" href="/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="sidebar">
+    <h2 id="sidebar-title">Train Path Review</h2>
+
+    <div id="mode-badge" class="badge"></div>
+
+    <div id="status-bar"></div>
+
+    <div id="action-buttons">
+      <!-- Standalone mode -->
+      <button id="save-btn" class="btn btn-primary hidden">Save Path</button>
+      <!-- Integrated mode -->
+      <button id="confirm-btn" class="btn btn-success hidden">Confirm</button>
+      <button id="abort-btn" class="btn btn-danger hidden">Abort</button>
+      <!-- Always visible -->
+      <button id="close-btn" class="btn btn-secondary">Close Tab</button>
+    </div>
+
+    <div id="path-stats">
+      <div id="segment-count">Segments: <span id="segment-count-value">0</span></div>
+      <div id="overall-probability">Avg confidence: <span id="overall-prob-value">—</span></div>
+    </div>
+
+    <div id="legend">
+      <h3>Confidence</h3>
+      <div class="legend-row"><span class="legend-dot high"></span> High (&gt;0.7)</div>
+      <div class="legend-row"><span class="legend-dot medium"></span> Medium (0.3–0.7)</div>
+      <div class="legend-row"><span class="legend-dot low"></span> Low (&lt;0.3)</div>
+      <div class="legend-row"><span class="legend-dot not-in-path"></span> Not in path</div>
+    </div>
+    <div id="map-controls">
+      <h3>Map</h3>
+      <label class="map-control-row">
+        <input type="checkbox" id="basemap-toggle" checked>
+        <span>OpenStreetMap background</span>
+      </label>
+      <label class="map-control-row">
+        <input type="checkbox" id="darkmode-toggle">
+        <span>Dark mode</span>
+      </label>
+    </div>
+    <div id="segment-list-container">
+      <h3>Path Segments</h3>
+      <ul id="segment-list"></ul>
+    </div>
+  </div>
+
+  <script src="/leaflet/leaflet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -210,6 +210,7 @@ mod tests {
                 probability: 0.9,
                 gnss_start_index: 0,
                 gnss_end_index: 10,
+                origin: Default::default(),
             },
             AssociatedNetElement {
                 netelement_id: "NE_B".to_string(),
@@ -218,6 +219,7 @@ mod tests {
                 probability: 0.8,
                 gnss_start_index: 11,
                 gnss_end_index: 15,
+                origin: Default::default(),
             },
         ];
 
@@ -237,6 +239,7 @@ mod tests {
                 probability: 0.9,
                 gnss_start_index: 0,
                 gnss_end_index: 10,
+                origin: Default::default(),
             },
             AssociatedNetElement {
                 netelement_id: "NE_B".to_string(),
@@ -245,6 +248,7 @@ mod tests {
                 probability: 0.8,
                 gnss_start_index: 11,
                 gnss_end_index: 15,
+                origin: Default::default(),
             },
         ];
 
@@ -265,6 +269,7 @@ mod tests {
             probability: 0.9,
             gnss_start_index: 0,
             gnss_end_index: 10,
+            origin: Default::default(),
         }];
 
         let path = TrainPath::new(segments, 0.9, None, None).unwrap();
@@ -285,6 +290,7 @@ mod tests {
             probability: 0.9,
             gnss_start_index: 0,
             gnss_end_index: 10,
+            origin: Default::default(),
         }];
 
         let metadata = PathMetadata {
@@ -315,6 +321,7 @@ mod tests {
             probability: 0.9,
             gnss_start_index: 0,
             gnss_end_index: 10,
+            origin: Default::default(),
         }];
 
         let now = Utc::now();

@@ -51,11 +51,12 @@ pub mod temporal;
 pub use errors::ProjectionError;
 pub use io::{
     parse_gnss_csv, parse_gnss_geojson, parse_netrelations_geojson, parse_network_geojson,
-    parse_trainpath_csv, write_csv, write_geojson, write_trainpath_csv, write_trainpath_geojson,
+    parse_trainpath_csv, parse_trainpath_geojson, write_csv, write_geojson, write_trainpath_csv,
+    write_trainpath_geojson,
 };
 pub use models::{
     AssociatedNetElement, GnssNetElementLink, GnssPosition, NetRelation, Netelement,
-    PathDiagnosticInfo, PathMetadata, ProjectedPosition, SegmentDiagnostic, TrainPath,
+    PathDiagnosticInfo, PathMetadata, PathOrigin, ProjectedPosition, SegmentDiagnostic, TrainPath,
 };
 pub use path::{
     calculate_mean_spacing,
@@ -145,6 +146,14 @@ impl Default for ProjectionConfig {
 /// ```
 pub struct RailwayNetwork {
     index: NetworkIndex,
+}
+
+impl Clone for RailwayNetwork {
+    fn clone(&self) -> Self {
+        Self {
+            index: self.index.clone(),
+        }
+    }
 }
 
 impl RailwayNetwork {
