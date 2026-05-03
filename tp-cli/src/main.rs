@@ -642,6 +642,7 @@ fn run_default_command(
     );
 
     // Get or calculate train path
+    let mut detection_provenance: Vec<tp_lib_core::DetectionRecord> = Vec::new();
     let mut train_path = if let Some(path_file) = train_path_file {
         // Use pre-calculated path
         tracing::info!(path_file = %path_file, "Loading pre-calculated train path");
@@ -695,7 +696,8 @@ fn run_default_command(
             for w in &prepared.warnings {
                 tracing::warn!(warning = %w, "detection warning");
             }
-            result.detection_provenance = prepared.records;
+            result.detection_provenance = prepared.records.clone();
+            detection_provenance = prepared.records;
         }
 
         // Save path if requested
@@ -726,7 +728,14 @@ fn run_default_command(
     #[cfg(feature = "webapp")]
     if review {
         tracing::info!("Launching path review webapp in integrated mode");
-        match run_webapp_integrated(&network, train_path, Some(gnss_positions.clone()), 0, true)
+        match run_webapp_integrated(
+            &network,
+            train_path,
+            Some(gnss_positions.clone()),
+            detection_provenance.clone(),
+            0,
+            true,
+        )
             .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?
         {
             (WebConfirmResult::Confirmed, edited_path) => {
@@ -1269,7 +1278,7 @@ fn run_webapp_subcommand(
         port = port,
         "Launching path review webapp in standalone mode"
     );
-    run_webapp_standalone(&network, path, output_path, gnss, port, open_browser)
+    run_webapp_standalone(&network, path, output_path, gnss, Vec::new(), port, open_browser)
         .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?;
 
     Ok(())

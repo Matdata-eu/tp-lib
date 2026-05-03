@@ -63,7 +63,7 @@
     netGeometries = new Map();
     if (!networkData || !networkData.features) return;
     for (const feature of networkData.features) {
-      const id = feature.properties && feature.properties.id;
+      const id = feature.properties && feature.properties.netelement_id;
       const coords = feature.geometry && feature.geometry.coordinates;
       if (!id || !Array.isArray(coords)) continue;
       // GeoJSON: coords are [lon, lat]; Leaflet wants [lat, lon].
