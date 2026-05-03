@@ -5,84 +5,88 @@
 
 This walkthrough exercises every user story (US1, US2, US3) end-to-end against a small example.
 
+All commands assume the working directory is the workspace root (`tp-lib/`). The CLI binary
+package name is `tp-lib-cli`; the `calculate-path` subcommand performs path calculation
+without coordinate projection.
+
 ---
 
 ## Prerequisites
 
 - Built workspace: `cargo build --workspace`
-- Sample fixtures (suggested locations under `test-data/`):
-  - `test-data/sample_gnss.geojson` — GNSS observations (existing)
-  - `test-data/sample_network.geojson` — railway network (existing)
-  - `test-data/sample_detections_punctual.csv` — to be added in Phase 2
-  - `test-data/sample_detections_linear.geojson` — to be added in Phase 2
+- Sample fixtures shipped under `test-data/`:
+  - [test-data/sample_gnss.geojson](../../test-data/sample_gnss.geojson) — 3 GNSS observations at `2024-01-15T10:30:00..10+01:00`
+  - [test-data/sample_network.geojson](../../test-data/sample_network.geojson) — `NE001`, `NE002` (LineStrings)
+  - [test-data/sample_detections_punctual.csv](../../test-data/sample_detections_punctual.csv) — punctual detection on `NE001` at `10:30:05+01:00`
+  - [test-data/sample_detections_linear.geojson](../../test-data/sample_detections_linear.geojson) — linear detection on `NE001` from `10:30:00` to `10:30:10+01:00`
 
 ---
 
 ## Example 1 — Punctual detection on known netelement (US1)
 
-`test-data/sample_detections_punctual.csv`:
+[test-data/sample_detections_punctual.csv](../../test-data/sample_detections_punctual.csv):
 
 ```csv
 timestamp,netelement_id,intrinsic,id,source
-2026-05-01T08:15:30+02:00,NE-12345,0.5,beacon-7,BTM-A1
+2024-01-15T10:30:05+01:00,NE001,0.5,beacon-7,BTM-A1
 ```
 
 Run:
 
 ```powershell
-cargo run -p tp-cli -- calculate `
+cargo run -p tp-lib-cli -- calculate-path `
   --gnss test-data/sample_gnss.geojson `
   --network test-data/sample_network.geojson `
-  --punctual-detections test-data/sample_detections_punctual.csv
+  --punctual-detections test-data/sample_detections_punctual.csv `
+  -o target/tmp/path1.json -v
 ```
 
-Expected stderr summary:
+Expected stderr summary line:
 
 ```
 detections: 1 applied, 0 discarded
 ```
 
-Expected behaviour: at the GNSS index whose timestamp is closest to `08:15:30+02:00`, the Viterbi candidate set is forced to `NE-12345`. The resulting `TrainPath` includes `NE-12345` in its `associated_net_elements` chain.
+Expected behaviour: at the GNSS index whose timestamp is closest to `10:30:05+01:00`, the Viterbi candidate set is forced to `NE001`. The resulting train path includes `NE001` in its segment chain.
 
 ---
 
 ## Example 2 — Punctual detection by coordinate (US2)
 
-`test-data/sample_detections_punctual_coord.geojson`:
-
-```json
-{
-  "type": "FeatureCollection",
-  "features": [{
-    "type": "Feature",
-    "geometry": { "type": "Point", "coordinates": [4.34878, 50.85045] },
-    "properties": {
-      "kind": "punctual",
-      "timestamp": "2026-05-01T08:17:00+02:00",
-      "id": "gnss-fix-99",
-      "source": "external"
-    }
-  }]
-}
-```
-
-Run with a non-default detection cutoff:
+A coordinate-only punctual detection (GeoJSON Point geometry, no `netelement_id` property)
+is resolved to the nearest netelement within `--cutoff-distance-detections` (meters,
+default `2.5`). If the perpendicular projection distance exceeds the cutoff, the
+detection is discarded with reason `out_of_reach` and reported in the summary.
 
 ```powershell
-cargo run -p tp-cli -- calculate `
+# Example fixture (not committed): test-data/sample_detections_punctual_coord.geojson
+# {
+#   "type": "FeatureCollection",
+#   "features": [{
+#     "type": "Feature",
+#     "geometry": { "type": "Point", "coordinates": [4.3520, 50.8505] },
+#     "properties": {
+#       "kind": "punctual",
+#       "timestamp": "2024-01-15T10:30:05+01:00",
+#       "id": "gnss-fix-99",
+#       "source": "external"
+#     }
+#   }]
+# }
+
+cargo run -p tp-lib-cli -- calculate-path `
   --gnss test-data/sample_gnss.geojson `
   --network test-data/sample_network.geojson `
   --punctual-detections test-data/sample_detections_punctual_coord.geojson `
-  --cutoff-distance-detections 5.0
+  --cutoff-distance-detections 5.0 `
+  -o target/tmp/path2_coord.json -v
 ```
-
-Expected: the point is projected onto the nearest netelement; if perpendicular distance ≤ 5.0 m, anchor is applied. Otherwise the detection is discarded with `out_of_reach` and reported in the summary.
 
 ---
 
 ## Example 3 — Linear detection (US3)
 
-`test-data/sample_detections_linear.geojson`:
+[test-data/sample_detections_linear.geojson](../../test-data/sample_detections_linear.geojson):
 
 ```json
 {
@@ -92,9 +96,9 @@ Expected: the point is projected onto the nearest netelement; if perpendicular d
     "geometry": null,
     "properties": {
       "kind": "linear",
-      "t_from": "2026-05-01T08:18:00+02:00",
-      "t_to":   "2026-05-01T08:19:00+02:00",
-      "netelement_id": "NE-9002",
+      "t_from": "2024-01-15T10:30:00+01:00",
+      "t_to":   "2024-01-15T10:30:10+01:00",
+      "netelement_id": "NE001",
       "id": "bsec-7",
       "source": "block-section-B7"
     }
@@ -105,36 +109,56 @@ Expected: the point is projected onto the nearest netelement; if perpendicular d
 Run:
 
 ```powershell
-cargo run -p tp-cli -- calculate `
+cargo run -p tp-lib-cli -- calculate-path `
   --gnss test-data/sample_gnss.geojson `
   --network test-data/sample_network.geojson `
-  --linear-detections test-data/sample_detections_linear.geojson
+  --linear-detections test-data/sample_detections_linear.geojson `
+  -o target/tmp/path2.json -v
 ```
 
-Expected: every GNSS observation whose timestamp ∈ `[08:18:00, 08:19:00]` has its candidate set restricted to `NE-9002`. The path crosses `NE-9002` for the duration of the window.
+Expected stderr summary:
+
+```
+detections: 1 applied, 0 discarded
+```
+
+Expected behaviour: every GNSS observation whose timestamp ∈ `[10:30:00, 10:30:10]` has its candidate set restricted to `NE001`. The path follows `NE001` for the duration of the window.
 
 ---
 
 ## Combined run (all three stories)
 
 ```powershell
-cargo run -p tp-cli -- calculate `
+cargo run -p tp-lib-cli -- calculate-path `
   --gnss test-data/sample_gnss.geojson `
   --network test-data/sample_network.geojson `
   --punctual-detections test-data/sample_detections_punctual.csv `
   --linear-detections test-data/sample_detections_linear.geojson `
   --cutoff-distance-detections 2.5 `
-  --json-output test-data/run.json
+  -o target/tmp/path3.json -v
 ```
 
-Inspect provenance:
+Expected stderr summary:
+
+```
+detections: 2 applied, 0 discarded
+```
+
+Inspect the resulting train path GeoJSON (one feature per path segment with
+`netelement_id`, `start_intrinsic`, `end_intrinsic`, `gnss_start_index`,
+`gnss_end_index`, `probability`):
 
 ```powershell
-Get-Content test-data/run.json |
+Get-Content target/tmp/path3.json |
   ConvertFrom-Json |
-  Select-Object -ExpandProperty detection_provenance |
-  Format-Table id, kind, status
+  Select-Object -ExpandProperty features |
+  ForEach-Object { $_.properties } |
+  Format-Table netelement_id, start_intrinsic, end_intrinsic, probability
 ```
+
+> **Note**: `PathResult.detection_provenance` is populated in memory during pipeline
+> execution but is not yet serialized into the GeoJSON path file. Provenance
+> inspection is currently available via the library API or the webapp review.
 
 ---
 

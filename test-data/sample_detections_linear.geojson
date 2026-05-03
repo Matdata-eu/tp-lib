@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "kind": "linear",
+        "t_from": "2024-01-15T10:30:00+01:00",
+        "t_to": "2024-01-15T10:30:10+01:00",
+        "netelement_id": "NE001",
+        "id": "track-circuit-99",
+        "source": "block-section-B7"
+      }
+    }
+  ]
+}

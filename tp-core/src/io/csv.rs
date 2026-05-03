@@ -538,3 +538,5 @@ pub fn parse_trainpath_csv(path: &str) -> Result<TrainPath, ProjectionError> {
 
 #[cfg(test)]
 mod tests;
+
+pub mod detections;

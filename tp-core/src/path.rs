@@ -38,7 +38,7 @@
 //! ```
 
 use crate::errors::ProjectionError;
-use crate::models::TrainPath;
+use crate::models::{DetectionRecord, ResolvedAnchor, TrainPath};
 use serde::{Deserialize, Serialize};
 
 /// Path calculation mode indicating which algorithm was used
@@ -75,6 +75,12 @@ pub struct PathResult {
     /// Debug information collected during calculation (only populated when debug_mode=true)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub debug_info: Option<DebugInfo>,
+
+    /// Detection provenance records (Feature 004): per-detection status
+    /// (`Applied`, `Resolved`, `Discarded`) emitted by the detection pipeline.
+    /// Empty when no detections were supplied.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub detection_provenance: Vec<DetectionRecord>,
 }
 
 impl PathResult {
@@ -91,6 +97,7 @@ impl PathResult {
             projected_positions,
             warnings,
             debug_info: None,
+            detection_provenance: Vec::new(),
         }
     }
 
@@ -108,6 +115,7 @@ impl PathResult {
             projected_positions,
             warnings,
             debug_info: Some(debug_info),
+            detection_provenance: Vec::new(),
         }
     }
 
@@ -403,6 +411,23 @@ pub struct PathConfig {
     /// The penalty factor is exp(-turn_angle / turn_scale).
     /// Lower values penalise turns more aggressively.
     pub turn_scale: f64,
+
+    /// Resolved detection anchors injected as Viterbi constraints (Feature 004).
+    /// Each entry pins one or more GNSS indices to a specific netelement / intrinsic.
+    /// Defaults to empty (no detection-based anchoring).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub anchors: Vec<ResolvedAnchor>,
+
+    /// Maximum distance (meters) used to resolve coordinate-only punctual
+    /// detections to their nearest netelement (Feature 004, FR-009).
+    /// Detections farther than this distance are discarded with
+    /// `DiscardReason::OutOfReach`.
+    #[serde(default = "default_detection_cutoff_distance")]
+    pub detection_cutoff_distance: f64,
+}
+
+fn default_detection_cutoff_distance() -> f64 {
+    2.5
 }
 
 impl PathConfig {
@@ -435,6 +460,8 @@ impl PathConfig {
             beta,
             edge_zone_distance,
             turn_scale,
+            anchors: Vec::new(),
+            detection_cutoff_distance: default_detection_cutoff_distance(),
         };
 
         config.validate()?;
@@ -505,6 +532,12 @@ impl PathConfig {
             ));
         }
 
+        if self.detection_cutoff_distance <= 0.0 {
+            return Err(ProjectionError::InvalidGeometry(
+                "detection_cutoff_distance must be positive".to_string(),
+            ));
+        }
+
         Ok(())
     }
 
@@ -544,6 +577,8 @@ impl Default for PathConfig {
             beta: 50.0,
             edge_zone_distance: 50.0,
             turn_scale: 30.0,
+            anchors: Vec::new(),
+            detection_cutoff_distance: 2.5,
         }
     }
 }
@@ -582,6 +617,8 @@ pub struct PathConfigBuilder {
     beta: f64,
     edge_zone_distance: f64,
     turn_scale: f64,
+    anchors: Vec<ResolvedAnchor>,
+    detection_cutoff_distance: f64,
 }
 
 impl Default for PathConfigBuilder {
@@ -600,6 +637,8 @@ impl Default for PathConfigBuilder {
             beta: defaults.beta,
             edge_zone_distance: defaults.edge_zone_distance,
             turn_scale: defaults.turn_scale,
+            anchors: defaults.anchors,
+            detection_cutoff_distance: defaults.detection_cutoff_distance,
         }
     }
 }
@@ -677,9 +716,21 @@ impl PathConfigBuilder {
         self
     }
 
+    /// Set detection anchors injected into the Viterbi path (Feature 004).
+    pub fn anchors(mut self, value: Vec<ResolvedAnchor>) -> Self {
+        self.anchors = value;
+        self
+    }
+
+    /// Set detection cutoff distance (meters) for coordinate-only resolution.
+    pub fn detection_cutoff_distance(mut self, value: f64) -> Self {
+        self.detection_cutoff_distance = value;
+        self
+    }
+
     /// Build and validate the PathConfig
     pub fn build(self) -> Result<PathConfig, ProjectionError> {
-        PathConfig::new(
+        let mut config = PathConfig::new(
             self.distance_scale,
             self.heading_scale,
             self.cutoff_distance,
@@ -692,7 +743,11 @@ impl PathConfigBuilder {
             self.beta,
             self.edge_zone_distance,
             self.turn_scale,
-        )
+        )?;
+        config.anchors = self.anchors;
+        config.detection_cutoff_distance = self.detection_cutoff_distance;
+        config.validate()?;
+        Ok(config)
     }
 }
 
@@ -992,6 +1047,25 @@ pub fn calculate_train_path(
                 .collect()
         })
         .collect();
+
+    // Detection anchor injection (T019): override candidates / emissions at
+    // every anchored GNSS step so the Viterbi pass is forced through the
+    // anchored netelement(s).
+    let mut position_candidates = position_candidates;
+    let mut emission_probs = emission_probs;
+    if !config.anchors.is_empty() {
+        crate::detections::anchor::apply_anchors(
+            &config.anchors,
+            &mut position_candidates,
+            &mut emission_probs,
+            netelements,
+            &netelement_index,
+            None,
+        )
+        .map_err(|e| ProjectionError::PathCalculationFailed {
+            reason: format!("anchor injection failed: {}", e),
+        })?;
+    }
 
     // Build topology graph with distance-weighted edges.
     let (topo_graph, node_map) =

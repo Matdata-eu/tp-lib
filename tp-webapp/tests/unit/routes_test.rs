@@ -69,6 +69,7 @@ fn standalone_state() -> WebAppState {
         mode: AppMode::Standalone,
         output_path: None,
         confirm_tx: None,
+        detection_provenance: Vec::new(),
     }
 }
 
@@ -80,6 +81,7 @@ fn integrated_state(tx: oneshot::Sender<ConfirmResult>) -> WebAppState {
         mode: AppMode::Integrated,
         output_path: None,
         confirm_tx: Some(tx),
+        detection_provenance: Vec::new(),
     }
 }
 
@@ -392,6 +394,7 @@ async fn test_post_confirm_409_when_tx_already_consumed() {
     let state = WebAppState {
         mode: AppMode::Integrated,
         confirm_tx: None,
+        detection_provenance: Vec::new(),
         ..standalone_state()
     };
     let (base, _h) = start_server(state).await;
@@ -437,6 +440,7 @@ async fn test_post_abort_409_already_handled_when_tx_consumed() {
     let state = WebAppState {
         mode: AppMode::Integrated,
         confirm_tx: None,
+        detection_provenance: Vec::new(),
         ..standalone_state()
     };
     let (base, _h) = start_server(state).await;

@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [4.3520, 50.8505] },
+      "properties": {
+        "kind": "punctual",
+        "timestamp": "2024-01-15T10:30:05+01:00",
+        "id": "balise-123",
+        "source": "external"
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 use tokio::sync::oneshot;
-use tp_lib_core::{GnssPosition, RailwayNetwork, TrainPath};
+use tp_lib_core::{DetectionRecord, GnssPosition, RailwayNetwork, TrainPath};
 
 /// Signals whether the user confirmed or aborted the integrated review.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,4 +39,8 @@ pub struct WebAppState {
     /// One-shot sender used to unblock `run_webapp_integrated` (integrated mode only).
     /// Taken (set to `None`) when the first confirm/abort request arrives.
     pub confirm_tx: Option<oneshot::Sender<ConfirmResult>>,
+
+    /// Detection provenance records loaded from the source `PathResult` (US4).
+    /// Empty when the path was computed without detection inputs.
+    pub detection_provenance: Vec<DetectionRecord>,
 }

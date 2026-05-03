@@ -283,3 +283,33 @@ body.dark .leaflet-bar a {
 body.dark .leaflet-bar a:hover {
   background: #374151;
 }
+
+/* Detection details panel (T037, US4) */
+#detection-details {
+  margin-top: 12px;
+  padding: 8px;
+  border: 1px solid var(--text-muted);
+  border-radius: 4px;
+  font-size: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.detection-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+.detection-details-table th {
+  text-align: left;
+  font-weight: 600;
+  padding: 2px 6px 2px 0;
+  vertical-align: top;
+  width: 40%;
+}
+
+.detection-details-table td {
+  padding: 2px 0;
+  word-break: break-all;
+}

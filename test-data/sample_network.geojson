@@ -23,7 +23,7 @@
                 ]
             },
             "properties": {
-                "netelement_id": "NE001",
+                "id": "NE001",
                 "track_name": "Track 1",
                 "line_name": "Brussels-Antwerp"
             }
@@ -44,7 +44,7 @@
                 ]
             },
             "properties": {
-                "netelement_id": "NE002",
+                "id": "NE002",
                 "track_name": "Track 2",
                 "line_name": "Brussels-Antwerp"
             }

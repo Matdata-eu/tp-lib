@@ -46,3 +46,7 @@ harness = false
 [[bench]]
 name = "path_calculation_bench"
 harness = false
+
+[[bench]]
+name = "detections_overhead"
+harness = false

@@ -1,6 +1,8 @@
 //! Data models for GNSS positioning and railway network
 
 pub mod associated_net_element;
+pub mod detection;
+pub mod detection_record;
 pub mod gnss;
 pub mod gnss_net_element_link;
 pub mod netelement;
@@ -11,6 +13,13 @@ pub mod projected_position;
 pub mod train_path;
 
 pub use associated_net_element::AssociatedNetElement;
+pub use detection::{
+    Detection, GeographicLocation, LinearDetection, PunctualDetection, ResolvedAnchor,
+    TopologicalLocation,
+};
+pub use detection_record::{
+    DetectionKind, DetectionRecord, DetectionStatus, DiscardReason, TimestampOrRange,
+};
 pub use gnss::GnssPosition;
 pub use gnss_net_element_link::GnssNetElementLink;
 pub use netelement::Netelement;

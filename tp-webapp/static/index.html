@@ -49,7 +49,12 @@
         <input type="checkbox" id="darkmode-toggle">
         <span>Dark mode</span>
       </label>
+      <label class="map-control-row">
+        <input type="checkbox" id="detections-toggle" checked>
+        <span>Detections</span>
+      </label>
     </div>
+    <div id="detection-details" class="hidden"></div>
     <div id="segment-list-container">
       <h3>Path Segments</h3>
       <ul id="segment-list"></ul>
@@ -57,6 +62,7 @@
   </div>
 
   <script src="/leaflet/leaflet.js"></script>
+  <script src="/detections.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

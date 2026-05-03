@@ -958,3 +958,5 @@ pub fn write_trainpath_geojson(
 
 #[cfg(test)]
 mod tests;
+
+pub mod detections;

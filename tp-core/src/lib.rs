@@ -40,6 +40,7 @@
 //! - **Multiple Formats**: CSV and GeoJSON input/output support
 
 pub mod crs;
+pub mod detections;
 pub mod errors;
 pub mod io;
 pub mod models;
@@ -57,7 +58,11 @@ pub use io::{
 pub use models::{
     AssociatedNetElement, GnssNetElementLink, GnssPosition, NetRelation, Netelement,
     PathDiagnosticInfo, PathMetadata, PathOrigin, ProjectedPosition, SegmentDiagnostic, TrainPath,
+    // Feature 004: detections
+    Detection, DetectionKind, DetectionRecord, DetectionStatus, DiscardReason,
+    GeographicLocation, LinearDetection, PunctualDetection, ResolvedAnchor, TimestampOrRange,
 };
+pub use detections::{prepare_detections, prepare_detections_from_loaded, DetectionError, PreparedDetections};
 pub use path::{
     calculate_mean_spacing,
     calculate_train_path,

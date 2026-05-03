@@ -102,6 +102,7 @@ pub fn run_webapp_standalone(
             mode: AppMode::Standalone,
             output_path,
             confirm_tx: None,
+            detection_provenance: Vec::new(),
         }));
 
         let router = build_router(state);
@@ -161,6 +162,7 @@ pub fn run_webapp_integrated(
             mode: AppMode::Integrated,
             output_path: None,
             confirm_tx: Some(confirm_tx),
+            detection_provenance: Vec::new(),
         }));
 
         let router = build_router(state.clone());
