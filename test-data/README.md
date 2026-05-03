@@ -63,6 +63,11 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Original path calculation](#original-path-calculation)
       - [Path review process](#path-review-process)
       - [Path projection](#path-projection-12)
+  - [Path with train detections](#path-with-train-detections)
+    - [L36-A → L36C-A → L25N-B – log\_28573-detections](#l36-a--l36c-a--l25n-b--log_28573-detections)
+      - [Original path calculation](#original-path-calculation-1)
+      - [Adding train detections](#adding-train-detections)
+      - [Reviewing train detections](#reviewing-train-detections)
 
 Root folder for release exe: `target/release/`
 
@@ -645,7 +650,7 @@ Expected result, again showing the need to also perform longitudinal post proces
 
 Log file ID: 28573
 
-We are going to test the new path-review feature on this test-data set. As explained before, this is a very difficult GNSS sequence. Train start on L36 track A from Brussels to Leuven, goes thorugh the airport and exists towards Brussels again.
+We are going to test the new path-review feature on this test-data set. As explained before, this is a very difficult GNSS sequence. Train start on L36 track A from Brussels to Leuven, goes through the airport and exists towards Brussels again.
 
 This is the path
 
@@ -679,5 +684,57 @@ The resulting path can be presented in a GIS application:
 The result:
 
 ![L36-A to L36C-A to L25N-B (log_28573) - Reviewed path projection](log_28573-path-review/log_28586_L36-A_to_L36C-A_to_L25N-B-path-reviewed-projection.png)
+
+---
+
+## Path with train detections
+
+### L36-A → L36C-A → L25N-B – log_28573-detections
+
+Log file ID: 28573
+
+We are going to test the new train detections feature on this test-data set. As explained before, this is a very difficult GNSS sequence. Train start on L36 track A from Brussels to Leuven, goes through the airport and exists towards Brussels again.
+
+This is the original gnss trace:
+
+![L36-A to L36C-A to L25N-B (log_28573) - Raw](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-raw.png)
+
+#### Original path calculation
+
+The original path:
+
+![L36-A to L36C-A to L25N-B (log_28573) - Path calculation](log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B-path.png)
+
+#### Adding train detections
+
+We add a file with a sample detection:
+
+```csv
+timestamp,netelement_id,intrinsic,id,source
+2022-01-14T10:50:02+00:00,88_L_5977,0.5,beacon-7,BTM-A1
+```
+
+After executing the command:
+
+```bash
+target/release/tp-cli.exe calculate-path --crs EPSG:4326 --gnss test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --network test-data/network_airport.geojson -o test-data/log_28573-detections/log_28573_L36-A_to_L36C-A_to_L25N-B-path-calculation-with-detection.geojson --punctual-detections test-data/log_28573-detections/sample-detections.csv
+```
+
+The resultign trainpath:
+
+![L36-A to L36C-A to L25N-B (log_28573) - Path with detection](log_28573-detections/log_28586_L36-A_to_L36C-A_to_L25N-B-path-after-detection.png)
+
+
+#### Reviewing train detections
+
+After executing the command (notice the additional `--review` flag):
+
+```bash
+target/release/tp-cli.exe calculate-path --crs EPSG:4326 --gnss test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --network test-data/network_airport.geojson -o test-data/log_28573-detections/log_28573_L36-A_to_L36C-A_to_L25N-B-path-calculation-with-detection.geojson --punctual-detections test-data/log_28573-detections/sample-detections.csv --review
+```
+
+A browser window will open and allow the user to modify the calculated train path and see the train detections:
+
+![L36-A to L36C-A to L25N-B (log_28573) - Path review with detection](log_28573-detections/log_28586_L36-A_to_L36C-A_to_L25N-B-path-review.png)
 
 ---
