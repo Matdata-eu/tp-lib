@@ -26,7 +26,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          cargo llvm-cov --lib -p tp-lib-core \
+          cargo llvm-cov -p tp-lib-core --tests \
             --lcov --output-path lcov.info
 
       - name: Upload coverage to Codecov
@@ -42,7 +42,7 @@ jobs:
       - name: Generate HTML report (for artifacts)
         if: always()
         run: |
-          cargo llvm-cov --lib -p tp-lib-core \
+          cargo llvm-cov -p tp-lib-core --tests \
             --html --output-dir coverage-report
 
       - name: Upload HTML report as artifact
