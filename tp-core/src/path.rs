@@ -1424,7 +1424,7 @@ fn build_original_to_working_index_map(
     original_len: usize,
 ) -> Vec<usize> {
     if selected_original_indices.is_empty() {
-        return Vec::new();
+        return vec![0; original_len];
     }
 
     let mut out = vec![0; original_len];

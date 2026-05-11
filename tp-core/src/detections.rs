@@ -93,7 +93,13 @@ pub fn prepare_detections_from_loaded(
             records.push(rec);
         }
     }
-    records.extend(by_key.into_values());
+    let mut leftovers: Vec<DetectionRecord> = by_key.into_values().collect();
+    leftovers.sort_by(|a, b| {
+        a.source_file
+            .cmp(&b.source_file)
+            .then(a.source_row.cmp(&b.source_row))
+    });
+    records.extend(leftovers);
 
     let kept_lookup: HashMap<(String, usize), usize> = kept_keys
         .into_iter()
