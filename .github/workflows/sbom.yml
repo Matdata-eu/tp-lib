@@ -27,6 +27,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Generate Cargo.lock
+        run: cargo generate-lockfile
+
       - name: Install compliance-assistant
         run: pip install compliance-assistant
 
@@ -34,6 +37,7 @@ jobs:
         run: compliance-assistant sbom generate -g syft -d . -o ${{ runner.temp }}/sbom-raw.json
         env:
           SYFT_EXCLUDE: "./target,./.venv,./.git,./.github"
+          SYFT_SOURCE_NAME: tp-lib
 
       - name: Store raw SBOM as artifact
         uses: actions/upload-artifact@v4
