@@ -1,0 +1,77 @@
+name: Generate and enrich SBOM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sbom-generate:
+    name: Generate SBOM with syft
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - run: mkdir -p ~/.local/bin
+
+      - name: Install syft
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b ~/.local/bin
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install compliance-assistant
+        run: pip install compliance-assistant
+
+      - name: Generate SBOM with syft
+        run: compliance-assistant sbom generate -g syft -d . -o ${{ runner.temp }}/sbom-raw.json
+        env:
+          SYFT_EXCLUDE: "./target,./.venv,./.git"
+
+      - name: Store raw SBOM as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-raw
+          path: ${{ runner.temp }}/sbom-raw.json
+
+  sbom-enrich:
+    name: Enrich SBOM and list licenses
+    runs-on: ubuntu-24.04
+    needs: sbom-generate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install compliance-assistant
+        run: pip install compliance-assistant
+
+      - name: Download raw SBOM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-raw
+          path: ${{ runner.temp }}
+
+      - name: Enrich SBOM
+        run: compliance-assistant sbom enrich -f ${{ runner.temp }}/sbom-raw.json -o ${{ runner.temp }}/sbom-enriched.json
+
+      - name: List licenses from enriched SBOM
+        run: compliance-assistant licensing list -f ${{ runner.temp }}/sbom-enriched.json -o plain
+
+      - name: Store enriched SBOM as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-enriched
+          path: ${{ runner.temp }}/sbom-enriched.json
