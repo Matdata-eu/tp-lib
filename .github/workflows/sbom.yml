@@ -33,7 +33,7 @@ jobs:
       - name: Generate SBOM with syft
         run: compliance-assistant sbom generate -g syft -d . -o ${{ runner.temp }}/sbom-raw.json
         env:
-          SYFT_EXCLUDE: "./target,./.venv,./.git"
+          SYFT_EXCLUDE: "./target,./.venv,./.git,./.github"
 
       - name: Store raw SBOM as artifact
         uses: actions/upload-artifact@v4
