@@ -89,10 +89,38 @@ Required columns:
 from typing import List, Optional
 
 # Import Rust extension module
-from .tp_lib import project_gnss as _project_gnss, ProjectionConfig, ProjectedPosition
+from .tp_lib import (
+    # Spec 001: GNSS projection
+    project_gnss as _project_gnss,
+    ProjectionConfig,
+    ProjectedPosition,
+    # Spec 002: path calculation
+    calculate_train_path as _calculate_train_path,
+    PathConfig,
+    PathResult,
+    TrainPath,
+    AssociatedNetElement,
+    # Spec 004: detections
+    prepare_detections as _prepare_detections,
+    PreparedDetections,
+)
 
 # Re-export for cleaner API
-__all__ = ["project_gnss", "ProjectionConfig", "ProjectedPosition"]
+__all__ = [
+    # Spec 001
+    "project_gnss",
+    "ProjectionConfig",
+    "ProjectedPosition",
+    # Spec 002
+    "calculate_train_path",
+    "PathConfig",
+    "PathResult",
+    "TrainPath",
+    "AssociatedNetElement",
+    # Spec 004
+    "prepare_detections",
+    "PreparedDetections",
+]
 
 
 def project_gnss(
@@ -149,4 +177,77 @@ def project_gnss(
         network_crs=network_crs,
         target_crs=target_crs,
         config=config,
+    )
+
+
+def calculate_train_path(
+    gnss_file: str,
+    gnss_crs: str,
+    network_file: str,
+    config: Optional[PathConfig] = None,
+    detections: Optional[PreparedDetections] = None,
+) -> PathResult:
+    """
+    Calculate the most probable train path through the railway network.
+
+    Uses a Hidden Markov Model (Viterbi algorithm) to find the most likely sequence of
+    network elements given the GNSS trace. Optionally anchored by prepared detections.
+
+    Args:
+        gnss_file: Path to CSV file with GNSS positions (columns: latitude, longitude, timestamp).
+        gnss_crs: CRS of input GNSS coordinates (e.g., "EPSG:4326").
+        network_file: Path to GeoJSON file with netelements and netrelations.
+        config: Optional PathConfig with HMM tuning parameters (uses defaults if None).
+        detections: Optional PreparedDetections to anchor path calculation.
+
+    Returns:
+        PathResult with attributes ``path``, ``mode``, ``projected_positions``, ``warnings``,
+        and method ``detection_provenance()``.
+
+    Raises:
+        ValueError: Invalid CRS, geometry, or configuration values.
+        IOError: File reading errors.
+        RuntimeError: Path calculation failures.
+    """
+    return _calculate_train_path(
+        gnss_file=gnss_file,
+        gnss_crs=gnss_crs,
+        network_file=network_file,
+        config=config,
+        detections=detections,
+    )
+
+
+def prepare_detections(
+    detections_file: str,
+    kind: str,
+    gnss_file: str,
+    gnss_crs: str,
+    network_file: str,
+    cutoff_distance: float = 2.5,
+) -> PreparedDetections:
+    """
+    Load, validate, time-filter, and resolve train detections from a file.
+
+    Produces a :class:`PreparedDetections` containing resolved anchors ready to inject
+    into :func:`calculate_train_path` plus per-detection provenance records.
+
+    Args:
+        detections_file: Path to CSV or GeoJSON detections file.
+        kind: ``"punctual"`` or ``"linear"``.
+        gnss_file: Path to GNSS CSV file (columns: latitude, longitude, timestamp).
+        gnss_crs: CRS of GNSS coordinates (e.g., "EPSG:4326").
+        network_file: Path to network GeoJSON file.
+        cutoff_distance: Max distance (meters) for coordinate-only resolution. Default 2.5.
+
+    Returns:
+        PreparedDetections with ``anchor_count``, ``warnings``, and ``records()``.
+    """
+    return _prepare_detections(
+        detections_file=detections_file,
+        kind=kind,
+        gnss_file=gnss_file,
+        gnss_crs=gnss_crs,
+        network_file=network_file,
+        cutoff_distance=cutoff_distance,
     )
