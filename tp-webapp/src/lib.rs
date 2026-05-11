@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
-use tp_lib_core::{GnssPosition, RailwayNetwork, TrainPath};
+use tp_lib_core::{DetectionRecord, GnssPosition, RailwayNetwork, TrainPath};
 
 use crate::server::bind_port;
 use crate::server::build_router;
@@ -64,6 +64,7 @@ const DEFAULT_PORTS: std::ops::RangeInclusive<u16> = 8765..=8774;
 /// - `path` – initial train path to display and edit
 /// - `output_path` – target CSV file for saves; a timestamped default is used when `None`
 /// - `gnss` – optional GNSS positions shown as map overlay
+/// - `detection_provenance` – per-record provenance produced by the pipeline; surfaced via `GET /api/detections`
 /// - `port` – preferred starting port; falls back to the default range when 0 or unavailable
 /// - `open_browser` – if `true`, open the default browser automatically after binding
 pub fn run_webapp_standalone(
@@ -71,6 +72,7 @@ pub fn run_webapp_standalone(
     path: TrainPath,
     output_path: Option<PathBuf>,
     gnss: Option<Vec<GnssPosition>>,
+    detection_provenance: Vec<DetectionRecord>,
     port: u16,
     open_browser: bool,
 ) -> Result<(), WebAppError> {
@@ -102,6 +104,7 @@ pub fn run_webapp_standalone(
             mode: AppMode::Standalone,
             output_path,
             confirm_tx: None,
+            detection_provenance,
         }));
 
         let router = build_router(state);
@@ -122,12 +125,14 @@ pub fn run_webapp_standalone(
 /// - `network` – loaded railway network (read-only after startup)
 /// - `path` – initial train path from the pipeline's path calculation step
 /// - `gnss` – GNSS positions from the pipeline (shown as map overlay under US2 AS-2)
+/// - `detection_provenance` – per-record provenance produced by the pipeline; surfaced via `GET /api/detections`
 /// - `port` – preferred starting port; falls back to the default range when 0 or unavailable
 /// - `open_browser` – if `true`, open the default browser automatically after binding
 pub fn run_webapp_integrated(
     network: &RailwayNetwork,
     path: TrainPath,
     gnss: Option<Vec<GnssPosition>>,
+    detection_provenance: Vec<DetectionRecord>,
     port: u16,
     open_browser: bool,
 ) -> Result<(ConfirmResult, TrainPath), WebAppError> {
@@ -161,6 +166,7 @@ pub fn run_webapp_integrated(
             mode: AppMode::Integrated,
             output_path: None,
             confirm_tx: Some(confirm_tx),
+            detection_provenance,
         }));
 
         let router = build_router(state.clone());

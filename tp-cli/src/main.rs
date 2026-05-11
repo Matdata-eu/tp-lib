@@ -137,6 +137,35 @@ struct Cli {
     #[arg(long = "quiet", global = true)]
     quiet: bool,
 
+    /// Path to a punctual detections file (CSV or GeoJSON). Detections are
+    /// applied as anchors during path calculation (Feature 004).
+    #[arg(
+        long = "punctual-detections",
+        value_name = "FILE",
+        global = true
+    )]
+    punctual_detections: Option<String>,
+
+    /// Path to a linear detections file (CSV or GeoJSON). Detections are applied as
+    /// linear anchors during path calculation (Feature 004 US2).
+    #[arg(
+        long = "linear-detections",
+        value_name = "FILE",
+        global = true
+    )]
+    linear_detections: Option<String>,
+
+    /// Maximum cutoff distance (meters) for resolving coordinate-only
+    /// punctual detections to a netelement.
+    #[arg(
+        long = "cutoff-distance-detections",
+        alias = "detection-cutoff",
+        value_name = "METERS",
+        default_value = "2.5",
+        global = true
+    )]
+    detection_cutoff: f64,
+
     // Legacy argument for backward compatibility
     /// [DEPRECATED] Path to GNSS input file - use --gnss instead
     #[arg(long = "gnss-file", value_name = "FILE", hide = true)]
@@ -349,6 +378,9 @@ fn main() {
                 &lat_col,
                 &lon_col,
                 &time_col,
+                cli.punctual_detections.as_deref(),
+                cli.linear_detections.as_deref(),
+                cli.detection_cutoff,
             )
         }
         Some(Commands::SimpleProjection {
@@ -458,6 +490,9 @@ fn main() {
                         false
                     }
                 },
+                cli.punctual_detections.as_deref(),
+                cli.linear_detections.as_deref(),
+                cli.detection_cutoff,
             )
         }
     };
@@ -570,6 +605,9 @@ fn run_default_command(
     lon_col: &str,
     time_col: &str,
     review: bool,
+    punctual_detections: Option<&str>,
+    linear_detections: Option<&str>,
+    detection_cutoff: f64,
 ) -> Result<(), PipelineError> {
     // Suppress unused warning when webapp feature is disabled
     #[cfg(not(feature = "webapp"))]
@@ -604,12 +642,22 @@ fn run_default_command(
     );
 
     // Get or calculate train path
+    let mut detection_provenance: Vec<tp_lib_core::DetectionRecord> = Vec::new();
     let mut train_path = if let Some(path_file) = train_path_file {
         // Use pre-calculated path
         tracing::info!(path_file = %path_file, "Loading pre-calculated train path");
         load_train_path(path_file)
             .map_err(|e| PipelineError::Io(format!("Failed to load train path: {}", e)))?
     } else {
+        // Prepare detection anchors (Feature 004).
+        let prepared_detections = prepare_detection_anchors(
+            punctual_detections,
+            linear_detections,
+            &gnss_positions,
+            &netelements,
+            detection_cutoff,
+        )?;
+
         // Calculate path
         let path_config = build_path_config(
             distance_scale,
@@ -620,10 +668,15 @@ fn run_default_command(
             max_candidates,
             resampling_distance,
             debug,
+            prepared_detections
+                .as_ref()
+                .map(|p| p.anchors.clone())
+                .unwrap_or_default(),
+            detection_cutoff,
         )?;
 
         tracing::info!("Calculating train path");
-        let result =
+        let mut result =
             calculate_train_path(&gnss_positions, &netelements, &netrelations, &path_config)
                 .map_err(|e| {
                     PipelineError::Processing(format!("Path calculation failed: {}", e))
@@ -635,6 +688,16 @@ fn run_default_command(
             export_all_debug_info(debug_info, &debug_dir)
                 .map_err(|e| PipelineError::Io(format!("Failed to write debug files: {}", e)))?;
             tracing::info!(debug_dir = %debug_dir, "Debug GeoJSON files written");
+        }
+
+        // Attach detection provenance and emit summary line (FR-017, FR-020).
+        if let Some(prepared) = prepared_detections {
+            emit_detection_summary(&prepared.records);
+            for w in &prepared.warnings {
+                tracing::warn!(warning = %w, "detection warning");
+            }
+            result.detection_provenance = prepared.records.clone();
+            detection_provenance = prepared.records;
         }
 
         // Save path if requested
@@ -665,7 +728,14 @@ fn run_default_command(
     #[cfg(feature = "webapp")]
     if review {
         tracing::info!("Launching path review webapp in integrated mode");
-        match run_webapp_integrated(&network, train_path, Some(gnss_positions.clone()), 0, true)
+        match run_webapp_integrated(
+            &network,
+            train_path,
+            Some(gnss_positions.clone()),
+            detection_provenance.clone(),
+            0,
+            true,
+        )
             .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?
         {
             (WebConfirmResult::Confirmed, edited_path) => {
@@ -712,6 +782,8 @@ fn run_default_command(
         max_candidates,
         resampling_distance,
         false,
+        Vec::new(),
+        2.5,
     )?;
 
     // Project coordinates onto path
@@ -746,6 +818,9 @@ fn run_calculate_path(
     lat_col: &str,
     lon_col: &str,
     time_col: &str,
+    punctual_detections: Option<&str>,
+    linear_detections: Option<&str>,
+    detection_cutoff: f64,
 ) -> Result<(), PipelineError> {
     let output_format = determine_format(format, output_file)?;
 
@@ -767,6 +842,13 @@ fn run_calculate_path(
     );
 
     // Build path config
+    let prepared_detections = prepare_detection_anchors(
+        punctual_detections,
+        linear_detections,
+        &gnss_positions,
+        &netelements,
+        detection_cutoff,
+    )?;
     let path_config = build_path_config(
         distance_scale,
         heading_scale,
@@ -776,6 +858,11 @@ fn run_calculate_path(
         max_candidates,
         resampling_distance,
         debug,
+        prepared_detections
+            .as_ref()
+            .map(|p| p.anchors.clone())
+            .unwrap_or_default(),
+        detection_cutoff,
     )?;
 
     // Calculate path
@@ -790,6 +877,13 @@ fn run_calculate_path(
         export_all_debug_info(debug_info, &debug_dir)
             .map_err(|e| PipelineError::Io(format!("Failed to write debug files: {}", e)))?;
         tracing::info!(debug_dir = %debug_dir, "Debug GeoJSON files written");
+    }
+
+    if let Some(prepared) = &prepared_detections {
+        emit_detection_summary(&prepared.records);
+        for w in &prepared.warnings {
+            tracing::warn!(warning = %w, "detection warning");
+        }
     }
 
     let path = result.path.ok_or_else(|| {
@@ -968,6 +1062,115 @@ fn load_gnss_positions(
     }
 }
 
+/// Prepare detection anchors from optional punctual and/or linear detection
+/// files (Feature 004). Returns the merged [`PreparedDetections`] when at
+/// least one file is supplied; returns `None` otherwise.
+fn prepare_detection_anchors(
+    punctual_detections: Option<&str>,
+    linear_detections: Option<&str>,
+    gnss: &[tp_lib_core::GnssPosition],
+    netelements: &[Netelement],
+    detection_cutoff: f64,
+) -> Result<Option<tp_lib_core::PreparedDetections>, PipelineError> {
+    if punctual_detections.is_none() && linear_detections.is_none() {
+        return Ok(None);
+    }
+
+    let mut merged = tp_lib_core::PreparedDetections {
+        anchors: Vec::new(),
+        records: Vec::new(),
+        warnings: Vec::new(),
+    };
+
+    if let Some(path) = punctual_detections {
+        let prepared = tp_lib_core::prepare_detections(
+            std::path::Path::new(path),
+            tp_lib_core::DetectionKind::Punctual,
+            gnss,
+            netelements,
+            detection_cutoff,
+        )
+        .map_err(|e| PipelineError::Validation(format!("detections: {}", e)))?;
+        merged.anchors.extend(prepared.anchors);
+        merged.records.extend(prepared.records);
+        merged.warnings.extend(prepared.warnings);
+    }
+
+    if let Some(path) = linear_detections {
+        let prepared = tp_lib_core::prepare_detections(
+            std::path::Path::new(path),
+            tp_lib_core::DetectionKind::Linear,
+            gnss,
+            netelements,
+            detection_cutoff,
+        )
+        .map_err(|e| PipelineError::Validation(format!("detections: {}", e)))?;
+        merged.anchors.extend(prepared.anchors);
+        merged.records.extend(prepared.records);
+        merged.warnings.extend(prepared.warnings);
+    }
+
+    // Sort merged anchors by first GNSS index (ascending) per FR-013/FR-019.
+    merged
+        .anchors
+        .sort_by_key(|a| a.first_index());
+
+    Ok(Some(merged))
+}
+
+/// Emit the FR-020 stderr summary line:
+/// `"detections: N applied, M discarded (breakdown)"`.
+fn emit_detection_summary(records: &[tp_lib_core::DetectionRecord]) {
+    use tp_lib_core::{DetectionStatus, DiscardReason};
+    let mut applied = 0usize;
+    let mut discarded = 0usize;
+    let mut out_of_time = 0usize;
+    let mut out_of_reach = 0usize;
+    let mut unknown_ne = 0usize;
+    let mut intrinsic_oor = 0usize;
+    let mut duplicate = 0usize;
+    for r in records {
+        match &r.status {
+            DetectionStatus::Applied { .. } | DetectionStatus::Resolved { .. } => applied += 1,
+            DetectionStatus::Discarded { reason } => {
+                discarded += 1;
+                match reason {
+                    DiscardReason::OutOfTimeRange { .. } => out_of_time += 1,
+                    DiscardReason::OutOfReach { .. } => out_of_reach += 1,
+                    DiscardReason::UnknownNetelement { .. } => unknown_ne += 1,
+                    DiscardReason::IntrinsicOutOfRange { .. } => intrinsic_oor += 1,
+                    DiscardReason::DuplicateOfPriorDetection { .. } => duplicate += 1,
+                }
+            }
+        }
+    }
+    let mut parts: Vec<String> = Vec::new();
+    if out_of_time > 0 {
+        parts.push(format!("{} out_of_time_range", out_of_time));
+    }
+    if out_of_reach > 0 {
+        parts.push(format!("{} out_of_reach", out_of_reach));
+    }
+    if unknown_ne > 0 {
+        parts.push(format!("{} unknown_netelement", unknown_ne));
+    }
+    if intrinsic_oor > 0 {
+        parts.push(format!("{} intrinsic_out_of_range", intrinsic_oor));
+    }
+    if duplicate > 0 {
+        parts.push(format!("{} duplicate", duplicate));
+    }
+    let breakdown = if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" ({})", parts.join(", "))
+    };
+    eprintln!(
+        "detections: {} applied, {} discarded{}",
+        applied, discarded, breakdown
+    );
+}
+
 /// Build PathConfig from CLI parameters
 #[allow(clippy::too_many_arguments)]
 fn build_path_config(
@@ -979,6 +1182,8 @@ fn build_path_config(
     max_candidates: usize,
     resampling_distance: Option<f64>,
     debug_mode: bool,
+    anchors: Vec<tp_lib_core::ResolvedAnchor>,
+    detection_cutoff_distance: f64,
 ) -> Result<PathConfig, PipelineError> {
     let builder = PathConfigBuilder::default()
         .distance_scale(distance_scale)
@@ -988,7 +1193,9 @@ fn build_path_config(
         .probability_threshold(probability_threshold)
         .max_candidates(max_candidates)
         .resampling_distance(resampling_distance)
-        .debug_mode(debug_mode);
+        .debug_mode(debug_mode)
+        .anchors(anchors)
+        .detection_cutoff_distance(detection_cutoff_distance);
 
     builder
         .build()
@@ -1071,7 +1278,7 @@ fn run_webapp_subcommand(
         port = port,
         "Launching path review webapp in standalone mode"
     );
-    run_webapp_standalone(&network, path, output_path, gnss, port, open_browser)
+    run_webapp_standalone(&network, path, output_path, gnss, Vec::new(), port, open_browser)
         .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?;
 
     Ok(())

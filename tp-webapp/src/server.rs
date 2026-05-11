@@ -3,6 +3,7 @@
 //! This module wires all routes behind a shared `Arc<RwLock<WebAppState>>` and
 //! provides a helper to find a free port in the configured range.
 
+pub mod detections;
 pub mod routes;
 pub mod state;
 
@@ -14,6 +15,7 @@ use axum::Router;
 use tokio::sync::RwLock;
 
 use crate::embed::static_handler;
+use crate::server::detections::get_detections;
 use crate::server::routes::{
     get_gnss, get_network, get_path, post_abort, post_confirm, post_path_add, post_path_remove,
     post_save, put_path,
@@ -37,6 +39,7 @@ pub fn build_router(state: SharedState) -> Router {
         .route("/api/confirm", post(post_confirm))
         .route("/api/abort", post(post_abort))
         .route("/api/gnss", get(get_gnss))
+        .route("/api/detections", get(get_detections))
         // Static assets (JS, CSS, leaflet, etc.)
         .fallback(static_handler)
         .with_state(state)

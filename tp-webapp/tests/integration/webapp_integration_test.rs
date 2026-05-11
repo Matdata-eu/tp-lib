@@ -73,6 +73,7 @@ async fn test_us1_standalone_get_network_put_path_save() {
         mode: AppMode::Standalone,
         output_path: Some(out.clone()),
         confirm_tx: None,
+        detection_provenance: Vec::new(),
     };
     let (base, _h) = start(state).await;
     let c = Client::new();
@@ -165,6 +166,7 @@ async fn test_us1_save_is_not_available_in_integrated_mode() {
         mode: AppMode::Integrated,
         output_path: None,
         confirm_tx: Some(tx),
+        detection_provenance: Vec::new(),
     };
     let (base, _h) = start(state).await;
 
@@ -190,6 +192,7 @@ async fn test_us2_confirm_flow() {
         mode: AppMode::Integrated,
         output_path: None,
         confirm_tx: Some(tx),
+        detection_provenance: Vec::new(),
     };
     let (base, _h) = start(state).await;
     let c = Client::new();
@@ -222,6 +225,7 @@ async fn test_us2_abort_flow() {
         mode: AppMode::Integrated,
         output_path: None,
         confirm_tx: Some(tx),
+        detection_provenance: Vec::new(),
     };
     let (base, _h) = start(state).await;
 
@@ -248,6 +252,7 @@ async fn test_us2_double_confirm_is_conflict() {
         mode: AppMode::Integrated,
         output_path: None,
         confirm_tx: Some(tx),
+        detection_provenance: Vec::new(),
     };
     let (base, _h) = start(state).await;
     let c = Client::new();
@@ -272,6 +277,7 @@ async fn test_us3_gnss_loaded_visible_on_map() {
         mode: AppMode::Standalone,
         output_path: None,
         confirm_tx: None,
+        detection_provenance: Vec::new(),
     };
     let (base, _h) = start(state).await;
 
@@ -305,6 +311,7 @@ async fn test_us3_gnss_not_loaded_returns_empty_collection() {
         mode: AppMode::Standalone,
         output_path: None,
         confirm_tx: None,
+        detection_provenance: Vec::new(),
     };
     let (base, _h) = start(state).await;
 

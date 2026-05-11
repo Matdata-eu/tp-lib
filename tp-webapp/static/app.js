@@ -79,6 +79,15 @@ async function init() {
     renderGnss(gnssData);
   }
 
+  // Initialise detection overlay (T036, US4 / 004-train-detections).
+  if (window.TpDetections && typeof window.TpDetections.init === 'function') {
+    try {
+      await window.TpDetections.init(map, networkData);
+    } catch {
+      setStatus('Detections overlay could not be loaded.', true);
+    }
+  }
+
   // Fit map to network bounds
   const allLayers = netLayers.map((nl) => nl.layer);
   if (allLayers.length > 0) {

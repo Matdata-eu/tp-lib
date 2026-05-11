@@ -215,6 +215,42 @@ These parameters control the path calculation algorithm. The defaults work well 
 | `--max-candidates` | `3` | Maximum candidate netelements per GNSS position |
 | `--resampling-distance` | _(none)_ | Resample GNSS data at this interval (meters) |
 
+### Detection Anchors
+
+Train detections are external observations (track-circuit occupancy, axle counters, balise reads,
+operator confirmations) that anchor the calculated path through specific netelements. Punctual
+detections force the path through a single netelement at the detection timestamp; linear
+detections restrict the path to a netelement throughout an interval `[t_from, t_to]`. Detections
+may be supplied either by `netelement_id` (topological) or by `(lat, lon, crs)` coordinates that
+are resolved to the nearest netelement via the network R-tree.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--punctual-detections <FILE>` | _(none)_ | Punctual detection file (CSV or GeoJSON). Each record carries a `timestamp` plus either a `netelement_id` or `(lat, lon, crs)` location. |
+| `--linear-detections <FILE>` | _(none)_ | Linear detection file (CSV or GeoJSON). Each record carries `t_from`/`t_to` plus a `netelement_id` and optional `start_intrinsic`/`end_intrinsic` ∈ [0, 1]. |
+| `--cutoff-distance-detections <DECIMAL>` | `2.5` | Maximum perpendicular distance (meters) for resolving coordinate-only punctual detections to a netelement. Detections beyond this cutoff are discarded with `OutOfReach`. Alias: `--detection-cutoff`. |
+
+After running, a one-line summary is emitted to **stderr** in the form:
+
+```text
+detections: <N> applied, <M> discarded (<breakdown>)
+```
+
+where `<breakdown>` lists discard reasons such as `OutOfTimeRange`, `OutOfReach`,
+`DuplicateOfPriorDetection`, etc. The full per-detection provenance (applied, resolved, and
+discarded) is included in the path result JSON under `detection_provenance`.
+
+```bash
+# Anchor with a punctual CSV file plus a linear GeoJSON file
+tp-cli --gnss positions.csv \
+       --crs EPSG:4326 \
+       --network network.geojson \
+       --punctual-detections detections_punctual.csv \
+       --linear-detections detections_linear.geojson \
+       --cutoff-distance-detections 5.0 \
+       --output projected.geojson
+```
+
 ### Debug Options
 
 #### `--debug`

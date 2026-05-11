@@ -112,7 +112,7 @@ pub fn find_candidate_netelements(
 /// - distance: Distance from point to closest point on linestring (meters)
 /// - intrinsic: Intrinsic coordinate on linestring (0.0 to 1.0)
 /// - projected_point: The closest point on the linestring
-fn calculate_closest_point_on_linestring(
+pub(crate) fn calculate_closest_point_on_linestring(
     point: &Point<f64>,
     linestring: &LineString<f64>,
 ) -> Result<(f64, f64, Point<f64>), ProjectionError> {
