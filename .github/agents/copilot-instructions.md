@@ -21,6 +21,21 @@ tests/
 
 cargo test; cargo clippy
 
+## Linting & Formatting Checks
+
+After **any** change to a `.rs` file in this workspace, always run these checks in order and fix any reported issues before considering the task done:
+
+1. `cargo fmt --check` — verify all Rust source is formatted with rustfmt.  
+   Fix automatically with `cargo fmt` if there are diffs.
+2. `cargo clippy --all-targets --all-features -- -D warnings` — zero-warning policy.
+3. `cargo test --workspace` — full test suite must stay green.
+
+For changes to `tp-py/` (Python bindings), also run:
+- `cd tp-py && pytest python/tests/ -v` (requires the `.venv` to be active and the extension built with `maturin develop`).
+
+For Python source files (`.py`) changed under `tp-py/`:
+- The project follows PEP 8; run `ruff check tp-py/python` (if ruff is installed) or ensure no obvious style issues.
+
 ## Code Style
 
 Rust 1.75+ (edition 2021): Follow standard conventions
