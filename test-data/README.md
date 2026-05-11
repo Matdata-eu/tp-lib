@@ -730,7 +730,7 @@ The resultign trainpath:
 After executing the command (notice the additional `--review` flag):
 
 ```bash
-target/release/tp-cli.exe calculate-path --crs EPSG:4326 --gnss test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --network test-data/network_airport.geojson -o test-data/log_28573-detections/log_28573_L36-A_to_L36C-A_to_L25N-B-path-calculation-with-detection.geojson --punctual-detections test-data/log_28573-detections/sample-detections.csv --review
+target/release/tp-cli.exe --crs EPSG:4326 --gnss test-data/log_28573/log_28573_L36-A_to_L36C-A_to_L25N-B.csv --network test-data/network_airport.geojson -o test-data/log_28573-detections/log_28573_L36-A_to_L36C-A_to_L25N-B-path-calculation-with-detection.geojson --punctual-detections test-data/log_28573-detections/sample-detections.csv --review
 ```
 
 A browser window will open and allow the user to modify the calculated train path and see the train detections:
