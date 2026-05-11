@@ -7,9 +7,7 @@
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use geo::LineString;
 
-use tp_lib_core::models::{
-    GnssPosition, NetRelation, Netelement, ResolvedAnchor,
-};
+use tp_lib_core::models::{GnssPosition, NetRelation, Netelement, ResolvedAnchor};
 use tp_lib_core::{calculate_train_path, PathConfig};
 
 fn ts(secs: i64) -> DateTime<FixedOffset> {
@@ -86,13 +84,16 @@ fn baseline_no_anchor_picks_main() {
     let (netelements, netrelations) = build_parallel_network();
     let gnss = gnss_along_main(5);
     let config = PathConfig::default();
-    let result = calculate_train_path(&gnss, &netelements, &netrelations, &config)
-        .expect("path calc ok");
+    let result =
+        calculate_train_path(&gnss, &netelements, &netrelations, &config).expect("path calc ok");
     let path = result.path.expect("path returned");
     assert!(
         path.segments.iter().any(|s| s.netelement_id == "NE_MAIN"),
         "baseline should choose NE_MAIN, got: {:?}",
-        path.segments.iter().map(|s| &s.netelement_id).collect::<Vec<_>>()
+        path.segments
+            .iter()
+            .map(|s| &s.netelement_id)
+            .collect::<Vec<_>>()
     );
 }
 
@@ -171,13 +172,9 @@ fn multiple_anchors_sorted_by_first_index() {
         metadata: Default::default(),
     });
 
-    let prepared = prepare_detections_from_loaded(
-        vec![det_late, det_early],
-        &gnss,
-        &netelements,
-        2.5,
-    )
-    .expect("prepare ok");
+    let prepared =
+        prepare_detections_from_loaded(vec![det_late, det_early], &gnss, &netelements, 2.5)
+            .expect("prepare ok");
 
     assert_eq!(prepared.anchors.len(), 2);
     // Sorted ascending by first_index.
@@ -276,8 +273,8 @@ fn linear_anchor_out_of_window_discarded() {
         metadata: Default::default(),
     });
 
-    let prepared = prepare_detections_from_loaded(vec![det], &gnss, &netelements, 2.5)
-        .expect("prepare ok");
+    let prepared =
+        prepare_detections_from_loaded(vec![det], &gnss, &netelements, 2.5).expect("prepare ok");
 
     assert_eq!(prepared.anchors.len(), 0, "out-of-window must not anchor");
     assert_eq!(prepared.records.len(), 1);
@@ -342,5 +339,3 @@ fn linear_and_punctual_anchors_combined() {
         .collect();
     assert!(chosen.contains(&"NE_SIDE"));
 }
-
-

@@ -73,7 +73,11 @@ fn col<'a>(headers: &'a [String], record: &'a csv::StringRecord, name: &str) -> 
     let idx = headers.iter().position(|h| h == name)?;
     let v = record.get(idx)?;
     let v = v.trim();
-    if v.is_empty() { None } else { Some(v) }
+    if v.is_empty() {
+        None
+    } else {
+        Some(v)
+    }
 }
 
 fn parse_timestamp(
@@ -88,11 +92,7 @@ fn parse_timestamp(
     })
 }
 
-fn parse_intrinsic(
-    s: &str,
-    source_file: &str,
-    source_row: usize,
-) -> Result<f64, DetectionError> {
+fn parse_intrinsic(s: &str, source_file: &str, source_row: usize) -> Result<f64, DetectionError> {
     let v: f64 = s.parse().map_err(|e| DetectionError::Parse {
         source_file: source_file.to_string(),
         source_row,
@@ -157,13 +157,12 @@ fn parse_punctual<R: std::io::Read>(
         })?;
         let source_row = row_idx + 2;
 
-        let timestamp_str = col(headers, &record, "timestamp").ok_or_else(|| {
-            DetectionError::InvalidTimestamp {
+        let timestamp_str =
+            col(headers, &record, "timestamp").ok_or_else(|| DetectionError::InvalidTimestamp {
                 source_file: source_file.to_string(),
                 source_row,
                 message: "empty timestamp".to_string(),
-            }
-        })?;
+            })?;
         let timestamp = parse_timestamp(timestamp_str, source_file, source_row)?;
 
         let netelement_id = col(headers, &record, "netelement_id").map(str::to_string);
@@ -191,9 +190,9 @@ fn parse_punctual<R: std::io::Read>(
         };
 
         let location = netelement_id.as_ref().map(|ne_id| TopologicalLocation {
-                netelement_id: ne_id.clone(),
-                intrinsic: intrinsic_value.unwrap_or(0.5),
-            });
+            netelement_id: ne_id.clone(),
+            intrinsic: intrinsic_value.unwrap_or(0.5),
+        });
 
         let coordinates = if has_coord {
             let lat_s = lat.ok_or_else(|| {
@@ -250,20 +249,18 @@ fn parse_linear<R: std::io::Read>(
         })?;
         let source_row = row_idx + 2;
 
-        let t_from_s = col(headers, &record, "t_from").ok_or_else(|| {
-            DetectionError::InvalidTimestamp {
+        let t_from_s =
+            col(headers, &record, "t_from").ok_or_else(|| DetectionError::InvalidTimestamp {
                 source_file: source_file.to_string(),
                 source_row,
                 message: "empty t_from".to_string(),
-            }
-        })?;
-        let t_to_s = col(headers, &record, "t_to").ok_or_else(|| {
-            DetectionError::InvalidTimestamp {
+            })?;
+        let t_to_s =
+            col(headers, &record, "t_to").ok_or_else(|| DetectionError::InvalidTimestamp {
                 source_file: source_file.to_string(),
                 source_row,
                 message: "empty t_to".to_string(),
-            }
-        })?;
+            })?;
         let t_from = parse_timestamp(t_from_s, source_file, source_row)?;
         let t_to = parse_timestamp(t_to_s, source_file, source_row)?;
 

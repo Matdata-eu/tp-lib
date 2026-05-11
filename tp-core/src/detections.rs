@@ -14,7 +14,9 @@ pub use error::DetectionError;
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::models::{Detection, DetectionKind, DetectionRecord, GnssPosition, Netelement, ResolvedAnchor};
+use crate::models::{
+    Detection, DetectionKind, DetectionRecord, GnssPosition, Netelement, ResolvedAnchor,
+};
 
 /// Output of [`prepare_detections`].
 #[derive(Debug, Clone, Default)]
@@ -73,7 +75,8 @@ pub fn prepare_detections_from_loaded(
     warnings.extend(filtered.warnings);
 
     // 3. Resolution (topological + coordinate-only).
-    let resolution = resolve::resolve_detections(filtered.kept, gnss, netelements, cutoff_distance_m)?;
+    let resolution =
+        resolve::resolve_detections(filtered.kept, gnss, netelements, cutoff_distance_m)?;
     all_records.extend(resolution.records);
     warnings.extend(resolution.warnings);
 

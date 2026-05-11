@@ -57,9 +57,9 @@ pub fn load(path: &Path, expected_kind: DetectionKind) -> Result<Vec<Detection>,
     let mut out = Vec::with_capacity(fc.features.len());
     for (idx, feature) in fc.features.into_iter().enumerate() {
         let source_row = idx;
-        let props = feature
-            .properties
-            .ok_or_else(|| DetectionError::InvalidSchema(format!("feature[{idx}]: missing 'properties'")))?;
+        let props = feature.properties.ok_or_else(|| {
+            DetectionError::InvalidSchema(format!("feature[{idx}]: missing 'properties'"))
+        })?;
 
         let kind_str = require_str(&props, "kind", &source_file, source_row)?;
         let actual_kind = match kind_str.as_str() {
@@ -78,12 +78,9 @@ pub fn load(path: &Path, expected_kind: DetectionKind) -> Result<Vec<Detection>,
         }
 
         let detection = match expected_kind {
-            DetectionKind::Punctual => parse_punctual(
-                &props,
-                feature.geometry.as_ref(),
-                &source_file,
-                source_row,
-            )?,
+            DetectionKind::Punctual => {
+                parse_punctual(&props, feature.geometry.as_ref(), &source_file, source_row)?
+            }
             DetectionKind::Linear => parse_linear(&props, &source_file, source_row)?,
         };
         out.push(detection);
@@ -250,8 +247,8 @@ fn parse_linear(
         source_row,
     )?;
     let netelement_id = require_str(props, "netelement_id", source_file, source_row)?;
-    let start_intrinsic = opt_intrinsic(props, "start_intrinsic", source_file, source_row)?
-        .unwrap_or(0.0);
+    let start_intrinsic =
+        opt_intrinsic(props, "start_intrinsic", source_file, source_row)?.unwrap_or(0.0);
     let end_intrinsic =
         opt_intrinsic(props, "end_intrinsic", source_file, source_row)?.unwrap_or(1.0);
 

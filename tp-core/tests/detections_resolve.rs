@@ -10,8 +10,8 @@ use geo::LineString;
 
 use tp_lib_core::detections::prepare_detections_from_loaded;
 use tp_lib_core::models::{
-    Detection, DetectionStatus, DiscardReason, GeographicLocation, GnssPosition,
-    Netelement, PunctualDetection, ResolvedAnchor,
+    Detection, DetectionStatus, DiscardReason, GeographicLocation, GnssPosition, Netelement,
+    PunctualDetection, ResolvedAnchor,
 };
 use tp_lib_core::DetectionError;
 
@@ -61,8 +61,8 @@ fn coordinate_within_cutoff_resolves_to_punctual_anchor() {
         metadata: Default::default(),
     });
 
-    let prepared = prepare_detections_from_loaded(vec![det], &gnss, &netelements, 5.0)
-        .expect("prepare ok");
+    let prepared =
+        prepare_detections_from_loaded(vec![det], &gnss, &netelements, 5.0).expect("prepare ok");
 
     assert_eq!(prepared.anchors.len(), 1);
     match &prepared.anchors[0] {
@@ -108,8 +108,8 @@ fn coordinate_beyond_cutoff_is_discarded_out_of_reach() {
         metadata: Default::default(),
     });
 
-    let prepared = prepare_detections_from_loaded(vec![det], &gnss, &netelements, 2.5)
-        .expect("prepare ok");
+    let prepared =
+        prepare_detections_from_loaded(vec![det], &gnss, &netelements, 2.5).expect("prepare ok");
 
     assert_eq!(prepared.anchors.len(), 0, "must not anchor beyond cutoff");
     assert_eq!(prepared.records.len(), 1);

@@ -71,7 +71,11 @@ fn build_gnss(count: usize) -> Vec<GnssPosition> {
 
 /// Build `DETECTION_COUNT` punctual `ResolvedAnchor`s spread evenly across the
 /// GNSS array — each anchor pins the netelement nearest to its GNSS index.
-fn build_anchors(network_size: usize, gnss_count: usize, anchor_count: usize) -> Vec<ResolvedAnchor> {
+fn build_anchors(
+    network_size: usize,
+    gnss_count: usize,
+    anchor_count: usize,
+) -> Vec<ResolvedAnchor> {
     let mut anchors = Vec::with_capacity(anchor_count);
     for k in 0..anchor_count {
         let gnss_index = (k * gnss_count / anchor_count).min(gnss_count - 1);

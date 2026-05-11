@@ -139,20 +139,12 @@ struct Cli {
 
     /// Path to a punctual detections file (CSV or GeoJSON). Detections are
     /// applied as anchors during path calculation (Feature 004).
-    #[arg(
-        long = "punctual-detections",
-        value_name = "FILE",
-        global = true
-    )]
+    #[arg(long = "punctual-detections", value_name = "FILE", global = true)]
     punctual_detections: Option<String>,
 
     /// Path to a linear detections file (CSV or GeoJSON). Detections are applied as
     /// linear anchors during path calculation (Feature 004 US2).
-    #[arg(
-        long = "linear-detections",
-        value_name = "FILE",
-        global = true
-    )]
+    #[arg(long = "linear-detections", value_name = "FILE", global = true)]
     linear_detections: Option<String>,
 
     /// Maximum cutoff distance (meters) for resolving coordinate-only
@@ -736,7 +728,7 @@ fn run_default_command(
             0,
             true,
         )
-            .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?
+        .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?
         {
             (WebConfirmResult::Confirmed, edited_path) => {
                 tracing::info!(
@@ -1111,9 +1103,7 @@ fn prepare_detection_anchors(
     }
 
     // Sort merged anchors by first GNSS index (ascending) per FR-013/FR-019.
-    merged
-        .anchors
-        .sort_by_key(|a| a.first_index());
+    merged.anchors.sort_by_key(|a| a.first_index());
 
     Ok(Some(merged))
 }
@@ -1278,8 +1268,16 @@ fn run_webapp_subcommand(
         port = port,
         "Launching path review webapp in standalone mode"
     );
-    run_webapp_standalone(&network, path, output_path, gnss, Vec::new(), port, open_browser)
-        .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?;
+    run_webapp_standalone(
+        &network,
+        path,
+        output_path,
+        gnss,
+        Vec::new(),
+        port,
+        open_browser,
+    )
+    .map_err(|e| PipelineError::Processing(format!("Webapp error: {}", e)))?;
 
     Ok(())
 }

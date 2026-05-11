@@ -61,8 +61,7 @@ fn applied_detection_yields_applied_record() {
         metadata: Default::default(),
     });
 
-    let prepared =
-        prepare_detections_from_loaded(vec![det], &gnss, &netelements, 2.5).expect("ok");
+    let prepared = prepare_detections_from_loaded(vec![det], &gnss, &netelements, 2.5).expect("ok");
 
     assert_eq!(prepared.records.len(), 1);
     let rec = &prepared.records[0];
@@ -103,8 +102,7 @@ fn out_of_window_detection_yields_discarded_record() {
         metadata: Default::default(),
     });
 
-    let prepared =
-        prepare_detections_from_loaded(vec![det], &gnss, &netelements, 2.5).expect("ok");
+    let prepared = prepare_detections_from_loaded(vec![det], &gnss, &netelements, 2.5).expect("ok");
 
     assert_eq!(prepared.records.len(), 1);
     let rec = &prepared.records[0];
@@ -145,8 +143,7 @@ fn provenance_length_equals_input_count() {
         make(3, 9_999), // discarded (out-of-window)
     ];
 
-    let prepared =
-        prepare_detections_from_loaded(inputs, &gnss, &netelements, 2.5).expect("ok");
+    let prepared = prepare_detections_from_loaded(inputs, &gnss, &netelements, 2.5).expect("ok");
 
     assert_eq!(prepared.records.len(), 3, "one record per input detection");
 
@@ -193,8 +190,7 @@ fn provenance_preserves_input_order_and_duplicate_index_targets_provenance() {
         make(2, 1),  // duplicate of row 1
     ];
 
-    let prepared =
-        prepare_detections_from_loaded(inputs, &gnss, &netelements, 2.5).expect("ok");
+    let prepared = prepare_detections_from_loaded(inputs, &gnss, &netelements, 2.5).expect("ok");
 
     let rows: Vec<usize> = prepared.records.iter().map(|r| r.source_row).collect();
     assert_eq!(rows, vec![10, 1, 2], "provenance should keep input order");

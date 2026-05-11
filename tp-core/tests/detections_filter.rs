@@ -75,7 +75,11 @@ fn punctual_strictly_before_window_discarded() {
     assert_eq!(out.discard_records.len(), 1);
     match &out.discard_records[0].status {
         DetectionStatus::Discarded {
-            reason: DiscardReason::OutOfTimeRange { gnss_first, gnss_last },
+            reason:
+                DiscardReason::OutOfTimeRange {
+                    gnss_first,
+                    gnss_last,
+                },
         } => {
             assert_eq!(*gnss_first, ts("2026-05-01T08:00:00+00:00"));
             assert_eq!(*gnss_last, ts("2026-05-01T08:30:00+00:00"));

@@ -45,7 +45,9 @@ pub enum DetectionError {
     },
 
     /// Coordinate row supplied without a `crs` column / property.
-    #[error("missing crs at {source_file}:{source_row}: coordinate detections require an explicit CRS")]
+    #[error(
+        "missing crs at {source_file}:{source_row}: coordinate detections require an explicit CRS"
+    )]
     MissingCrs {
         source_file: String,
         source_row: usize,

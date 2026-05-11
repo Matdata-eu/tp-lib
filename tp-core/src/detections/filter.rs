@@ -53,9 +53,8 @@ pub fn filter_detections_by_time(
         if in_window {
             out.kept.push(det);
         } else {
-            out.discard_records.push(make_discard_record(
-                &det, gnss_first, gnss_last,
-            ));
+            out.discard_records
+                .push(make_discard_record(&det, gnss_first, gnss_last));
             out.warnings.push(format!(
                 "detection at {}:{} discarded (outside GNSS window [{}, {}])",
                 det.source_file(),

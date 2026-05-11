@@ -49,6 +49,9 @@ pub mod projection;
 pub mod temporal;
 
 // Re-export main types for convenience
+pub use detections::{
+    prepare_detections, prepare_detections_from_loaded, DetectionError, PreparedDetections,
+};
 pub use errors::ProjectionError;
 pub use io::{
     parse_gnss_csv, parse_gnss_geojson, parse_netrelations_geojson, parse_network_geojson,
@@ -56,13 +59,29 @@ pub use io::{
     write_trainpath_geojson,
 };
 pub use models::{
-    AssociatedNetElement, GnssNetElementLink, GnssPosition, NetRelation, Netelement,
-    PathDiagnosticInfo, PathMetadata, PathOrigin, ProjectedPosition, SegmentDiagnostic, TrainPath,
+    AssociatedNetElement,
     // Feature 004: detections
-    Detection, DetectionKind, DetectionRecord, DetectionStatus, DiscardReason,
-    GeographicLocation, LinearDetection, PunctualDetection, ResolvedAnchor, TimestampOrRange,
+    Detection,
+    DetectionKind,
+    DetectionRecord,
+    DetectionStatus,
+    DiscardReason,
+    GeographicLocation,
+    GnssNetElementLink,
+    GnssPosition,
+    LinearDetection,
+    NetRelation,
+    Netelement,
+    PathDiagnosticInfo,
+    PathMetadata,
+    PathOrigin,
+    ProjectedPosition,
+    PunctualDetection,
+    ResolvedAnchor,
+    SegmentDiagnostic,
+    TimestampOrRange,
+    TrainPath,
 };
-pub use detections::{prepare_detections, prepare_detections_from_loaded, DetectionError, PreparedDetections};
 pub use path::{
     calculate_mean_spacing,
     calculate_train_path,

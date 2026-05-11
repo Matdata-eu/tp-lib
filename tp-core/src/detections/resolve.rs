@@ -58,7 +58,9 @@ pub fn resolve_detections(
 
     for det in detections.into_iter() {
         match det {
-            Detection::Punctual(p) => resolve_punctual(p, gnss, netelements, cutoff_distance_m, &mut out)?,
+            Detection::Punctual(p) => {
+                resolve_punctual(p, gnss, netelements, cutoff_distance_m, &mut out)?
+            }
             Detection::Linear(l) => resolve_linear(l, gnss, &mut out)?,
         }
     }
@@ -86,7 +88,9 @@ fn resolve_punctual(
             source_file: p.source_file.clone(),
             source_row: p.source_row,
             kind: DetectionKind::Punctual,
-            timestamp: TimestampOrRange::Single { timestamp: p.timestamp },
+            timestamp: TimestampOrRange::Single {
+                timestamp: p.timestamp,
+            },
             status: DetectionStatus::Applied {
                 netelement_id: loc.netelement_id.clone(),
                 intrinsic: loc.intrinsic,
@@ -146,7 +150,9 @@ fn resolve_punctual(
                     source_file: p.source_file.clone(),
                     source_row: p.source_row,
                     kind: DetectionKind::Punctual,
-                    timestamp: TimestampOrRange::Single { timestamp: p.timestamp },
+                    timestamp: TimestampOrRange::Single {
+                        timestamp: p.timestamp,
+                    },
                     status: DetectionStatus::Discarded {
                         reason: DiscardReason::OutOfReach {
                             nearest_distance_m: cutoff_distance_m + 1.0,
@@ -172,7 +178,9 @@ fn resolve_punctual(
                 source_file: p.source_file.clone(),
                 source_row: p.source_row,
                 kind: DetectionKind::Punctual,
-                timestamp: TimestampOrRange::Single { timestamp: p.timestamp },
+                timestamp: TimestampOrRange::Single {
+                    timestamp: p.timestamp,
+                },
                 status: DetectionStatus::Resolved {
                     netelement_id,
                     distance_m: best_dist,
@@ -190,7 +198,9 @@ fn resolve_punctual(
                 source_file: p.source_file.clone(),
                 source_row: p.source_row,
                 kind: DetectionKind::Punctual,
-                timestamp: TimestampOrRange::Single { timestamp: p.timestamp },
+                timestamp: TimestampOrRange::Single {
+                    timestamp: p.timestamp,
+                },
                 status: DetectionStatus::Discarded {
                     reason: DiscardReason::OutOfReach {
                         nearest_distance_m: best_dist,

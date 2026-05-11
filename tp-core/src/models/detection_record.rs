@@ -47,17 +47,11 @@ pub enum DiscardReason {
     /// Referenced `netelement_id` does not exist in the supplied network.
     /// (Only used for non-fatal warnings; the standard pipeline raises
     /// `DetectionError::UnknownNetelement` instead.)
-    UnknownNetelement {
-        netelement_id: String,
-    },
+    UnknownNetelement { netelement_id: String },
     /// Intrinsic value out of `[0, 1]`.
-    IntrinsicOutOfRange {
-        value: f64,
-    },
+    IntrinsicOutOfRange { value: f64 },
     /// Same timestamp + same netelement as a previously kept detection (FR-007a).
-    DuplicateOfPriorDetection {
-        kept_index: usize,
-    },
+    DuplicateOfPriorDetection { kept_index: usize },
 }
 
 /// Disposition of an ingested detection.
@@ -76,9 +70,7 @@ pub enum DetectionStatus {
         distance_m: f64,
     },
     /// Detection was discarded; see `reason`.
-    Discarded {
-        reason: DiscardReason,
-    },
+    Discarded { reason: DiscardReason },
 }
 
 /// Per-detection provenance record (one per input detection).

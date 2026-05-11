@@ -227,7 +227,10 @@ fn csv_linear_full_metadata() {
 fn csv_open_nonexistent_file_returns_error() {
     let path = std::path::Path::new("zzz_does_not_exist.csv");
     let err = load_detections(path, DetectionKind::Punctual).unwrap_err();
-    assert!(matches!(err, DetectionError::InvalidSchema(_) | DetectionError::Io(_)));
+    assert!(matches!(
+        err,
+        DetectionError::InvalidSchema(_) | DetectionError::Io(_)
+    ));
 }
 
 #[test]
@@ -442,7 +445,10 @@ fn geojson_linear_full_with_metadata_types() {
 fn geojson_nonexistent_file() {
     let path = std::path::Path::new("does_not_exist.geojson");
     let err = load_detections(path, DetectionKind::Punctual).unwrap_err();
-    assert!(matches!(err, DetectionError::Io(_) | DetectionError::InvalidSchema(_)));
+    assert!(matches!(
+        err,
+        DetectionError::Io(_) | DetectionError::InvalidSchema(_)
+    ));
 }
 
 // ---------- detections::resolve / validate / filter ----------
@@ -469,7 +475,10 @@ fn gnss(t: &str, lon: f64, lat: f64) -> GnssPosition {
 fn validate_unknown_netelement_in_punctual_topo() {
     let det = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:00+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "MISSING".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "MISSING".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -549,7 +558,10 @@ fn filter_drops_punctual_outside_gnss_window() {
     ];
     let early = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T09:00:00+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -560,7 +572,10 @@ fn filter_drops_punctual_outside_gnss_window() {
     });
     let late = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T12:00:00+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -571,7 +586,10 @@ fn filter_drops_punctual_outside_gnss_window() {
     });
     let inside = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:05+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -584,7 +602,12 @@ fn filter_drops_punctual_outside_gnss_window() {
     assert_eq!(res.kept.len(), 1);
     assert_eq!(res.discard_records.len(), 2);
     for d in &res.discard_records {
-        assert!(matches!(d.status, DetectionStatus::Discarded { reason: DiscardReason::OutOfTimeRange { .. } }));
+        assert!(matches!(
+            d.status,
+            DetectionStatus::Discarded {
+                reason: DiscardReason::OutOfTimeRange { .. }
+            }
+        ));
     }
 }
 
@@ -639,7 +662,10 @@ fn filter_keeps_linear_partially_overlapping_window() {
 fn validate_dedups_same_timestamp_same_netelement() {
     let det1 = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:05+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -650,7 +676,10 @@ fn validate_dedups_same_timestamp_same_netelement() {
     });
     let det2 = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:05+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 0.6 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.6,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -665,7 +694,9 @@ fn validate_dedups_same_timestamp_same_netelement() {
     assert_eq!(out.duplicate_records.len(), 1);
     assert!(matches!(
         out.duplicate_records[0].status,
-        DetectionStatus::Discarded { reason: DiscardReason::DuplicateOfPriorDetection { .. } }
+        DetectionStatus::Discarded {
+            reason: DiscardReason::DuplicateOfPriorDetection { .. }
+        }
     ));
 }
 
@@ -673,7 +704,10 @@ fn validate_dedups_same_timestamp_same_netelement() {
 fn validate_conflicting_same_timestamp_different_netelements() {
     let det1 = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:05+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -684,7 +718,10 @@ fn validate_conflicting_same_timestamp_different_netelements() {
     });
     let det2 = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:05+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-2".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-2".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -752,7 +789,9 @@ fn resolve_coordinate_only_beyond_cutoff_is_discarded() {
     assert!(result.anchors.is_empty());
     assert!(matches!(
         result.records[0].status,
-        DetectionStatus::Discarded { reason: DiscardReason::OutOfReach { .. } }
+        DetectionStatus::Discarded {
+            reason: DiscardReason::OutOfReach { .. }
+        }
     ));
 }
 
@@ -761,7 +800,10 @@ fn resolve_with_empty_gnss_returns_empty() {
     let nes = vec![ne("NE-1")];
     let det = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:00+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -819,7 +861,10 @@ fn resolve_linear_topological_emits_linear_anchor() {
         metadata: BTreeMap::new(),
     });
     let out = resolve_detections(vec![det], &g, &nes, 2.5).unwrap();
-    assert!(out.anchors.iter().any(|a| matches!(a, ResolvedAnchor::Linear { .. })));
+    assert!(out
+        .anchors
+        .iter()
+        .any(|a| matches!(a, ResolvedAnchor::Linear { .. })));
 }
 
 // ---------- Models smoke tests for trivial helpers ----------
@@ -829,7 +874,11 @@ fn detection_source_helpers_match_kind() {
     let p = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:00+01:00"),
         location: None,
-        coordinates: Some(GeographicLocation { latitude: 0.0, longitude: 0.0, crs: "EPSG:4326".into() }),
+        coordinates: Some(GeographicLocation {
+            latitude: 0.0,
+            longitude: 0.0,
+            crs: "EPSG:4326".into(),
+        }),
         intrinsic: None,
         id: None,
         source: None,
@@ -858,7 +907,11 @@ fn detection_source_helpers_match_kind() {
 
 #[test]
 fn resolved_anchor_helpers_punctual_and_linear() {
-    let p = ResolvedAnchor::Punctual { netelement_id: "NE-A".into(), intrinsic: 0.5, gnss_index: 3 };
+    let p = ResolvedAnchor::Punctual {
+        netelement_id: "NE-A".into(),
+        intrinsic: 0.5,
+        gnss_index: 3,
+    };
     assert_eq!(p.first_index(), 3);
     assert_eq!(p.netelement_id(), "NE-A");
 
@@ -878,8 +931,13 @@ fn detection_record_serializes_with_all_status_variants() {
         source_file: "s.csv".into(),
         source_row: 1,
         kind: DetectionKind::Punctual,
-        timestamp: TimestampOrRange::Single { timestamp: ts("2024-01-15T10:30:00+01:00") },
-        status: DetectionStatus::Applied { netelement_id: "NE-1".into(), intrinsic: 0.5 },
+        timestamp: TimestampOrRange::Single {
+            timestamp: ts("2024-01-15T10:30:00+01:00"),
+        },
+        status: DetectionStatus::Applied {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.5,
+        },
         id: Some("p1".into()),
         source: None,
         metadata: BTreeMap::new(),
@@ -888,7 +946,10 @@ fn detection_record_serializes_with_all_status_variants() {
     assert!(s.contains("\"status\":\"applied\""));
 
     let rec_resolved = DetectionRecord {
-        status: DetectionStatus::Resolved { netelement_id: "NE-1".into(), distance_m: 1.2 },
+        status: DetectionStatus::Resolved {
+            netelement_id: "NE-1".into(),
+            distance_m: 1.2,
+        },
         ..rec_applied.clone()
     };
     let s = serde_json::to_string(&rec_resolved).unwrap();
@@ -896,7 +957,10 @@ fn detection_record_serializes_with_all_status_variants() {
 
     let rec_discarded = DetectionRecord {
         status: DetectionStatus::Discarded {
-            reason: DiscardReason::OutOfReach { nearest_distance_m: 5.0, cutoff_m: 2.5 },
+            reason: DiscardReason::OutOfReach {
+                nearest_distance_m: 5.0,
+                cutoff_m: 2.5,
+            },
         },
         timestamp: TimestampOrRange::Range {
             t_from: ts("2024-01-15T10:30:00+01:00"),
@@ -917,7 +981,9 @@ fn detection_record_serializes_with_all_status_variants() {
         },
         DiscardReason::IntrinsicOutOfRange { value: 1.5 },
         DiscardReason::DuplicateOfPriorDetection { kept_index: 0 },
-        DiscardReason::UnknownNetelement { netelement_id: "MISSING".into() },
+        DiscardReason::UnknownNetelement {
+            netelement_id: "MISSING".into(),
+        },
     ] {
         let s = serde_json::to_string(&reason).unwrap();
         let _back: DiscardReason = serde_json::from_str(&s).unwrap();
@@ -927,7 +993,11 @@ fn detection_record_serializes_with_all_status_variants() {
 // Silence unused warning if any optional dep is re-exported.
 #[allow(dead_code)]
 fn _epoch() -> DateTime<FixedOffset> {
-    chrono::Utc.timestamp_opt(0, 0).single().unwrap().fixed_offset()
+    chrono::Utc
+        .timestamp_opt(0, 0)
+        .single()
+        .unwrap()
+        .fixed_offset()
 }
 
 // ---------- T039 extra coverage: targeted uncovered branches ----------
@@ -966,7 +1036,10 @@ fn filter_with_empty_gnss_discards_all() {
     // Covers filter.rs `discard_all` helper (lines ~105-121) and the empty-GNSS sentinel.
     let p = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:00+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 0.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 0.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -994,7 +1067,9 @@ fn filter_with_empty_gnss_discards_all() {
     for d in &res.discard_records {
         assert!(matches!(
             d.status,
-            DetectionStatus::Discarded { reason: DiscardReason::OutOfTimeRange { .. } }
+            DetectionStatus::Discarded {
+                reason: DiscardReason::OutOfTimeRange { .. }
+            }
         ));
     }
 }
@@ -1004,7 +1079,10 @@ fn validate_punctual_intrinsic_out_of_range() {
     // Covers validate.rs lines ~51-55 (punctual InvalidIntrinsic).
     let det = Detection::Punctual(PunctualDetection {
         timestamp: ts("2024-01-15T10:30:00+01:00"),
-        location: Some(TopologicalLocation { netelement_id: "NE-1".into(), intrinsic: 1.5 }),
+        location: Some(TopologicalLocation {
+            netelement_id: "NE-1".into(),
+            intrinsic: 1.5,
+        }),
         coordinates: None,
         intrinsic: None,
         id: None,
@@ -1101,7 +1179,9 @@ fn resolve_coordinate_only_with_empty_netelements_is_out_of_reach() {
     assert!(out.anchors.is_empty());
     assert!(matches!(
         out.records[0].status,
-        DetectionStatus::Discarded { reason: DiscardReason::OutOfReach { .. } }
+        DetectionStatus::Discarded {
+            reason: DiscardReason::OutOfReach { .. }
+        }
     ));
 }
 
@@ -1192,7 +1272,9 @@ fn resolve_linear_window_outside_all_gnss_emits_discard_record() {
     assert_eq!(out.records.len(), 1);
     assert!(matches!(
         out.records[0].status,
-        DetectionStatus::Discarded { reason: DiscardReason::OutOfTimeRange { .. } }
+        DetectionStatus::Discarded {
+            reason: DiscardReason::OutOfTimeRange { .. }
+        }
     ));
 }
 
@@ -1418,8 +1500,8 @@ fn csv_punctual_missing_lat_returns_schema_error() {
 fn anchor_apply_anchors_linear_index_map_short_skips() {
     // Covers anchor.rs `let Some(working_idx) = remap_index(...) else { continue; }`
     // in the linear range loop (line 96): map shorter than original index.
-    use tp_lib_core::detections::anchor::apply_anchors;
     use std::collections::HashMap;
+    use tp_lib_core::detections::anchor::apply_anchors;
     let nes = vec![ne("NE-1")];
     let mut idx: HashMap<String, usize> = HashMap::new();
     idx.insert("NE-1".to_string(), 0);
@@ -1435,8 +1517,7 @@ fn anchor_apply_anchors_linear_index_map_short_skips() {
     }];
     // Index map only covers 0 and 1; original 2..=4 skipped.
     let map: Vec<usize> = vec![0, 1];
-    apply_anchors(&anchors, &mut pcs, &mut eps, &nes, &idx, Some(&map))
-        .expect("apply ok");
+    apply_anchors(&anchors, &mut pcs, &mut eps, &nes, &idx, Some(&map)).expect("apply ok");
     assert!(!pcs[0].is_empty());
     assert!(!pcs[1].is_empty());
     // pcs[2..=4] untouched (still empty).
@@ -1449,8 +1530,8 @@ fn anchor_apply_anchors_linear_index_map_short_skips() {
 fn anchor_apply_anchors_linear_oob_working_idx_skips() {
     // Covers anchor.rs `if working_idx >= position_candidates.len() { continue; }`
     // (line 99) in the linear range loop: map points to index past pcs len.
-    use tp_lib_core::detections::anchor::apply_anchors;
     use std::collections::HashMap;
+    use tp_lib_core::detections::anchor::apply_anchors;
     let nes = vec![ne("NE-1")];
     let mut idx: HashMap<String, usize> = HashMap::new();
     idx.insert("NE-1".to_string(), 0);
@@ -1464,8 +1545,7 @@ fn anchor_apply_anchors_linear_oob_working_idx_skips() {
     }];
     // working idx 99 is past pcs.len() (=2) → skip.
     let map: Vec<usize> = vec![0, 99];
-    apply_anchors(&anchors, &mut pcs, &mut eps, &nes, &idx, Some(&map))
-        .expect("apply ok");
+    apply_anchors(&anchors, &mut pcs, &mut eps, &nes, &idx, Some(&map)).expect("apply ok");
     assert!(!pcs[0].is_empty());
     assert!(pcs[1].is_empty());
 }

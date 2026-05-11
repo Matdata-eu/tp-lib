@@ -100,9 +100,9 @@ fn punctual_detection_in_window_applies_anchor() {
         .arg("--punctual-detections")
         .arg(&detections_csv);
 
-    cmd.assert()
-        .success()
-        .stderr(predicate::str::contains("detections: 1 applied, 0 discarded"));
+    cmd.assert().success().stderr(predicate::str::contains(
+        "detections: 1 applied, 0 discarded",
+    ));
 }
 
 #[test]
@@ -134,14 +134,11 @@ fn punctual_detection_out_of_window_is_discarded() {
         .arg("--punctual-detections")
         .arg(&detections_csv);
 
-    cmd.assert()
-        .success()
-        .stderr(
-            predicate::str::contains("detections: 0 applied, 1 discarded")
-                .and(predicate::str::contains("out_of_time_range")),
-        );
+    cmd.assert().success().stderr(
+        predicate::str::contains("detections: 0 applied, 1 discarded")
+            .and(predicate::str::contains("out_of_time_range")),
+    );
 }
-
 
 #[test]
 fn linear_detection_in_window_applies_anchor() {
@@ -170,7 +167,7 @@ fn linear_detection_in_window_applies_anchor() {
         .arg("--linear-detections")
         .arg(&detections_csv);
 
-    cmd.assert()
-        .success()
-        .stderr(predicate::str::contains("detections: 1 applied, 0 discarded"));
+    cmd.assert().success().stderr(predicate::str::contains(
+        "detections: 1 applied, 0 discarded",
+    ));
 }
