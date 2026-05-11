@@ -517,4 +517,4 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details
 
 ## Contact
 
-TP-Lib Contributors - [GitHub Issues](https://github.com/infrabel/tp-lib/issues)
+TP-Lib Contributors - [GitHub Issues](https://github.com/Matdata-eu/tp-lib/issues)
