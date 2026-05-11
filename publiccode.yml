@@ -1,0 +1,121 @@
+publiccodeYmlVersion: "0.5.0"
+
+name: TP-Lib
+
+url: "https://github.com/Matdata-eu/tp-lib"
+
+landingURL: "https://matdata-eu.github.io/tp-lib/"
+
+softwareVersion: "0.0.1"
+
+platforms:
+  - linux
+  - windows
+  - mac
+
+categories:
+  - geographic-information-systems
+
+developmentStatus: development
+
+softwareType: "library"
+
+description:
+  en:
+    shortDescription: >
+      Train positioning library for post-processing GNSS coordinates onto a
+      railway network using map matching and probabilistic path calculation.
+    longDescription: >
+      TP-Lib is an open source Rust library for post-processing GNSS positions
+      of measurement trains to achieve an unambiguous network location on
+      railway infrastructure. It provides accurate projection of GNSS
+      coordinates onto track segments using R-tree spatial indexing,
+      probabilistic train path calculation through rail network topology using
+      a Hidden Markov Model (Viterbi algorithm, Newson & Krumm 2009), an
+      interactive browser-based map webapp for visually reviewing and editing
+      calculated paths, CRS-aware coordinate transformations (EPSG codes via
+      proj4rs), and multi-format I/O (CSV, GeoJSON). A command-line interface
+      (tp-cli) and Python bindings (tp-py via PyO3) are included for flexible
+      integration.
+    documentation: "https://matdata-eu.github.io/tp-lib/"
+    apiDocumentation: "https://matdata-eu.github.io/tp-lib/tp_lib_core/"
+    features:
+      - GNSS projection onto railway network with R-tree spatial indexing
+      - Probabilistic train path calculation using HMM Viterbi algorithm
+      - Interactive browser-based path review and editing webapp
+      - CRS-aware coordinate transformations (EPSG codes via proj4rs)
+      - CSV and GeoJSON input/output
+      - Command-line interface (tp-cli)
+      - Python bindings (tp-py via PyO3)
+  fr:
+    shortDescription: >
+      Lib de positionnement ferroviaire pour le post-traitement de
+      coordonnées GNSS sur un réseau ferroviaire via map matching et calcul
+      probabiliste.
+    longDescription: >
+      TP-Lib est une bibliothèque open source en Rust pour le post-traitement
+      des positions GNSS des trains de mesure afin d'obtenir une localisation
+      non ambiguë sur l'infrastructure ferroviaire. Elle fournit une projection
+      précise des coordonnées GNSS sur les segments de voie grâce à
+      l'indexation spatiale R-tree, un calcul probabiliste du sillon ferroviaire
+      à travers la topologie du réseau en utilisant un modèle de Markov caché
+      (algorithme de Viterbi, Newson & Krumm 2009), une application web
+      cartographique interactive pour visualiser et éditer les sillons calculés,
+      des transformations CRS (codes EPSG via proj4rs), et des entrées/sorties
+      multi-formats (CSV, GeoJSON). Une interface en ligne de commande (tp-cli)
+      et des liaisons Python (tp-py via PyO3) sont incluses pour une
+      intégration flexible.
+    documentation: "https://matdata-eu.github.io/tp-lib/"
+    apiDocumentation: "https://matdata-eu.github.io/tp-lib/tp_lib_core/"
+    features:
+      - Projection GNSS sur réseau ferroviaire avec indexation spatiale R-tree
+      - Calcul probabiliste de sillon via algorithme HMM Viterbi
+      - Application web interactive de révision et d'édition du sillon
+      - Transformations de coordonnées CRS (codes EPSG via proj4rs)
+      - Entrées/sorties CSV et GeoJSON
+      - Interface en ligne de commande (tp-cli)
+      - Liaisons Python (tp-py via PyO3)
+  nl:
+    shortDescription: >
+      Treinpositioneringsbibliotheek voor naverwerking van GNSS-coördinaten op
+      een spoorwegnetwerk via map matching en probabilistische padberekening.
+    longDescription: >
+      TP-Lib is een open source Rust-bibliotheek voor de naverwerking van
+      GNSS-posities van spoorrijtuigen om een eenduidige netwerklokalisatie op
+      spoorweginfrastructuur te verkrijgen. De bibliotheek biedt nauwkeurige
+      projectie van GNSS-coördinaten op spoortrajecten via R-tree ruimtelijke
+      indexering, probabilistische treinpadberekening door de netwerktopologie
+      van het spoorwegnet met een Hidden Markov Model (Viterbi-algoritme,
+      Newson & Krumm 2009), een interactieve browsergebaseerde kaartapplicatie
+      voor het visueel bekijken en bewerken van berekende paden, CRS-bewuste
+      coördinatentransformaties (EPSG-codes via proj4rs), en invoer/uitvoer in
+      meerdere formaten (CSV, GeoJSON). Een opdrachtregelinterface (tp-cli) en
+      Python-bindingen (tp-py via PyO3) zijn inbegrepen voor flexibele
+      integratie.
+    documentation: "https://matdata-eu.github.io/tp-lib/"
+    apiDocumentation: "https://matdata-eu.github.io/tp-lib/tp_lib_core/"
+    features:
+      - GNSS-projectie op spoorwegnetwerk met R-tree ruimtelijke indexering
+      - Probabilistische treinpadberekening via HMM Viterbi-algoritme
+      - Interactieve browsergebaseerde webapp voor padreview en -bewerking
+      - CRS-bewuste coördinatentransformaties (EPSG-codes via proj4rs)
+      - CSV- en GeoJSON-invoer/-uitvoer
+      - Opdrachtregelinterface (tp-cli)
+      - Python-bindingen (tp-py via PyO3)
+
+legal:
+  license: Apache-2.0
+
+maintenance:
+  type: "community"
+  contacts:
+    - name: Mathias Vanden Auweele
+      email: "mathias@matdata.eu"
+      affiliation: Infrabel
+
+localisation:
+  localisationReady: true
+  availableLanguages:
+    - en
+    - fr
+    - nl
