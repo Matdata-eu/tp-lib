@@ -16,6 +16,11 @@ platforms:
 categories:
   - geographic-information-systems
 
+businessCapabilities:
+  profile: railway
+  capabilities:
+    - infrastructure/rail-network
+
 developmentStatus: development
 
 softwareType: "library"
