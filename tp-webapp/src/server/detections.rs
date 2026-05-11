@@ -7,6 +7,7 @@
 //! library/CLI already produced (per spec clarification Q2).
 
 use axum::extract::State;
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::{json, Value};
@@ -16,12 +17,12 @@ use crate::server::routes::SharedState;
 
 /// Serialise a [`DetectionRecord`] together with its index in the
 /// `PathResult.detection_provenance` vector.
-fn record_to_json(index: usize, record: &DetectionRecord) -> Value {
-    let mut value = serde_json::to_value(record).unwrap_or_else(|_| json!({}));
+fn record_to_json(index: usize, record: &DetectionRecord) -> Result<Value, serde_json::Error> {
+    let mut value = serde_json::to_value(record)?;
     if let Some(obj) = value.as_object_mut() {
         obj.insert("provenance_index".to_owned(), json!(index));
     }
-    value
+    Ok(value)
 }
 
 /// Partition `detection_provenance` into three arrays and return as JSON.
@@ -45,7 +46,16 @@ pub async fn get_detections(State(state): State<SharedState>) -> Response {
     let mut discarded: Vec<Value> = Vec::new();
 
     for (index, record) in state.detection_provenance.iter().enumerate() {
-        let value = record_to_json(index, record);
+        let value = match record_to_json(index, record) {
+            Ok(value) => value,
+            Err(_) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "internal" })),
+                )
+                    .into_response();
+            }
+        };
         match (&record.status, record.kind) {
             (DetectionStatus::Discarded { .. }, _) => discarded.push(value),
             (_, DetectionKind::Punctual) => punctual.push(value),

@@ -81,7 +81,11 @@ async function init() {
 
   // Initialise detection overlay (T036, US4 / 004-train-detections).
   if (window.TpDetections && typeof window.TpDetections.init === 'function') {
-    window.TpDetections.init(map, networkData);
+    try {
+      await window.TpDetections.init(map, networkData);
+    } catch {
+      setStatus('Detections overlay could not be loaded.', true);
+    }
   }
 
   // Fit map to network bounds

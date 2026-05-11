@@ -190,14 +190,10 @@ fn parse_punctual<R: std::io::Read>(
             None => None,
         };
 
-        let location = if let Some(ne_id) = &netelement_id {
-            Some(TopologicalLocation {
+        let location = netelement_id.as_ref().map(|ne_id| TopologicalLocation {
                 netelement_id: ne_id.clone(),
                 intrinsic: intrinsic_value.unwrap_or(0.5),
-            })
-        } else {
-            None
-        };
+            });
 
         let coordinates = if has_coord {
             let lat_s = lat.ok_or_else(|| {

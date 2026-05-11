@@ -884,15 +884,16 @@ pub fn calculate_train_path(
     };
 
     // US5 T129-T130: Apply resampling if configured
-    let (working_positions, resampling_applied) = if let Some(resample_dist) =
+    let (working_positions, resampling_applied, gnss_index_map) = if let Some(resample_dist) =
         config.resampling_distance
     {
         let indices = crate::path::spacing::select_resampled_subset(gnss_positions, resample_dist);
         let subset: Vec<_> = indices.iter().map(|&i| &gnss_positions[i]).collect();
-        (subset, indices.len() < gnss_positions.len())
+        let map = build_original_to_working_index_map(&indices, gnss_positions.len());
+        (subset, indices.len() < gnss_positions.len(), Some(map))
     } else {
         // No resampling - use all positions
-        (gnss_positions.iter().collect(), false)
+        (gnss_positions.iter().collect(), false, None)
     };
 
     // T098/T108: When path_only is true, skip projection phase
@@ -1031,7 +1032,7 @@ pub fn calculate_train_path(
     // Build per-candidate emission probabilities for the Viterbi algorithm.
     // position_probabilities is Vec<HashMap<netelement_idx, f64>> (keyed by NE index).
     // Viterbi expects Vec<Vec<f64>> indexed by candidate within position_candidates[t].
-    let emission_probs: Vec<Vec<f64>> = position_candidates
+    let mut emission_probs: Vec<Vec<f64>> = position_candidates
         .iter()
         .enumerate()
         .map(|(t, cands)| {
@@ -1051,8 +1052,6 @@ pub fn calculate_train_path(
     // Detection anchor injection (T019): override candidates / emissions at
     // every anchored GNSS step so the Viterbi pass is forced through the
     // anchored netelement(s).
-    let mut position_candidates = position_candidates;
-    let mut emission_probs = emission_probs;
     if !config.anchors.is_empty() {
         crate::detections::anchor::apply_anchors(
             &config.anchors,
@@ -1060,7 +1059,7 @@ pub fn calculate_train_path(
             &mut emission_probs,
             netelements,
             &netelement_index,
-            None,
+            gnss_index_map.as_deref(),
         )
         .map_err(|e| ProjectionError::PathCalculationFailed {
             reason: format!("anchor injection failed: {}", e),
@@ -1418,6 +1417,35 @@ pub fn calculate_train_path(
     );
     result.debug_info = debug_info;
     Ok(result)
+}
+
+fn build_original_to_working_index_map(
+    selected_original_indices: &[usize],
+    original_len: usize,
+) -> Vec<usize> {
+    if selected_original_indices.is_empty() {
+        return Vec::new();
+    }
+
+    let mut out = vec![0; original_len];
+    let mut left = 0usize;
+    for (original_idx, slot) in out.iter_mut().enumerate() {
+        while left + 1 < selected_original_indices.len()
+            && selected_original_indices[left + 1] <= original_idx
+        {
+            left += 1;
+        }
+        let mut best = left;
+        if left + 1 < selected_original_indices.len() {
+            let dist_left = original_idx.abs_diff(selected_original_indices[left]);
+            let dist_right = selected_original_indices[left + 1].abs_diff(original_idx);
+            if dist_right < dist_left {
+                best = left + 1;
+            }
+        }
+        *slot = best;
+    }
+    out
 }
 
 /// Project GNSS coordinates onto a calculated train path (US2: T093-T097)

@@ -137,7 +137,11 @@ fn resolve_punctual(
         let (best_idx, best_dist, best_intrinsic) = match best {
             Some(b) => b,
             None => {
-                // No netelements — treat as out-of-reach with sentinel.
+                // No netelements — treat as out-of-reach with finite sentinel.
+                out.warnings.push(format!(
+                    "detection at {}:{} discarded (no netelements available)",
+                    p.source_file, p.source_row
+                ));
                 out.records.push(DetectionRecord {
                     source_file: p.source_file.clone(),
                     source_row: p.source_row,
@@ -145,7 +149,7 @@ fn resolve_punctual(
                     timestamp: TimestampOrRange::Single { timestamp: p.timestamp },
                     status: DetectionStatus::Discarded {
                         reason: DiscardReason::OutOfReach {
-                            nearest_distance_m: f64::INFINITY,
+                            nearest_distance_m: cutoff_distance_m + 1.0,
                             cutoff_m: cutoff_distance_m,
                         },
                     },

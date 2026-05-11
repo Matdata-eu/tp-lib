@@ -11,7 +11,7 @@
  *    full netelement geometry.
  *  - Discarded detection         → muted/dashed marker rendered at the
  *    nearest known anchor (netelement intrinsic, when present); otherwise
- *    skipped on the map but still listed in the details panel.
+ *    skipped on the map.
  *
  * The webapp is read-only with respect to detections (per spec
  * clarification Q2): the user cannot create or edit detections in the UI.
@@ -47,12 +47,12 @@
     indexNetworkGeometries(networkData);
 
     detectionLayerGroup = L.layerGroup().addTo(map);
+    wireToggle();
 
     const data = await fetchDetections();
     if (!data) return;
 
     renderDetections(data);
-    wireToggle();
   }
 
   // ---------------------------------------------------------------------------

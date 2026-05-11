@@ -4,7 +4,7 @@
 //! window. Linear detections that *partially* overlap (FR-008) are also
 //! discarded — no clipping.
 
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 
 use crate::models::{
     Detection, DetectionKind, DetectionRecord, DetectionStatus, DiscardReason, GnssPosition,
@@ -26,7 +26,11 @@ pub fn filter_detections_by_time(
 ) -> FilterOutcome {
     if gnss.is_empty() {
         // No window → discard everything as out-of-time-range using sentinels.
-        let dummy = chrono::Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap());
+        let dummy = Utc
+            .timestamp_opt(0, 0)
+            .single()
+            .unwrap()
+            .with_timezone(&FixedOffset::east_opt(0).unwrap());
         return discard_all(detections, dummy, dummy);
     }
 

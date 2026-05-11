@@ -9,7 +9,7 @@ use geo::LineString;
 
 use tp_lib_core::detections::prepare_detections_from_loaded;
 use tp_lib_core::models::{
-    Detection, DetectionKind, DetectionStatus, GnssPosition, Netelement,
+    Detection, DetectionKind, DetectionStatus, DiscardReason, GnssPosition, Netelement,
     PunctualDetection, TopologicalLocation,
 };
 
@@ -163,4 +163,49 @@ fn provenance_length_equals_input_count() {
     assert_eq!(applied, 2);
     assert_eq!(discarded, 1);
     assert_eq!(prepared.anchors.len(), 2);
+}
+
+#[test]
+fn provenance_preserves_input_order_and_duplicate_index_targets_provenance() {
+    let netelements = vec![ne("NE_A")];
+    let gnss = gnss_window(5);
+
+    let make = |row: usize, secs: i64| {
+        Detection::Punctual(PunctualDetection {
+            timestamp: ts(secs),
+            location: Some(TopologicalLocation {
+                netelement_id: "NE_A".to_string(),
+                intrinsic: 0.25,
+            }),
+            coordinates: None,
+            intrinsic: None,
+            id: None,
+            source: None,
+            source_file: "topo.csv".to_string(),
+            source_row: row,
+            metadata: Default::default(),
+        })
+    };
+
+    let inputs = vec![
+        make(10, 0), // kept
+        make(1, 1),  // kept
+        make(2, 1),  // duplicate of row 1
+    ];
+
+    let prepared =
+        prepare_detections_from_loaded(inputs, &gnss, &netelements, 2.5).expect("ok");
+
+    let rows: Vec<usize> = prepared.records.iter().map(|r| r.source_row).collect();
+    assert_eq!(rows, vec![10, 1, 2], "provenance should keep input order");
+
+    match &prepared.records[2].status {
+        DetectionStatus::Discarded {
+            reason: DiscardReason::DuplicateOfPriorDetection { kept_index },
+        } => assert_eq!(
+            *kept_index, 1,
+            "kept_index should point to the kept record index in provenance"
+        ),
+        other => panic!("expected duplicate discard, got {:?}", other),
+    }
 }

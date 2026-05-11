@@ -10,20 +10,13 @@ The webapp is **read-only** for detections (per user clarification Q2). No uploa
 ## Endpoint
 
 ```
-GET /api/runs/:run_id/detections
+GET /api/detections
 ```
-
-### Path parameters
-
-| Name     | Type   | Description |
-|----------|--------|-------------|
-| `run_id` | string | Identifier of a previously-persisted CLI run (existing webapp convention). |
 
 ### Response — `200 OK`
 
 ```jsonc
 {
-  "run_id": "log_28586",
   "punctual": [
     {
       "provenance_index": 0,                       // index into PathResult.detection_provenance
@@ -86,8 +79,6 @@ A `LineString` clipped along the netelement between `start_intrinsic` (default `
 
 | Status | Body                          | Meaning |
 |--------|-------------------------------|---------|
-| `404`  | `{ "error": "run_not_found" }`| Unknown `run_id` |
-| `409`  | `{ "error": "no_detections" }`| Run exists but had no `--punctual-detections`/`--linear-detections` inputs (response empty arrays returned with `200` is preferred — `409` is reserved for legacy runs predating this feature where the field is absent) |
 | `500`  | `{ "error": "internal" }`     | Server failure |
 
 Empty arrays are valid and returned as `200` — they convey "feature was enabled, no detections loaded".
@@ -109,4 +100,4 @@ Click on any rendered detection ⇒ details panel populated from the JSON record
 
 ## Caching
 
-The endpoint is read-only and idempotent. Responses are deterministic per `run_id`. Webapp may apply standard HTTP caching headers (`ETag` based on `run_id` + `path_result.hash`). No cache invalidation is required (run results are immutable).
+The endpoint is read-only and idempotent for the currently loaded run state. Webapp may apply standard HTTP caching headers keyed to the in-memory `path_result.hash`.

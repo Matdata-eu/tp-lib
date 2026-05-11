@@ -1,8 +1,8 @@
 //! Detection provenance record types (T008).
 //!
 //! `DetectionRecord` is appended to `PathResult.detection_provenance` for
-//! every detection ingested (applied or discarded). Output is ordered by
-//! `(source_file, source_row)`.
+//! every detection ingested (applied or discarded), preserving original input
+//! order.
 
 use std::collections::BTreeMap;
 

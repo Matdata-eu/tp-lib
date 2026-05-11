@@ -146,7 +146,7 @@ struct Cli {
     )]
     punctual_detections: Option<String>,
 
-    /// Path to a linear detections file (CSV). Detections are applied as
+    /// Path to a linear detections file (CSV or GeoJSON). Detections are applied as
     /// linear anchors during path calculation (Feature 004 US2).
     #[arg(
         long = "linear-detections",

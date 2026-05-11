@@ -222,6 +222,12 @@ fn test_calculate_train_path_with_resampling() {
 }
 
 #[test]
+fn test_build_original_to_working_index_map_nearest_mapping() {
+    let map = build_original_to_working_index_map(&[0, 4, 9], 10);
+    assert_eq!(map, vec![0, 0, 0, 1, 1, 1, 1, 2, 2, 2]);
+}
+
+#[test]
 fn test_calculate_train_path_path_only_mode() {
     let netelements = vec![create_test_netelement(
         "NE1",
