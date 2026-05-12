@@ -3,7 +3,7 @@
 //! This module exposes the following features to Python:
 //! - Spec 001: GNSS projection (`project_gnss`, `ProjectionConfig`, `ProjectedPosition`)
 //! - Spec 002: Train path calculation (`calculate_train_path`, `PathConfig`, `PathResult`,
-//!              `TrainPath`, `AssociatedNetElement`)
+//!   `TrainPath`, `AssociatedNetElement`)
 //! - Spec 004: Train detections (`prepare_detections`, `PreparedDetections`)
 
 use pyo3::exceptions::{PyIOError, PyRuntimeError, PyValueError};
