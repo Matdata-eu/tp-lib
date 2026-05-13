@@ -49,9 +49,11 @@ unsafe fn load_network(
 unsafe fn load_gnss(ptr: *const u8, len: i32) -> Option<Vec<tp_lib_core::GnssPosition>> {
     let bytes = std::slice::from_raw_parts(ptr, len.max(0) as usize);
     let text = std::str::from_utf8(bytes).ok()?;
-    parse_gnss_geojson_str(text, WGS84)
-        .ok()
-        .or_else(|| parse_gnss_csv_str(text, WGS84, CSV_LAT_COL, CSV_LON_COL, CSV_TIME_COL).ok())
+    if text.trim_start().starts_with('{') {
+        parse_gnss_geojson_str(text, WGS84).ok()
+    } else {
+        parse_gnss_csv_str(text, WGS84, CSV_LAT_COL, CSV_LON_COL, CSV_TIME_COL).ok()
+    }
 }
 
 /// Project GNSS positions onto the nearest network segments.
