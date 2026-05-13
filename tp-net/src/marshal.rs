@@ -23,4 +23,3 @@ pub(crate) unsafe fn from_json_bytes<'a, T: Deserialize<'a>>(
     let slice = std::slice::from_raw_parts(ptr, len.max(0) as usize);
     serde_json::from_slice(slice)
 }
-
