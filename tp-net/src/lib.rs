@@ -184,7 +184,8 @@ pub unsafe extern "C" fn tp_net_prepare_detections(
     if detections_geojson_ptr.is_null() || detections_geojson_len < 0 {
         return ByteBuffer::null_error();
     }
-    let det_bytes = std::slice::from_raw_parts(detections_geojson_ptr, detections_geojson_len as usize);
+    let det_bytes =
+        std::slice::from_raw_parts(detections_geojson_ptr, detections_geojson_len as usize);
     let Ok(det_text) = std::str::from_utf8(det_bytes) else {
         return ByteBuffer::null_error();
     };
