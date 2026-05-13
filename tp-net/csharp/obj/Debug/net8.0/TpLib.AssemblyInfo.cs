@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("C#/.NET bindings for tp-lib — GNSS projection onto railway networks.")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.0.1.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.0.1+528b8a6f83149e7f82ff966964b3ebc78ad62987")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.0.1+893de6bb9efee3d65c648408b03eac8c3dfb4b0c")]
 [assembly: System.Reflection.AssemblyProductAttribute("TpLib")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TpLib")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.0.1.0")]
