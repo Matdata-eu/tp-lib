@@ -59,10 +59,10 @@ pub struct ProjectionConfigFfi {
 
 impl From<ProjectionConfigFfi> for tp_lib_core::ProjectionConfig {
     fn from(c: ProjectionConfigFfi) -> Self {
-        let mut out = tp_lib_core::ProjectionConfig::default();
-        out.projection_distance_warning_threshold = c.projection_distance_warning_threshold;
-        out.suppress_warnings = c.suppress_warnings != 0;
-        out
+        tp_lib_core::ProjectionConfig {
+            projection_distance_warning_threshold: c.projection_distance_warning_threshold,
+            suppress_warnings: c.suppress_warnings != 0,
+        }
     }
 }
 
@@ -91,24 +91,25 @@ pub struct PathConfigFfi {
 
 impl From<PathConfigFfi> for tp_lib_core::PathConfig {
     fn from(c: PathConfigFfi) -> Self {
-        let mut out = tp_lib_core::PathConfig::default();
-        out.distance_scale = c.distance_scale;
-        out.heading_scale = c.heading_scale;
-        out.cutoff_distance = c.cutoff_distance;
-        out.heading_cutoff = c.heading_cutoff;
-        out.probability_threshold = c.probability_threshold;
-        out.resampling_distance = if c.has_resampling_distance != 0 {
-            Some(c.resampling_distance)
-        } else {
-            None
-        };
-        out.max_candidates = c.max_candidates as usize;
-        out.path_only = c.path_only != 0;
-        out.debug_mode = c.debug_mode != 0;
-        out.beta = c.beta;
-        out.edge_zone_distance = c.edge_zone_distance;
-        out.turn_scale = c.turn_scale;
-        out.detection_cutoff_distance = c.detection_cutoff_distance;
-        out
+        tp_lib_core::PathConfig {
+            distance_scale: c.distance_scale,
+            heading_scale: c.heading_scale,
+            cutoff_distance: c.cutoff_distance,
+            heading_cutoff: c.heading_cutoff,
+            probability_threshold: c.probability_threshold,
+            resampling_distance: if c.has_resampling_distance != 0 {
+                Some(c.resampling_distance)
+            } else {
+                None
+            },
+            max_candidates: c.max_candidates as usize,
+            path_only: c.path_only != 0,
+            debug_mode: c.debug_mode != 0,
+            beta: c.beta,
+            edge_zone_distance: c.edge_zone_distance,
+            turn_scale: c.turn_scale,
+            detection_cutoff_distance: c.detection_cutoff_distance,
+            ..Default::default()
+        }
     }
 }

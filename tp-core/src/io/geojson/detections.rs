@@ -70,7 +70,7 @@ pub fn load_str(
             DetectionError::InvalidSchema(format!("feature[{idx}]: missing 'properties'"))
         })?;
 
-        let kind_str = require_str(&props, "kind", &source_file, source_row)?;
+        let kind_str = require_str(&props, "kind", source_file, source_row)?;
         let actual_kind = match kind_str.as_str() {
             "punctual" => DetectionKind::Punctual,
             "linear" => DetectionKind::Linear,
@@ -88,9 +88,9 @@ pub fn load_str(
 
         let detection = match expected_kind {
             DetectionKind::Punctual => {
-                parse_punctual(&props, feature.geometry.as_ref(), &source_file, source_row)?
+                parse_punctual(&props, feature.geometry.as_ref(), source_file, source_row)?
             }
-            DetectionKind::Linear => parse_linear(&props, &source_file, source_row)?,
+            DetectionKind::Linear => parse_linear(&props, source_file, source_row)?,
         };
         out.push(detection);
     }

@@ -24,13 +24,3 @@ pub(crate) unsafe fn from_json_bytes<'a, T: Deserialize<'a>>(
     serde_json::from_slice(slice)
 }
 
-/// Borrow a UTF-8 string from a raw pointer.
-///
-/// # Safety
-/// `ptr` must reference at least `len` valid bytes.
-pub(crate) unsafe fn str_from_raw<'a>(
-    ptr: *const u8,
-    len: i32,
-) -> Result<&'a str, std::str::Utf8Error> {
-    std::str::from_utf8(std::slice::from_raw_parts(ptr, len.max(0) as usize))
-}

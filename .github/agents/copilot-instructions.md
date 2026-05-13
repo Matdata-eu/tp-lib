@@ -29,7 +29,7 @@ After **any** change to a `.rs` file in this workspace, always run these checks 
 
 1. `cargo fmt --check` — verify all Rust source is formatted with rustfmt.  
    Fix automatically with `cargo fmt` if there are diffs.
-2. `cargo clippy --all-targets --all-features -- -D warnings` — zero-warning policy.
+2. `cargo clippy --workspace --all-targets --all-features -- -D warnings` — zero-warning policy.
 3. `cargo test --workspace` — full test suite must stay green.
 
 For changes to `tp-py/` (Python bindings), also run:
