@@ -768,3 +768,137 @@ fn test_parse_trainpath_csv_invalid_gnss_index() {
     // Testing that parsing doesn't crash
     let _ = result;
 }
+
+// Tests for parse_gnss_csv_str (in-memory / .NET bindings variant)
+
+#[test]
+fn test_parse_gnss_csv_str_basic() {
+    let csv = "latitude,longitude,timestamp\n50.8503,4.3517,2024-01-15T10:30:00Z\n50.8504,4.3518,2024-01-15T10:30:01Z";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_ok());
+    let positions = result.unwrap();
+    assert_eq!(positions.len(), 2);
+    assert_eq!(positions[0].latitude, 50.8503);
+    assert_eq!(positions[0].longitude, 4.3517);
+    assert_eq!(positions[1].latitude, 50.8504);
+}
+
+#[test]
+fn test_parse_gnss_csv_str_empty() {
+    let csv = "latitude,longitude,timestamp";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().len(), 0);
+}
+
+#[test]
+fn test_parse_gnss_csv_str_missing_latitude_column() {
+    let csv = "longitude,timestamp\n4.3517,2024-01-15T10:30:00Z";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_err());
+    if let Err(ProjectionError::InvalidCoordinate(msg)) = result {
+        assert!(msg.contains("Latitude column"));
+    } else {
+        panic!("Expected InvalidCoordinate error");
+    }
+}
+
+#[test]
+fn test_parse_gnss_csv_str_missing_longitude_column() {
+    let csv = "latitude,timestamp\n50.8503,2024-01-15T10:30:00Z";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_err());
+    if let Err(ProjectionError::InvalidCoordinate(msg)) = result {
+        assert!(msg.contains("Longitude column"));
+    } else {
+        panic!("Expected InvalidCoordinate error");
+    }
+}
+
+#[test]
+fn test_parse_gnss_csv_str_missing_timestamp_column() {
+    let csv = "latitude,longitude\n50.8503,4.3517";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_err());
+    if let Err(ProjectionError::InvalidTimestamp(msg)) = result {
+        assert!(msg.contains("Timestamp column"));
+    } else {
+        panic!("Expected InvalidTimestamp error");
+    }
+}
+
+#[test]
+fn test_parse_gnss_csv_str_with_heading_and_distance() {
+    let csv = "latitude,longitude,timestamp,heading,distance\n50.8503,4.3517,2024-01-15T10:30:00Z,45.0,100.5";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_ok());
+    let positions = result.unwrap();
+    assert_eq!(positions.len(), 1);
+    assert_eq!(positions[0].heading, Some(45.0));
+    assert_eq!(positions[0].distance, Some(100.5));
+}
+
+#[test]
+fn test_parse_gnss_csv_str_preserves_metadata() {
+    let csv = "latitude,longitude,timestamp,speed,train_id\n50.8503,4.3517,2024-01-15T10:30:00Z,80.5,T123";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_ok());
+    let positions = result.unwrap();
+    assert_eq!(positions.len(), 1);
+    assert!(positions[0].metadata.contains_key("speed"));
+    assert!(positions[0].metadata.contains_key("train_id"));
+}
+
+#[test]
+fn test_parse_gnss_csv_str_invalid_heading_range() {
+    let csv = "latitude,longitude,timestamp,heading\n50.8503,4.3517,2024-01-15T10:30:00Z,400.0";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_err());
+    if let Err(ProjectionError::InvalidGeometry(msg)) = result {
+        assert!(msg.contains("Heading must be in [0, 360]"));
+    } else {
+        panic!("Expected InvalidGeometry error for invalid heading");
+    }
+}
+
+#[test]
+fn test_parse_gnss_csv_str_negative_distance() {
+    let csv = "latitude,longitude,timestamp,distance\n50.8503,4.3517,2024-01-15T10:30:00Z,-10.0";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "latitude", "longitude", "timestamp");
+
+    assert!(result.is_err());
+    if let Err(ProjectionError::InvalidGeometry(msg)) = result {
+        assert!(msg.contains("Distance must be >= 0"));
+    } else {
+        panic!("Expected InvalidGeometry error for negative distance");
+    }
+}
+
+#[test]
+fn test_parse_gnss_csv_str_custom_column_names() {
+    let csv = "lat,lon,time\n50.8503,4.3517,2024-01-15T10:30:00Z";
+
+    let result = parse_gnss_csv_str(csv, "EPSG:4326", "lat", "lon", "time");
+
+    assert!(result.is_ok());
+    let positions = result.unwrap();
+    assert_eq!(positions.len(), 1);
+    assert_eq!(positions[0].latitude, 50.8503);
+}

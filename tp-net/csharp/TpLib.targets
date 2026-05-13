@@ -1,0 +1,19 @@
+<Project>
+  <!--
+    Consumer-side MSBuild target shipped inside the TpLib NuGet package as
+    `build/TpLib.targets`. NuGet auto-imports it into any project that
+    references the package, ensuring the correct native binary is copied to
+    the consumer's output directory based on the runtime identifier.
+  -->
+  <PropertyGroup>
+    <TpLibPackageRoot>$(MSBuildThisFileDirectory)..\</TpLibPackageRoot>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != '' and Exists('$(TpLibPackageRoot)runtimes\$(RuntimeIdentifier)\native')">
+    <Content Include="$(TpLibPackageRoot)runtimes\$(RuntimeIdentifier)\native\*.*">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </Content>
+  </ItemGroup>
+</Project>

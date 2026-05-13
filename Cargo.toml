@@ -4,6 +4,7 @@ members = [
     "tp-cli",
     "tp-py",
     "tp-webapp",
+    "tp-net",
 ]
 resolver = "2"
 

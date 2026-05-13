@@ -1,0 +1,24 @@
+[package]
+name = "tp-lib-net"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "C#/.NET bindings for tp-lib-core GNSS projection library"
+readme = "../README.md"
+keywords = ["gnss", "gps", "railway", "dotnet", "csharp"]
+categories = ["api-bindings"]
+
+[lib]
+name = "tp_lib_net"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+tp-lib-core = { version = "0.0.1", path = "../tp-core" }
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+
+[build-dependencies]
+csbindgen = "1.9"

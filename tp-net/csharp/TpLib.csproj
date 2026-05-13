@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>TpLib</AssemblyName>
+    <RootNamespace>TpLib</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- NuGet packaging metadata (placeholders; populated by CI) -->
+    <PackageId>TpLib</PackageId>
+    <Version>0.0.1</Version>
+    <Authors>Mathias Vanden Auweele</Authors>
+    <Description>C#/.NET bindings for tp-lib — GNSS projection onto railway networks.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Matdata-eu/tp-lib</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Matdata-eu/tp-lib</RepositoryUrl>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IncludeBuildOutput>true</IncludeBuildOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Tests/**" />
+    <None Remove="Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TpLib.Tests" />
+  </ItemGroup>
+
+  <!-- Native binary packaging (populated by CI when binaries are built per RID). -->
+  <ItemGroup Condition="Exists('runtimes')">
+    <Content Include="runtimes/**/*.*" Pack="true" PackagePath="runtimes" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Ship MSBuild props/targets so NuGet consumers auto-copy the native lib for their RID. -->
+  <ItemGroup>
+    <None Include="TpLib.targets" Pack="true" PackagePath="build/TpLib.targets" Visible="false" />
+  </ItemGroup>
+
+  <!-- Map MSBuild Configuration to Cargo's lowercase profile directory name.
+       Cargo always writes to target/debug/ or target/release/ (lowercase), while
+       MSBuild $(Configuration) is title-case (Debug / Release). On case-sensitive
+       Linux filesystems the mismatch causes the Exists() guards below to fail. -->
+  <PropertyGroup>
+    <CargoProfile Condition="'$(Configuration)' == 'Release'">release</CargoProfile>
+    <CargoProfile Condition="'$(Configuration)' != 'Release'">debug</CargoProfile>
+  </PropertyGroup>
+
+  <!-- Development convenience: copy locally-built native library (from cargo target) next to managed
+       assembly so tests / `dotnet run` work without a published NuGet package. CI overrides this with
+       per-RID artifacts staged into `runtimes/`. -->
+  <ItemGroup>
+    <_DevNativeWindows Include="..\..\target\$(CargoProfile)\tp_lib_net.dll" Condition="Exists('..\..\target\$(CargoProfile)\tp_lib_net.dll')" />
+    <_DevNativeLinux Include="..\..\target\$(CargoProfile)\libtp_lib_net.so" Condition="Exists('..\..\target\$(CargoProfile)\libtp_lib_net.so')" />
+    <_DevNativeMac Include="..\..\target\$(CargoProfile)\libtp_lib_net.dylib" Condition="Exists('..\..\target\$(CargoProfile)\libtp_lib_net.dylib')" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="@(_DevNativeWindows);@(_DevNativeLinux);@(_DevNativeMac)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+</Project>

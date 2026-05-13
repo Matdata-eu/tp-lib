@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/matdata-eu/tp-lib/branch/main/graph/badge.svg)](https://codecov.io/gh/matdata-eu/tp-lib)
 [![crates.io](https://img.shields.io/crates/v/tp-lib-core.svg)](https://crates.io/crates/tp-lib-core)
 [![PyPI](https://img.shields.io/pypi/v/tp-lib.svg)](https://pypi.org/project/tp-lib/)
+[![NuGet](https://img.shields.io/nuget/v/TpLib.svg)](https://www.nuget.org/packages/TpLib/)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://matdata-eu.github.io/tp-lib/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
@@ -155,7 +156,8 @@ tp-lib/                    # Rust workspace root
 │   └── benches/           # Performance benchmarks
 ├── tp-cli/                # Command-line interface
 ├── tp-webapp/             # Interactive path review web server (axum + Leaflet.js)
-└── tp-py/                 # Python bindings (PyO3)
+├── tp-py/                 # Python bindings (PyO3)
+└── tp-net/                # .NET bindings (csbindgen + System.Text.Json)
 ```
 
 ## Quick Start
@@ -431,6 +433,7 @@ The documentation is automatically built and deployed on every push to `main`. I
 - **tp-core**: Core library API with examples
 - **tp-cli**: Command-line interface documentation
 - **tp-py**: Python bindings API reference
+- **tp-net**: .NET bindings API reference
 
 **Build locally:**
 
@@ -499,7 +502,7 @@ This project follows the TP-Lib Constitution v1.1.0 principles:
 - ✅ **VII. CRS Explicit**: All coordinates include CRS specification
 - ✅ **VIII. Error Handling**: Typed errors with thiserror, fail-fast validation
 - ✅ **IX. Data Provenance**: Preserve original GNSS data, audit logging
-- ✅ **X. Integration Flexibility**: Rust API + CLI + Python bindings
+- ✅ **X. Integration Flexibility**: Rust API + CLI + Python bindings + .NET bindings
 
 ## Contributing
 
