@@ -25,10 +25,3 @@ public enum PathOrigin
     Algorithm,
     Manual,
 }
-
-public enum DetectionStatus
-{
-    Applied,
-    Resolved,
-    Discarded,
-}

@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 
@@ -156,17 +158,76 @@ public static class PathCalculation
 /// </summary>
 public static class DetectionPreparation
 {
+    /// <summary>
+    /// Validate, time-filter and resolve detections against the network.
+    /// </summary>
+    /// <param name="network">Network input (GeoJSON or constructed from records).</param>
+    /// <param name="gnss">GNSS input used to derive the time window.</param>
+    /// <param name="detections">Detection events. Each record's <see cref="DetectionRecord.Kind"/> selects the
+    /// punctual/linear schema and must be paired with the required positional fields (see
+    /// <see cref="DetectionRecord"/>).</param>
+    /// <param name="cutoffDistanceMeters">Max projection distance for coordinate-only punctual detections.</param>
     public static PreparedDetections PrepareDetections(
         NetworkInput network,
         GnssInput gnss,
-        string detectionsGeoJson,
-        DetectionKind kind,
-        double cutoffDistanceMeters)
+        IEnumerable<DetectionRecord> detections,
+        double cutoffDistanceMeters = 2.5)
     {
         ArgumentNullException.ThrowIfNull(network);
         ArgumentNullException.ThrowIfNull(gnss);
-        ArgumentException.ThrowIfNullOrEmpty(detectionsGeoJson);
+        ArgumentNullException.ThrowIfNull(detections);
         TpLibNative.EnsureInitialized();
+
+        var records = detections as IReadOnlyList<DetectionRecord> ?? detections.ToList();
+
+        var allRecords = new List<DetectionRecord>();
+        var allWarnings = new List<string>();
+        using var anchorsStream = new MemoryStream();
+        using (var aw = new Utf8JsonWriter(anchorsStream))
+        {
+            aw.WriteStartArray();
+            foreach (var kind in new[] { DetectionKind.Punctual, DetectionKind.Linear })
+            {
+                var subset = records.Where(r => r.Kind == kind).ToList();
+                if (subset.Count == 0)
+                {
+                    continue;
+                }
+                var partial = PrepareDetectionsForKind(network, gnss, subset, kind, cutoffDistanceMeters);
+                allRecords.AddRange(partial.Records);
+                allWarnings.AddRange(partial.Warnings);
+                if (partial.Anchors.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var anchor in partial.Anchors.EnumerateArray())
+                    {
+                        anchor.WriteTo(aw);
+                    }
+                }
+            }
+            aw.WriteEndArray();
+            aw.Flush();
+        }
+
+        using var anchorsDoc = JsonDocument.Parse(anchorsStream.ToArray());
+        return new PreparedDetections(allRecords, allWarnings, anchorsDoc.RootElement.Clone());
+    }
+
+    /// <summary>Convenience overload accepting the raw network GeoJSON string.</summary>
+    public static PreparedDetections PrepareDetections(
+        string networkGeoJson,
+        GnssInput gnss,
+        IEnumerable<DetectionRecord> detections,
+        double cutoffDistanceMeters = 2.5)
+        => PrepareDetections(NetworkInput.FromGeoJson(networkGeoJson), gnss, detections, cutoffDistanceMeters);
+
+    private static PreparedDetections PrepareDetectionsForKind(
+        NetworkInput network,
+        GnssInput gnss,
+        IReadOnlyList<DetectionRecord> records,
+        DetectionKind kind,
+        double cutoffDistanceMeters)
+    {
+        var detectionsGeoJson = BuildDetectionsGeoJson(records, kind);
 
         var netBytes = Encoding.UTF8.GetBytes(network.AsJson());
         var gnssBytes = Encoding.UTF8.GetBytes(gnss.AsJson());
@@ -194,13 +255,90 @@ public static class DetectionPreparation
         }
     }
 
-    public static PreparedDetections PrepareDetections(
-        string networkGeoJson,
-        GnssInput gnss,
-        string detectionsGeoJson,
-        DetectionKind kind,
-        double cutoffDistanceMeters = 2.5)
-        => PrepareDetections(NetworkInput.FromGeoJson(networkGeoJson), gnss, detectionsGeoJson, kind, cutoffDistanceMeters);
+    private static string BuildDetectionsGeoJson(IReadOnlyList<DetectionRecord> records, DetectionKind kind)
+    {
+        using var stream = new MemoryStream();
+        using (var w = new Utf8JsonWriter(stream))
+        {
+            w.WriteStartObject();
+            w.WriteString("type", "FeatureCollection");
+            w.WriteStartArray("features");
+            foreach (var rec in records)
+            {
+                w.WriteStartObject();
+                w.WriteString("type", "Feature");
+                w.WriteStartObject("properties");
+                w.WriteString("kind", kind == DetectionKind.Linear ? "linear" : "punctual");
+
+                switch (rec.Timestamp)
+                {
+                    case DetectionTimestamp.Single single when kind == DetectionKind.Punctual:
+                        w.WriteString("timestamp", single.Timestamp);
+                        break;
+                    case DetectionTimestamp.Range range when kind == DetectionKind.Linear:
+                        w.WriteString("t_from", range.From);
+                        w.WriteString("t_to", range.To);
+                        break;
+                    default:
+                        throw new TpLibDetectionException(
+                            $"Detection (row {rec.SourceRow}, kind {kind}) has incompatible Timestamp type.");
+                }
+
+                if (rec.Id is not null) w.WriteString("id", rec.Id);
+                if (rec.Source is not null) w.WriteString("source", rec.Source);
+
+                if (kind == DetectionKind.Punctual)
+                {
+                    if (rec.NetelementId is not null)
+                    {
+                        w.WriteString("netelement_id", rec.NetelementId);
+                        if (rec.Intrinsic.HasValue) w.WriteNumber("intrinsic", rec.Intrinsic.Value);
+                    }
+                    if (rec.Crs is not null) w.WriteString("crs", rec.Crs);
+                }
+                else
+                {
+                    if (rec.NetelementId is null)
+                    {
+                        throw new TpLibDetectionException(
+                            $"Linear detection (row {rec.SourceRow}) requires NetelementId.");
+                    }
+                    w.WriteString("netelement_id", rec.NetelementId);
+                    if (rec.StartIntrinsic.HasValue) w.WriteNumber("start_intrinsic", rec.StartIntrinsic.Value);
+                    if (rec.EndIntrinsic.HasValue) w.WriteNumber("end_intrinsic", rec.EndIntrinsic.Value);
+                }
+
+                if (rec.Metadata is not null)
+                {
+                    foreach (var (k, v) in rec.Metadata)
+                    {
+                        // Reserved property names handled above; user metadata uses other keys.
+                        w.WriteString(k, v);
+                    }
+                }
+                w.WriteEndObject(); // properties
+
+                if (kind == DetectionKind.Punctual && rec.Latitude.HasValue && rec.Longitude.HasValue)
+                {
+                    w.WriteStartObject("geometry");
+                    w.WriteString("type", "Point");
+                    w.WriteStartArray("coordinates");
+                    w.WriteNumberValue(rec.Longitude.Value);
+                    w.WriteNumberValue(rec.Latitude.Value);
+                    w.WriteEndArray();
+                    w.WriteEndObject();
+                }
+                else
+                {
+                    w.WriteNull("geometry");
+                }
+                w.WriteEndObject(); // feature
+            }
+            w.WriteEndArray();
+            w.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
 }
 
 internal static class TpLibFfi

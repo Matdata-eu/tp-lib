@@ -141,15 +141,182 @@ internal sealed class DetectionTimestampJsonConverter : JsonConverter<DetectionT
     }
 }
 
+/// <summary>
+/// Disposition of an ingested detection (output, populated by <see cref="DetectionPreparation.PrepareDetections(NetworkInput, GnssInput, IEnumerable{DetectionRecord}, double)"/>).
+/// Mirrors Rust's <c>DetectionStatus</c> tagged enum (<c>tag = "status"</c>).
+/// </summary>
+public abstract record DetectionStatus
+{
+    /// <summary>Detection was applied as a Viterbi anchor.</summary>
+    public sealed record Applied(
+        [property: JsonPropertyName("netelement_id")] string NetelementId,
+        [property: JsonPropertyName("intrinsic")] double Intrinsic) : DetectionStatus;
+
+    /// <summary>Coordinate-only detection successfully resolved within the cutoff.</summary>
+    public sealed record Resolved(
+        [property: JsonPropertyName("netelement_id")] string NetelementId,
+        [property: JsonPropertyName("distance_m")] double DistanceMeters) : DetectionStatus;
+
+    /// <summary>Detection was discarded; see <see cref="Reason"/>.</summary>
+    public sealed record Discarded(
+        [property: JsonPropertyName("reason")] DiscardReason Reason) : DetectionStatus;
+}
+
+/// <summary>
+/// Reason a detection was discarded. Mirrors Rust's <c>DiscardReason</c> tagged enum (<c>tag = "kind"</c>).
+/// </summary>
+public abstract record DiscardReason
+{
+    public sealed record OutOfTimeRange(
+        [property: JsonPropertyName("gnss_first")] DateTimeOffset GnssFirst,
+        [property: JsonPropertyName("gnss_last")] DateTimeOffset GnssLast) : DiscardReason;
+
+    public sealed record OutOfReach(
+        [property: JsonPropertyName("nearest_distance_m")] double NearestDistanceMeters,
+        [property: JsonPropertyName("cutoff_m")] double CutoffMeters) : DiscardReason;
+
+    public sealed record UnknownNetelement(
+        [property: JsonPropertyName("netelement_id")] string NetelementId) : DiscardReason;
+
+    public sealed record IntrinsicOutOfRange(
+        [property: JsonPropertyName("value")] double Value) : DiscardReason;
+
+    public sealed record DuplicateOfPriorDetection(
+        [property: JsonPropertyName("kept_index")] int KeptIndex) : DiscardReason;
+}
+
+internal sealed class DetectionStatusJsonConverter : JsonConverter<DetectionStatus>
+{
+    public override DetectionStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using var doc = JsonDocument.ParseValue(ref reader);
+        var root = doc.RootElement;
+        var tag = root.GetProperty("status").GetString();
+        return tag switch
+        {
+            "applied" => new DetectionStatus.Applied(
+                root.GetProperty("netelement_id").GetString()!,
+                root.GetProperty("intrinsic").GetDouble()),
+            "resolved" => new DetectionStatus.Resolved(
+                root.GetProperty("netelement_id").GetString()!,
+                root.GetProperty("distance_m").GetDouble()),
+            "discarded" => new DetectionStatus.Discarded(
+                JsonSerializer.Deserialize<DiscardReason>(root.GetProperty("reason").GetRawText(), options)!),
+            _ => throw new JsonException($"Unknown DetectionStatus tag '{tag}'"),
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, DetectionStatus value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        switch (value)
+        {
+            case DetectionStatus.Applied a:
+                writer.WriteString("status", "applied");
+                writer.WriteString("netelement_id", a.NetelementId);
+                writer.WriteNumber("intrinsic", a.Intrinsic);
+                break;
+            case DetectionStatus.Resolved r:
+                writer.WriteString("status", "resolved");
+                writer.WriteString("netelement_id", r.NetelementId);
+                writer.WriteNumber("distance_m", r.DistanceMeters);
+                break;
+            case DetectionStatus.Discarded d:
+                writer.WriteString("status", "discarded");
+                writer.WritePropertyName("reason");
+                JsonSerializer.Serialize(writer, d.Reason, options);
+                break;
+            default:
+                throw new JsonException($"Unsupported DetectionStatus variant: {value.GetType()}");
+        }
+        writer.WriteEndObject();
+    }
+}
+
+internal sealed class DiscardReasonJsonConverter : JsonConverter<DiscardReason>
+{
+    public override DiscardReason Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using var doc = JsonDocument.ParseValue(ref reader);
+        var root = doc.RootElement;
+        var tag = root.GetProperty("kind").GetString();
+        return tag switch
+        {
+            "out_of_time_range" => new DiscardReason.OutOfTimeRange(
+                root.GetProperty("gnss_first").GetDateTimeOffset(),
+                root.GetProperty("gnss_last").GetDateTimeOffset()),
+            "out_of_reach" => new DiscardReason.OutOfReach(
+                root.GetProperty("nearest_distance_m").GetDouble(),
+                root.GetProperty("cutoff_m").GetDouble()),
+            "unknown_netelement" => new DiscardReason.UnknownNetelement(
+                root.GetProperty("netelement_id").GetString()!),
+            "intrinsic_out_of_range" => new DiscardReason.IntrinsicOutOfRange(
+                root.GetProperty("value").GetDouble()),
+            "duplicate_of_prior_detection" => new DiscardReason.DuplicateOfPriorDetection(
+                root.GetProperty("kept_index").GetInt32()),
+            _ => throw new JsonException($"Unknown DiscardReason kind '{tag}'"),
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, DiscardReason value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        switch (value)
+        {
+            case DiscardReason.OutOfTimeRange r:
+                writer.WriteString("kind", "out_of_time_range");
+                writer.WriteString("gnss_first", r.GnssFirst);
+                writer.WriteString("gnss_last", r.GnssLast);
+                break;
+            case DiscardReason.OutOfReach r:
+                writer.WriteString("kind", "out_of_reach");
+                writer.WriteNumber("nearest_distance_m", r.NearestDistanceMeters);
+                writer.WriteNumber("cutoff_m", r.CutoffMeters);
+                break;
+            case DiscardReason.UnknownNetelement r:
+                writer.WriteString("kind", "unknown_netelement");
+                writer.WriteString("netelement_id", r.NetelementId);
+                break;
+            case DiscardReason.IntrinsicOutOfRange r:
+                writer.WriteString("kind", "intrinsic_out_of_range");
+                writer.WriteNumber("value", r.Value);
+                break;
+            case DiscardReason.DuplicateOfPriorDetection r:
+                writer.WriteString("kind", "duplicate_of_prior_detection");
+                writer.WriteNumber("kept_index", r.KeptIndex);
+                break;
+            default:
+                throw new JsonException($"Unsupported DiscardReason variant: {value.GetType()}");
+        }
+        writer.WriteEndObject();
+    }
+}
+
+/// <summary>
+/// A single detection event passed to <see cref="DetectionPreparation.PrepareDetections(NetworkInput, GnssInput, IEnumerable{DetectionRecord}, double)"/>,
+/// and also returned in <see cref="PreparedDetections.Records"/> /
+/// <see cref="PathResult.DetectionProvenance"/> with <see cref="Status"/> populated.
+///
+/// On input, supply either topological position (<see cref="NetelementId"/> [+ <see cref="Intrinsic"/>])
+/// or geographic position (<see cref="Latitude"/>, <see cref="Longitude"/>) — never both.
+/// <see cref="Status"/> is ignored on input and populated on output.
+/// </summary>
 public sealed record DetectionRecord(
     [property: JsonPropertyName("source_file")] string SourceFile,
     [property: JsonPropertyName("source_row")] ulong SourceRow,
     [property: JsonPropertyName("kind")] DetectionKind Kind,
     [property: JsonPropertyName("timestamp")] DetectionTimestamp Timestamp,
-    [property: JsonPropertyName("status")] JsonElement Status,
     [property: JsonPropertyName("id")] string? Id = null,
     [property: JsonPropertyName("source")] string? Source = null,
-    [property: JsonPropertyName("metadata")] IReadOnlyDictionary<string, string>? Metadata = null);
+    [property: JsonPropertyName("metadata")] IReadOnlyDictionary<string, string>? Metadata = null,
+    [property: JsonPropertyName("status")] DetectionStatus? Status = null,
+    [property: JsonPropertyName("netelement_id")] string? NetelementId = null,
+    [property: JsonPropertyName("intrinsic")] double? Intrinsic = null,
+    [property: JsonPropertyName("start_intrinsic")] double? StartIntrinsic = null,
+    [property: JsonPropertyName("end_intrinsic")] double? EndIntrinsic = null,
+    [property: JsonPropertyName("latitude")] double? Latitude = null,
+    [property: JsonPropertyName("longitude")] double? Longitude = null,
+    [property: JsonPropertyName("crs")] string? Crs = null);
 
 public sealed record PreparedDetections(
     [property: JsonPropertyName("records")] IReadOnlyList<DetectionRecord> Records,
@@ -337,6 +504,8 @@ internal static class TpLibJson
         };
         o.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
         o.Converters.Add(new DetectionTimestampJsonConverter());
+        o.Converters.Add(new DetectionStatusJsonConverter());
+        o.Converters.Add(new DiscardReasonJsonConverter());
         return o;
     }
 }
