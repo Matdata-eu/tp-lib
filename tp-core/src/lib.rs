@@ -54,7 +54,8 @@ pub use detections::{
 };
 pub use errors::ProjectionError;
 pub use io::{
-    parse_gnss_csv, parse_gnss_geojson, parse_netrelations_geojson, parse_network_geojson,
+    parse_gnss_csv, parse_gnss_csv_str, parse_gnss_geojson, parse_gnss_geojson_str,
+    parse_netrelations_geojson, parse_network_geojson, parse_network_geojson_str,
     parse_trainpath_csv, parse_trainpath_geojson, write_csv, write_geojson, write_trainpath_csv,
     write_trainpath_geojson,
 };

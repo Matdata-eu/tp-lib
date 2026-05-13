@@ -84,6 +84,29 @@ jobs:
       - name: Run Python tests
         run: .venv/bin/pytest tp-py/python/tests/
 
+  dotnet:
+    name: .NET Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build native library
+        run: cargo build -p tp-lib-net
+
+      - name: Run cargo tests (tp-net)
+        run: cargo test -p tp-lib-net
+
+      - name: Run .NET tests
+        run: dotnet test tp-net/csharp/Tests/TpLib.Tests.csproj -c Debug --verbosity minimal
+
   lint:
     name: Linting
     runs-on: ubuntu-latest

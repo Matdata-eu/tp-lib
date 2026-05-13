@@ -38,12 +38,21 @@ const LINEAR_RESERVED: &[&str] = &[
 /// Load detections from a CSV file.
 pub fn load(path: &Path, expected_kind: DetectionKind) -> Result<Vec<Detection>, DetectionError> {
     let source_file = path.display().to_string();
+    let text = std::fs::read_to_string(path)?;
+    load_str(&text, &source_file, expected_kind)
+}
 
+/// In-memory variant of [`load`] that accepts the full CSV text. Required by
+/// the .NET bindings (FR-012, no temp files).
+pub fn load_str(
+    text: &str,
+    source_file: &str,
+    expected_kind: DetectionKind,
+) -> Result<Vec<Detection>, DetectionError> {
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)
         .flexible(false)
-        .from_path(path)
-        .map_err(|e| DetectionError::InvalidSchema(format!("failed to open CSV: {e}")))?;
+        .from_reader(text.as_bytes());
 
     let headers: Vec<String> = rdr
         .headers()
@@ -53,8 +62,8 @@ pub fn load(path: &Path, expected_kind: DetectionKind) -> Result<Vec<Detection>,
         .collect();
 
     match expected_kind {
-        DetectionKind::Punctual => parse_punctual(&mut rdr, &headers, &source_file),
-        DetectionKind::Linear => parse_linear(&mut rdr, &headers, &source_file),
+        DetectionKind::Punctual => parse_punctual(&mut rdr, &headers, source_file),
+        DetectionKind::Linear => parse_linear(&mut rdr, &headers, source_file),
     }
 }
 

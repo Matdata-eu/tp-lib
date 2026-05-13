@@ -69,6 +69,41 @@ pub fn parse_gnss_csv(
             ))
         })?;
 
+    gnss_positions_from_df(df, crs, lat_col, lon_col, time_col)
+}
+
+/// In-memory variant of [`parse_gnss_csv`] that accepts the full CSV text
+/// directly. No disk I/O is performed; required by the .NET bindings for
+/// database-backed callers (FR-012).
+pub fn parse_gnss_csv_str(
+    csv_text: &str,
+    crs: &str,
+    lat_col: &str,
+    lon_col: &str,
+    time_col: &str,
+) -> Result<Vec<GnssPosition>, ProjectionError> {
+    let cursor = std::io::Cursor::new(csv_text.as_bytes().to_vec());
+    let df = CsvReadOptions::default()
+        .with_has_header(true)
+        .into_reader_with_file_handle(cursor)
+        .finish()
+        .map_err(|e| {
+            ProjectionError::IoError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to parse CSV: {}", e),
+            ))
+        })?;
+    gnss_positions_from_df(df, crs, lat_col, lon_col, time_col)
+}
+
+/// Shared body: convert a polars DataFrame to a sequence of GnssPosition rows.
+fn gnss_positions_from_df(
+    df: DataFrame,
+    crs: &str,
+    lat_col: &str,
+    lon_col: &str,
+    time_col: &str,
+) -> Result<Vec<GnssPosition>, ProjectionError> {
     // Handle empty CSV (only headers) - polars can't infer types from empty data
     if df.height() == 0 {
         return Ok(Vec::new());

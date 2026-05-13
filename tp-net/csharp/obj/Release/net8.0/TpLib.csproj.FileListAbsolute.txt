@@ -1,0 +1,14 @@
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\bin\Release\net8.0\TpLib.deps.json
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\bin\Release\net8.0\TpLib.dll
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\bin\Release\net8.0\TpLib.pdb
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\bin\Release\net8.0\TpLib.xml
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\TpLib.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\TpLib.AssemblyInfoInputs.cache
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\TpLib.AssemblyInfo.cs
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\TpLib.csproj.CoreCompileInputs.cache
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\TpLib.sourcelink.json
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\TpLib.dll
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\refint\TpLib.dll
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\TpLib.xml
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\TpLib.pdb
+C:\Users\mathi\Git\infrabel\tp-lib\tp-net\csharp\obj\Release\net8.0\ref\TpLib.dll

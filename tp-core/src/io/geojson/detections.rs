@@ -41,10 +41,19 @@ const LINEAR_RESERVED: &[&str] = &[
 pub fn load(path: &Path, expected_kind: DetectionKind) -> Result<Vec<Detection>, DetectionError> {
     let source_file = path.display().to_string();
     let raw = std::fs::read_to_string(path)?;
+    load_str(&raw, &source_file, expected_kind)
+}
+
+/// In-memory variant of [`load`] that accepts the full GeoJSON text. Required
+/// by the .NET bindings (FR-012, no temp files).
+pub fn load_str(
+    raw: &str,
+    source_file: &str,
+    expected_kind: DetectionKind,
+) -> Result<Vec<Detection>, DetectionError> {
     let gj: GeoJson = raw.parse().map_err(|e: geojson::Error| {
         DetectionError::InvalidSchema(format!("invalid GeoJSON: {e}"))
     })?;
-
     let fc = match gj {
         GeoJson::FeatureCollection(fc) => fc,
         _ => {

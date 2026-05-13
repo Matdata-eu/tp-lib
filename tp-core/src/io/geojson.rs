@@ -66,9 +66,16 @@ fn parse_crs_from_feature_collection(feature_collection: &geojson::FeatureCollec
 pub fn parse_network_geojson(
     path: &str,
 ) -> Result<(Vec<Netelement>, Vec<NetRelation>), ProjectionError> {
-    // Read file
     let geojson_str = fs::read_to_string(path)?;
+    parse_network_geojson_str(&geojson_str)
+}
 
+/// In-memory variant of [`parse_network_geojson`] that accepts the GeoJSON
+/// FeatureCollection text directly. No disk I/O is performed; required by the
+/// .NET bindings for database-backed callers (FR-012).
+pub fn parse_network_geojson_str(
+    geojson_str: &str,
+) -> Result<(Vec<Netelement>, Vec<NetRelation>), ProjectionError> {
     // Parse GeoJSON
     let geojson = geojson_str
         .parse::<GeoJson>()
@@ -159,9 +166,17 @@ pub fn parse_network_geojson(
 /// }
 /// ```
 pub fn parse_gnss_geojson(path: &str, crs: &str) -> Result<Vec<GnssPosition>, ProjectionError> {
-    // Read file
     let geojson_str = fs::read_to_string(path)?;
+    parse_gnss_geojson_str(&geojson_str, crs)
+}
 
+/// In-memory variant of [`parse_gnss_geojson`] that accepts the GeoJSON
+/// FeatureCollection text directly. No disk I/O is performed; required by the
+/// .NET bindings for database-backed callers (FR-012).
+pub fn parse_gnss_geojson_str(
+    geojson_str: &str,
+    crs: &str,
+) -> Result<Vec<GnssPosition>, ProjectionError> {
     // Parse GeoJSON
     let geojson = geojson_str
         .parse::<GeoJson>()

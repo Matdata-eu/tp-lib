@@ -18,7 +18,7 @@ TP-Lib is valuable because:
 - It is specifically designed for railway topology (directed, navigable networks), where general-purpose map-matching libraries fall short.
 - It provides a full pipeline: GNSS input → candidate selection → probabilistic HMM path calculation → network projection → CSV/GeoJSON output.
 - It ships a browser-based interactive path review and editing tool (`tp-webapp`) so operators can correct the calculated path before final projection.
-- It exposes a CLI (`tp-cli`) for operational use, a Python API (`tp-lib` on PyPI) for integration in data science workflows and a .NET API (...).
+- It exposes a CLI (`tp-cli`) for operational use, a Python API (`tp-lib` on PyPI) for integration in data science workflows and a .NET API (`TpLib` on NuGet, install via `dotnet add package TpLib`).
 - It is thoroughly tested with 460 tests (unit, integration, contract, CLI, and doctests).
 
 ## Who are the maintainers of the project (these will be the primary contacts for the OpenRail Association)?
@@ -107,6 +107,7 @@ Topology and navigability is also defined by several other railway related stand
 - **Primary language**: Rust (1.91.1+), used for all performance-critical computation, the CLI, and the web server.
 - **Key Rust libraries**: geo-rs and proj4rs (geospatial calculations), rstar (R-tree spatial indexing), petgraph (graph algorithms for Viterbi decoding), axum (embedded web server for path review), Apache Arrow / Polars (data processing), rust-embed (bundling web assets into the binary).
 - **Python bindings**: PyO3 + Maturin expose the core library as a native Python extension (`tp-lib` on PyPI), requiring Python 3.12+.
+- **.NET bindings**: csbindgen + System.Text.Json, published as the `TpLib` NuGet package (net8.0).
 - **Frontend (embedded)**: Leaflet.js (JavaScript) for the browser-based interactive path review map; the web assets are compiled into the binary at build time with no separate Node.js build step.
 - **Packaging**: Cargo for Rust, Maturin/pip for Python, Docker for containerised deployment.
 
