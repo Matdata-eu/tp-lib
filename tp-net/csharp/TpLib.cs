@@ -15,7 +15,6 @@ public static class Projection
     {
         ArgumentNullException.ThrowIfNull(network);
         ArgumentNullException.ThrowIfNull(gnss);
-        if (gnss.IsCsv) throw new TpLibParseException("CSV input is not supported for ProjectGnss; pass a GeoJSON GnssInput.");
         config ??= new ProjectionConfig();
         TpLibNative.EnsureInitialized();
         var netBytes = Encoding.UTF8.GetBytes(network.AsJson());
@@ -52,7 +51,6 @@ public static class Projection
         ArgumentNullException.ThrowIfNull(network);
         ArgumentNullException.ThrowIfNull(gnss);
         ArgumentNullException.ThrowIfNull(path);
-        if (gnss.IsCsv) throw new TpLibParseException("CSV input is not supported for ProjectOntoPath; pass a GeoJSON GnssInput.");
         config ??= new PathConfig();
         TpLibNative.EnsureInitialized();
 
@@ -112,7 +110,6 @@ public static class PathCalculation
     {
         ArgumentNullException.ThrowIfNull(network);
         ArgumentNullException.ThrowIfNull(gnss);
-        if (gnss.IsCsv) throw new TpLibParseException("CSV input is not supported for CalculateTrainPath; pass a GeoJSON GnssInput.");
         config ??= new PathConfig();
         TpLibNative.EnsureInitialized();
 
@@ -169,7 +166,6 @@ public static class DetectionPreparation
         ArgumentNullException.ThrowIfNull(network);
         ArgumentNullException.ThrowIfNull(gnss);
         ArgumentException.ThrowIfNullOrEmpty(detectionsGeoJson);
-        if (gnss.IsCsv) throw new TpLibParseException("CSV input is not supported for PrepareDetections; pass a GeoJSON GnssInput.");
         TpLibNative.EnsureInitialized();
 
         var netBytes = Encoding.UTF8.GetBytes(network.AsJson());

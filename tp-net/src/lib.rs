@@ -11,12 +11,15 @@ use ffi::{ByteBuffer, PathConfigFfi, ProjectionConfigFfi};
 use marshal::{from_json_bytes, to_json_bytes};
 use serde::Deserialize;
 use tp_lib_core::{
-    calculate_train_path, parse_gnss_geojson_str, parse_network_geojson_str,
+    calculate_train_path, parse_gnss_csv_str, parse_gnss_geojson_str, parse_network_geojson_str,
     prepare_detections_from_loaded, project_gnss, project_onto_path, DetectionKind, PathConfig,
     RailwayNetwork, ResolvedAnchor, TrainPath,
 };
 
 const WGS84: &str = "EPSG:4326";
+const CSV_LAT_COL: &str = "latitude";
+const CSV_LON_COL: &str = "longitude";
+const CSV_TIME_COL: &str = "timestamp";
 
 /// Partial mirror of `tp_lib_core::PreparedDetections` used only to recover the
 /// `anchors` for path calculation. Remaining fields (records, warnings) are
@@ -46,7 +49,11 @@ unsafe fn load_network(
 unsafe fn load_gnss(ptr: *const u8, len: i32) -> Option<Vec<tp_lib_core::GnssPosition>> {
     let bytes = std::slice::from_raw_parts(ptr, len.max(0) as usize);
     let text = std::str::from_utf8(bytes).ok()?;
-    parse_gnss_geojson_str(text, WGS84).ok()
+    if text.trim_start().starts_with('{') {
+        parse_gnss_geojson_str(text, WGS84).ok()
+    } else {
+        parse_gnss_csv_str(text, WGS84, CSV_LAT_COL, CSV_LON_COL, CSV_TIME_COL).ok()
+    }
 }
 
 /// Project GNSS positions onto the nearest network segments.

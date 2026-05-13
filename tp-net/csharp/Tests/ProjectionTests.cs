@@ -39,6 +39,23 @@ public class ProjectionTests
     }
 
     [Fact]
+    public void ProjectGnss_CsvInput_Works()
+    {
+        var network = NetworkInput.FromGeoJson(TestData.Read("sample_network.geojson"));
+        var csv = """
+                  latitude,longitude,timestamp
+                  50.8503,4.3517,2024-01-15T10:30:00+01:00
+                  50.8505,4.3520,2024-01-15T10:30:05+01:00
+                  50.8508,4.3523,2024-01-15T10:30:10+01:00
+                  """;
+        var gnss = GnssInput.FromCsv(csv);
+
+        var result = Projection.ProjectGnss(network, gnss);
+
+        Assert.Equal(3, result.Count);
+    }
+
+    [Fact]
     public void ProjectGnss_CustomConfig_Respected()
     {
         var network = NetworkInput.FromGeoJson(TestData.Read("sample_network.geojson"));
