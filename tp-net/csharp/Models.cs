@@ -244,8 +244,8 @@ public sealed class NetworkInput
             w.WriteString("navigability", rel.Navigability switch
             {
                 Navigability.Both => "both",
-                Navigability.Forward => "AtoB",
-                Navigability.Backward => "BtoA",
+                Navigability.Forward => "AB",
+                Navigability.Backward => "BA",
                 Navigability.None => "none",
                 _ => "both",
             });

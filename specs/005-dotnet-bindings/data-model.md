@@ -116,8 +116,8 @@ Corresponds to GeoJSON features with `"type": "netrelation"`.
 | Value | GeoJSON string | Description |
 |---|---|---|
 | `Both` | `"both"` | Trains may travel in both directions |
-| `Forward` | `"AtoB"` | Trains may travel from A to B only |
-| `Backward` | `"BtoA"` | Trains may travel from B to A only |
+| `Forward` | `"AB"` | Trains may travel from A to B only |
+| `Backward` | `"BA"` | Trains may travel from B to A only |
 | `None` | `"none"` | No train movement permitted |
 
 Validation:
