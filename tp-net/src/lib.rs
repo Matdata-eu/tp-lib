@@ -38,7 +38,10 @@ unsafe fn load_network(
     Vec<tp_lib_core::NetRelation>,
     Vec<tp_lib_core::Netelement>,
 )> {
-    let bytes = std::slice::from_raw_parts(ptr, len.max(0) as usize);
+    if ptr.is_null() || len < 0 {
+        return None;
+    }
+    let bytes = std::slice::from_raw_parts(ptr, len as usize);
     let text = std::str::from_utf8(bytes).ok()?;
     let (netelements, netrelations) = parse_network_geojson_str(text).ok()?;
     let net_clone = netelements.clone();
@@ -47,7 +50,10 @@ unsafe fn load_network(
 }
 
 unsafe fn load_gnss(ptr: *const u8, len: i32) -> Option<Vec<tp_lib_core::GnssPosition>> {
-    let bytes = std::slice::from_raw_parts(ptr, len.max(0) as usize);
+    if ptr.is_null() || len < 0 {
+        return None;
+    }
+    let bytes = std::slice::from_raw_parts(ptr, len as usize);
     let text = std::str::from_utf8(bytes).ok()?;
     if text.trim_start().starts_with('{') {
         parse_gnss_geojson_str(text, WGS84).ok()
@@ -175,10 +181,10 @@ pub unsafe extern "C" fn tp_net_prepare_detections(
     let Some(gnss) = load_gnss(gnss_ptr, gnss_len) else {
         return ByteBuffer::null_error();
     };
-    let det_bytes = std::slice::from_raw_parts(
-        detections_geojson_ptr,
-        detections_geojson_len.max(0) as usize,
-    );
+    if detections_geojson_ptr.is_null() || detections_geojson_len < 0 {
+        return ByteBuffer::null_error();
+    }
+    let det_bytes = std::slice::from_raw_parts(detections_geojson_ptr, detections_geojson_len as usize);
     let Ok(det_text) = std::str::from_utf8(det_bytes) else {
         return ByteBuffer::null_error();
     };

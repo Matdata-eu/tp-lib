@@ -15,11 +15,16 @@ pub(crate) fn to_json_bytes<T: Serialize>(val: &T) -> ByteBuffer {
 /// Borrow a JSON byte slice from a raw pointer and deserialize into `T`.
 ///
 /// # Safety
-/// `ptr` must reference at least `len` valid bytes.
+/// `ptr` must be non-null and reference at least `len` valid bytes.
 pub(crate) unsafe fn from_json_bytes<'a, T: Deserialize<'a>>(
     ptr: *const u8,
     len: i32,
 ) -> Result<T, serde_json::Error> {
-    let slice = std::slice::from_raw_parts(ptr, len.max(0) as usize);
+    if ptr.is_null() || len < 0 {
+        return Err(<serde_json::Error as serde::de::Error>::custom(
+            "null pointer or negative length",
+        ));
+    }
+    let slice = std::slice::from_raw_parts(ptr, len as usize);
     serde_json::from_slice(slice)
 }
