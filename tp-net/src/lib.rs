@@ -30,7 +30,11 @@ struct PreparedDetectionsInput {
 unsafe fn load_network(
     ptr: *const u8,
     len: i32,
-) -> Option<(RailwayNetwork, Vec<tp_lib_core::NetRelation>, Vec<tp_lib_core::Netelement>)> {
+) -> Option<(
+    RailwayNetwork,
+    Vec<tp_lib_core::NetRelation>,
+    Vec<tp_lib_core::Netelement>,
+)> {
     let bytes = std::slice::from_raw_parts(ptr, len.max(0) as usize);
     let text = std::str::from_utf8(bytes).ok()?;
     let (netelements, netrelations) = parse_network_geojson_str(text).ok()?;
@@ -164,8 +168,10 @@ pub unsafe extern "C" fn tp_net_prepare_detections(
     let Some(gnss) = load_gnss(gnss_ptr, gnss_len) else {
         return ByteBuffer::null_error();
     };
-    let det_bytes =
-        std::slice::from_raw_parts(detections_geojson_ptr, detections_geojson_len.max(0) as usize);
+    let det_bytes = std::slice::from_raw_parts(
+        detections_geojson_ptr,
+        detections_geojson_len.max(0) as usize,
+    );
     let Ok(det_text) = std::str::from_utf8(det_bytes) else {
         return ByteBuffer::null_error();
     };
@@ -174,14 +180,11 @@ pub unsafe extern "C" fn tp_net_prepare_detections(
     } else {
         DetectionKind::Punctual
     };
-    let detections = match tp_lib_core::io::geojson::detections::load_str(
-        det_text,
-        "<memory>",
-        kind,
-    ) {
-        Ok(d) => d,
-        Err(_) => return ByteBuffer::null_error(),
-    };
+    let detections =
+        match tp_lib_core::io::geojson::detections::load_str(det_text, "<memory>", kind) {
+            Ok(d) => d,
+            Err(_) => return ByteBuffer::null_error(),
+        };
     let prepared = match prepare_detections_from_loaded(
         detections,
         &gnss,

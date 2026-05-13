@@ -34,4 +34,3 @@ pub(crate) unsafe fn str_from_raw<'a>(
 ) -> Result<&'a str, std::str::Utf8Error> {
     std::str::from_utf8(std::slice::from_raw_parts(ptr, len.max(0) as usize))
 }
-
