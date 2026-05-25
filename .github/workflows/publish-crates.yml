@@ -26,11 +26,19 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Update version in Cargo.toml
+      - name: Update release version in workspace manifests
         run: |
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+
           sed -i.bak "s/^version = \".*\"/version = \"$TAG_VERSION\"/" Cargo.toml
           rm -f Cargo.toml.bak
+
+          # Keep internal path dependency requirements aligned with the release version.
+          find . -name Cargo.toml -not -path "./target/*" -print0 | while IFS= read -r -d '' manifest; do
+            sed -i.bak -E "s/(tp-lib-core = \{[^}]*version = \")[^\"]+(\"[^}]*\})/\1$TAG_VERSION\2/g" "$manifest"
+            sed -i.bak -E "s/(tp-webapp = \{[^}]*version = \")[^\"]+(\"[^}]*\})/\1$TAG_VERSION\2/g" "$manifest"
+            rm -f "$manifest.bak"
+          done
 
       - name: Run tests
         run: cargo test

@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.12']
     steps:
       - uses: actions/checkout@v4
       
@@ -34,7 +34,18 @@ jobs:
       
       - name: Install maturin
         run: pip install maturin
-      
+
+      - name: Update release version
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+
+          python -c "import re, pathlib; p = pathlib.Path('tp-py/pyproject.toml'); p.write_text(re.sub(r'^version = \".*\"', f'version = \"${TAG_VERSION}\"', p.read_text(), count=1, flags=re.M))"
+
+          python -c "import re, pathlib; p = pathlib.Path('Cargo.toml'); p.write_text(re.sub(r'^version = \".*\"', f'version = \"${TAG_VERSION}\"', p.read_text(), count=1, flags=re.M))"
+
+          python -c "import re, pathlib; p = pathlib.Path('tp-py/Cargo.toml'); p.write_text(re.sub(r'(tp-lib-core = \{[^}]*version = \")[^\"]+(\"[^}]*\})', lambda m: m.group(1) + '${TAG_VERSION}' + m.group(2), p.read_text()))"
+
       - name: Build wheels
         run: |
           cd tp-py
@@ -63,7 +74,18 @@ jobs:
       
       - name: Install maturin
         run: pip install maturin
-      
+
+      - name: Update release version
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+
+          python -c "import re, pathlib; p = pathlib.Path('tp-py/pyproject.toml'); p.write_text(re.sub(r'^version = \".*\"', f'version = \"${TAG_VERSION}\"', p.read_text(), count=1, flags=re.M))"
+
+          python -c "import re, pathlib; p = pathlib.Path('Cargo.toml'); p.write_text(re.sub(r'^version = \".*\"', f'version = \"${TAG_VERSION}\"', p.read_text(), count=1, flags=re.M))"
+
+          python -c "import re, pathlib; p = pathlib.Path('tp-py/Cargo.toml'); p.write_text(re.sub(r'(tp-lib-core = \{[^}]*version = \")[^\"]+(\"[^}]*\})', lambda m: m.group(1) + '${TAG_VERSION}' + m.group(2), p.read_text()))"
+
       - name: Build sdist
         run: |
           cd tp-py
