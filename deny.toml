@@ -106,6 +106,7 @@ allow = [
     "Zlib",              # zlib License (permissive)
     "Unicode-DFS-2016",  # Unicode License (for Unicode data)
     "Unicode-3.0",       # Unicode License v3 (for Unicode data, used by unicode-ident)
+    "MPL-2.0",           # Mozilla Public License 2.0 (weak copyleft, but widely used and generally considered acceptable for libraries)
 ]
 # The confidence threshold for detecting a license from license text
 confidence-threshold = 0.8
