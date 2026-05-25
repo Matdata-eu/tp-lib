@@ -8,7 +8,7 @@
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://matdata-eu.github.io/tp-lib/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-**Status**: Under construction
+**Status**: Development finished. Awaiting governance open points before migration to [openrail association](https://openrailassociation.org/).
 
 Train positioning library excels in post-processing the GNSS positions of your measurement train to achieve an unambiguous network location. This library is your map matching assistant specifically for railway.
 
