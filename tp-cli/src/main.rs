@@ -15,10 +15,9 @@ use tp_lib_core::{
     parse_network_geojson, parse_trainpath_csv, parse_trainpath_geojson, project_gnss,
     project_onto_path, resolve_topology, write_csv, write_geojson, write_network_geojson,
     write_trainpath_csv, write_trainpath_geojson, GnssPosition, NetRelation, Netelement,
-    PathConfig, PathConfigBuilder,
-    ProjectionConfig, ProjectionError, RailwayNetwork, RetrievalConfig, RetrievalStatus,
-    TopologySource, UreqSparqlClient, WorkflowKind, DEFAULT_RETRIEVAL_BUFFER_METERS,
-    DEFAULT_RINF_ENDPOINT,
+    PathConfig, PathConfigBuilder, ProjectionConfig, ProjectionError, RailwayNetwork,
+    RetrievalConfig, RetrievalStatus, TopologySource, UreqSparqlClient, WorkflowKind,
+    DEFAULT_RETRIEVAL_BUFFER_METERS, DEFAULT_RINF_ENDPOINT,
 };
 #[cfg(feature = "webapp")]
 use tp_webapp::{run_webapp_integrated, run_webapp_standalone, WebConfirmResult};
@@ -741,20 +740,18 @@ fn run_fetch_topology(
         endpoint, buffer
     );
 
-    let (topology, outcome) = resolve_topology(
-        WorkflowKind::PathCalculation,
-        &gnss,
-        None,
-        &config,
-        &client,
-    )
-    .map_err(|e| match e {
-        ProjectionError::InvalidGnssInput(m) => PipelineError::RinfInvalidInput(m),
-        ProjectionError::RinfMissingCoverage(m) => PipelineError::RinfMissingCoverage(m),
-        ProjectionError::RinfIncompleteTopology(m) => PipelineError::RinfIncompleteTopology(m),
-        ProjectionError::RinfRetrievalFailed(m) => PipelineError::RinfEndpointFailure(m),
-        other => PipelineError::Processing(other.to_string()),
-    })?;
+    let (topology, outcome) =
+        resolve_topology(WorkflowKind::PathCalculation, &gnss, None, &config, &client).map_err(
+            |e| match e {
+                ProjectionError::InvalidGnssInput(m) => PipelineError::RinfInvalidInput(m),
+                ProjectionError::RinfMissingCoverage(m) => PipelineError::RinfMissingCoverage(m),
+                ProjectionError::RinfIncompleteTopology(m) => {
+                    PipelineError::RinfIncompleteTopology(m)
+                }
+                ProjectionError::RinfRetrievalFailed(m) => PipelineError::RinfEndpointFailure(m),
+                other => PipelineError::Processing(other.to_string()),
+            },
+        )?;
 
     let file = File::create(output_file)
         .map_err(|e| PipelineError::Io(format!("Failed to create {}: {}", output_file, e)))?;
@@ -785,7 +782,9 @@ fn run_fetch_topology(
 
     match outcome.status {
         RetrievalStatus::Success => Ok(()),
-        RetrievalStatus::InvalidInput => Err(PipelineError::RinfInvalidInput(outcome.detail_message)),
+        RetrievalStatus::InvalidInput => {
+            Err(PipelineError::RinfInvalidInput(outcome.detail_message))
+        }
         RetrievalStatus::MissingCoverage => {
             Err(PipelineError::RinfMissingCoverage(outcome.detail_message))
         }

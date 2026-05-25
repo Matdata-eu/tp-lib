@@ -618,11 +618,7 @@ pub fn write_network_geojson(
     let mut features: Vec<Feature> = Vec::with_capacity(netelements.len() + netrelations.len());
 
     for ne in netelements {
-        let coords: Vec<Vec<f64>> = ne
-            .geometry
-            .coords()
-            .map(|c| vec![c.x, c.y])
-            .collect();
+        let coords: Vec<Vec<f64>> = ne.geometry.coords().map(|c| vec![c.x, c.y]).collect();
         let geometry = Geometry::new(Value::LineString(coords));
 
         let mut properties = Map::new();
