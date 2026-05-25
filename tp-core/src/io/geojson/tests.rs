@@ -796,3 +796,154 @@ fn test_parse_netrelations_geojson_with_netelement_a_and_netelement_b() {
         }
     }
 }
+
+#[test]
+fn test_parse_network_geojson_str_basic() {
+    let content = r#"{
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": { "id": "NE001" },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [[4.3517, 50.8503], [4.3527, 50.8513]]
+                }
+            }
+        ]
+    }"#;
+
+    let (netelements, netrelations) = parse_network_geojson_str(content).unwrap();
+    assert_eq!(netelements.len(), 1);
+    assert_eq!(netrelations.len(), 0);
+    assert_eq!(netelements[0].id, "NE001");
+}
+
+#[test]
+fn test_parse_gnss_geojson_str_accepts_naive_iso_timestamp() {
+    let content = r#"{
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": { "timestamp": "2026-05-25T12:34:56" },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [4.3517, 50.8503]
+                }
+            }
+        ]
+    }"#;
+
+    let positions = parse_gnss_geojson_str(content, "EPSG:4326").unwrap();
+    assert_eq!(positions.len(), 1);
+    assert_eq!(positions[0].latitude, 50.8503);
+    assert_eq!(positions[0].longitude, 4.3517);
+}
+
+#[test]
+fn test_write_network_geojson_round_trips_all_navigabilities() {
+    let netelements = vec![
+        Netelement::new(
+            "NE_A".to_string(),
+            LineString::from(vec![(4.0, 50.0), (4.1, 50.1)]),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap(),
+        Netelement::new(
+            "NE_B".to_string(),
+            LineString::from(vec![(4.1, 50.1), (4.2, 50.2)]),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap(),
+    ];
+
+    let netrelations = vec![
+        NetRelation::new(
+            "NR_BOTH".to_string(),
+            "NE_A".to_string(),
+            "NE_B".to_string(),
+            0,
+            1,
+            true,
+            true,
+        )
+        .unwrap(),
+        NetRelation::new(
+            "NR_AB".to_string(),
+            "NE_A".to_string(),
+            "NE_B".to_string(),
+            1,
+            0,
+            true,
+            false,
+        )
+        .unwrap(),
+        NetRelation::new(
+            "NR_BA".to_string(),
+            "NE_A".to_string(),
+            "NE_B".to_string(),
+            1,
+            1,
+            false,
+            true,
+        )
+        .unwrap(),
+        NetRelation::new(
+            "NR_NONE".to_string(),
+            "NE_A".to_string(),
+            "NE_B".to_string(),
+            0,
+            0,
+            false,
+            false,
+        )
+        .unwrap(),
+    ];
+
+    let mut out = Vec::new();
+    write_network_geojson(&netelements, &netrelations, &mut out).unwrap();
+    let content = String::from_utf8(out).unwrap();
+
+    let (parsed_nes, parsed_nrs) = parse_network_geojson_str(&content).unwrap();
+    assert_eq!(parsed_nes.len(), 2);
+    assert_eq!(parsed_nrs.len(), 4);
+
+    let ids: std::collections::HashSet<String> = parsed_nrs.into_iter().map(|r| r.id).collect();
+    assert!(ids.contains("NR_BOTH"));
+    assert!(ids.contains("NR_AB"));
+    assert!(ids.contains("NR_BA"));
+    assert!(ids.contains("NR_NONE"));
+}
+
+#[test]
+fn test_parse_trainpath_geojson_accepts_naive_calculated_at() {
+    let mut file = NamedTempFile::new().unwrap();
+    let content = r#"{
+        "type": "FeatureCollection",
+        "properties": {
+            "overall_probability": 0.75,
+            "calculated_at": "2026-05-25T12:34:56"
+        },
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {"type": "LineString", "coordinates": [[4.0, 50.0], [4.1, 50.1]]},
+                "properties": {
+                    "netelement_id": "NE_A",
+                    "probability": 0.75,
+                    "start_intrinsic": 0.0,
+                    "end_intrinsic": 1.0,
+                    "gnss_start_index": 0,
+                    "gnss_end_index": 1
+                }
+            }
+        ]
+    }"#;
+    file.write_all(content.as_bytes()).unwrap();
+
+    let parsed = parse_trainpath_geojson(file.path().to_str().unwrap()).unwrap();
+    assert_eq!(parsed.overall_probability, 0.75);
+    assert!(parsed.calculated_at.is_some());
+    assert_eq!(parsed.segments.len(), 1);
+}

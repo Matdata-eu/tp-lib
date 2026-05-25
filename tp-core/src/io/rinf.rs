@@ -408,6 +408,8 @@ pub fn fetch_netrelations(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn wkt_linestring_parses_basic() {
@@ -433,5 +435,169 @@ mod tests {
         let q = build_netelements_query("POLYGON((1 2, 3 4))");
         assert!(q.contains("POLYGON((1 2, 3 4))"));
         assert!(q.contains("sfIntersects"));
+    }
+
+    #[test]
+    fn wkt_linestring_rejects_non_linestring() {
+        let err = parse_wkt_linestring("POINT(11.0 60.0)").unwrap_err();
+        assert!(err.to_string().contains("not a LINESTRING"));
+    }
+
+    #[test]
+    fn wkt_linestring_rejects_malformed_coordinates() {
+        let err = parse_wkt_linestring("LINESTRING(11.0, 11.1 60.1)").unwrap_err();
+        assert!(err.to_string().contains("longitude") || err.to_string().contains("latitude"));
+    }
+
+    #[test]
+    fn parse_netelements_response_rejects_missing_bindings() {
+        let err = parse_netelements_response(&json!({"results": {}})).unwrap_err();
+        assert!(err.to_string().contains("results.bindings"));
+    }
+
+    #[test]
+    fn parse_netelements_response_maps_rows() {
+        let input = json!({
+            "results": {
+                "bindings": [
+                    {
+                        "netelement": {"value": "http://example/linearElement/NE-A"},
+                        "netelement_wkt": {"value": "LINESTRING(11.0 60.0, 11.1 60.1)"}
+                    }
+                ]
+            }
+        });
+
+        let rows = parse_netelements_response(&input).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].netelement_id, "NE-A");
+        assert_eq!(rows[0].geometry_point_count, 2);
+        assert!(rows[0].length_meters > 0.0);
+    }
+
+    #[test]
+    fn parse_netrelations_response_uses_defaults() {
+        let input = json!({
+            "results": {
+                "bindings": [
+                    {
+                        "netrelation": {"value": "http://example/netRelation/NR-1"},
+                        "netelementA": {"value": "http://example/linearElement/NE-A"},
+                        "netelementB": {"value": "http://example/linearElement/NE-B"}
+                    }
+                ]
+            }
+        });
+
+        let rows = parse_netrelations_response(&input).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].element_a_id, "NE-A");
+        assert_eq!(rows[0].element_b_id, "NE-B");
+        assert_eq!(rows[0].navigability, RinfNavigability::Both);
+        assert!(!rows[0].is_on_origin_of_element_a);
+        assert!(!rows[0].is_on_origin_of_element_b);
+    }
+
+    #[test]
+    fn map_netrelations_to_core_filters_unknown_and_self_loops() {
+        let ne_a = Netelement::new(
+            "NE-A".to_string(),
+            parse_wkt_linestring("LINESTRING(11.0 60.0, 11.1 60.1)").unwrap(),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap();
+        let ne_b = Netelement::new(
+            "NE-B".to_string(),
+            parse_wkt_linestring("LINESTRING(11.1 60.1, 11.2 60.2)").unwrap(),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap();
+
+        let rows = vec![
+            RinfNetrelationRow {
+                netrelation_iri: "http://example/netRelation/NR-valid".to_string(),
+                element_a_id: "NE-A".to_string(),
+                element_b_id: "NE-B".to_string(),
+                is_on_origin_of_element_a: true,
+                is_on_origin_of_element_b: false,
+                navigability: RinfNavigability::AB,
+                valid_on_date: chrono::Utc::now().date_naive(),
+            },
+            RinfNetrelationRow {
+                netrelation_iri: "http://example/netRelation/NR-unknown".to_string(),
+                element_a_id: "NE-A".to_string(),
+                element_b_id: "NE-X".to_string(),
+                is_on_origin_of_element_a: true,
+                is_on_origin_of_element_b: false,
+                navigability: RinfNavigability::Both,
+                valid_on_date: chrono::Utc::now().date_naive(),
+            },
+            RinfNetrelationRow {
+                netrelation_iri: "http://example/netRelation/NR-self".to_string(),
+                element_a_id: "NE-A".to_string(),
+                element_b_id: "NE-A".to_string(),
+                is_on_origin_of_element_a: true,
+                is_on_origin_of_element_b: false,
+                navigability: RinfNavigability::Both,
+                valid_on_date: chrono::Utc::now().date_naive(),
+            },
+        ];
+
+        let mapped = map_netrelations_to_core(&rows, &[ne_a, ne_b]).unwrap();
+        assert_eq!(mapped.len(), 1);
+        assert_eq!(mapped[0].id, "NR-valid");
+        assert!(mapped[0].navigable_forward);
+        assert!(!mapped[0].navigable_backward);
+    }
+
+    struct CountingClient {
+        calls: AtomicUsize,
+        payload: Value,
+    }
+
+    impl SparqlClient for CountingClient {
+        fn query(&self, _endpoint_url: &str, _sparql: &str) -> Result<Value, ProjectionError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Ok(self.payload.clone())
+        }
+    }
+
+    #[test]
+    fn fetch_netrelations_with_empty_seeds_short_circuits() {
+        let client = CountingClient {
+            calls: AtomicUsize::new(0),
+            payload: json!({"results": {"bindings": []}}),
+        };
+
+        let out = fetch_netrelations(&client, "https://example.invalid", &[]).unwrap();
+        assert!(out.is_empty());
+        assert_eq!(client.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn fetch_netelements_executes_query_and_parses() {
+        let client = CountingClient {
+            calls: AtomicUsize::new(0),
+            payload: json!({
+                "results": {
+                    "bindings": [
+                        {
+                            "netelement": {"value": "http://example/linearElement/NE-A"},
+                            "netelement_wkt": {"value": "LINESTRING(11.0 60.0, 11.1 60.1)"}
+                        }
+                    ]
+                }
+            }),
+        };
+
+        let out = fetch_netelements(
+            &client,
+            "https://example.invalid",
+            "POLYGON((0 0,1 0,1 1,0 1,0 0))",
+        )
+        .unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].netelement_id, "NE-A");
+        assert_eq!(client.calls.load(Ordering::SeqCst), 1);
     }
 }
