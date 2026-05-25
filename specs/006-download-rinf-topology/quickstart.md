@@ -109,6 +109,8 @@ Use the polygon from `research.md` as the acceptance fixture for the external in
 - netelements are returned
 - netrelations are returned
 - no returned netelement longer than 250 m is represented by only two points
+  (validation only rejects the bundle when *every* netelement is coarse;
+  individual coarse segments are reported but do not fail the workflow)
 
 ---
 

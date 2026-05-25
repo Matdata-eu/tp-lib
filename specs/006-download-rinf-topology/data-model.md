@@ -133,8 +133,12 @@ Explains whether the downloaded topology is usable.
 - `message: String`
 
 **Validation rules**:
-- `status == valid` implies `coarse_geometry_ids` is empty.
-- `status == incomplete_topology` when `netelement_count > 0 && netrelation_count == 0`.
+- `status == valid` is compatible with a non-empty `coarse_geometry_ids` as
+  long as at least one netelement has a refined (>2-point) geometry. The list
+  is then informational and surfaced to the caller for diagnostics.
+- `status == incomplete_topology` when *every* returned netelement is coarse
+  (i.e. `coarse_geometry_ids.len() == netelement_count`), or when
+  `netelement_count > 0 && netrelation_count == 0`.
 - `status == invalid_input` when retrieval never starts because GNSS input is unusable.
 
 **Relationships**:

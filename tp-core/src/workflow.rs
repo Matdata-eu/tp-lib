@@ -184,14 +184,17 @@ pub fn validate_topology(
         })
         .collect();
 
-    if !coarse_ids.is_empty() {
+    // Only treat the topology as incomplete when *every* netelement is coarse.
+    // A few 2-point segments are expected (straight sections, short links) and
+    // are not a reason to reject the whole bundle.
+    if !coarse_ids.is_empty() && coarse_ids.len() == netelements.len() {
         return TopologyValidationReport {
             status: TopologyValidationStatus::IncompleteTopology,
             netelement_count: netelements.len(),
             netrelation_count: netrelations.len(),
             coarse_geometry_ids: coarse_ids,
             uncovered_gnss_indices: Vec::new(),
-            message: "Retrieved topology contains coarse netelement geometries".to_string(),
+            message: "Retrieved topology contains only coarse netelement geometries".to_string(),
         };
     }
 
@@ -212,7 +215,7 @@ pub fn validate_topology(
         status: TopologyValidationStatus::Valid,
         netelement_count: netelements.len(),
         netrelation_count: netrelations.len(),
-        coarse_geometry_ids: Vec::new(),
+        coarse_geometry_ids: coarse_ids,
         uncovered_gnss_indices: uncovered,
         message: "Topology validated successfully".to_string(),
     }
