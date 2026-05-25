@@ -762,7 +762,7 @@ The train enters the station from the upper left and immediately takes a switch 
 
 ![GNSS overview RINF download feature - detail 3](rinf-kvg/raw-gnss-data-detail3.png)
 
-To make this excersise more challenging, we simulated the train taking another switch to briefly drive on track 3 to later merge back onto track 2:
+To make this exercise more challenging, we simulated the train taking another switch to briefly drive on track 3 to later merge back onto track 2:
 
 ![GNSS overview RINF download feature - detail 2](rinf-kvg/raw-gnss-data-detail2.png)
 

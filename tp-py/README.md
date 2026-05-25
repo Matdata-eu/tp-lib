@@ -46,3 +46,7 @@ result = project_gnss(
 Errors are raised as built-in exceptions (`ValueError`, `RuntimeError`) when
 retrieval cannot satisfy the request. The same overload exists for
 `calculate_train_path`.
+
+The library may raise:
+- `ValueError` for invalid input (e.g., malformed GNSS data or invalid coordinates)
+- `RuntimeError` for operational failures (e.g., RINF topology retrieval errors)
