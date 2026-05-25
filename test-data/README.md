@@ -99,6 +99,14 @@ The three operations available via `tp-cli` are:
 
 Common flags: `--gnss <FILE>`, `--network <FILE>`, `--crs EPSG:4326`, `--output <FILE>` (`.geojson` extension auto-selects GeoJSON format).
 
+If `--network` is omitted, `tp-cli` downloads a RINF topology subset on demand
+around the GNSS bounding box (default endpoint
+`https://graph.data.era.europa.eu/repositories/rinf-plus`, default buffer
+1000 m). The fixtures in this directory remain the recommended source for
+offline runs and reproducible regression tests; the auto-retrieval path is
+intended for ad-hoc analysis where a curated network file is not yet
+available.
+
 ## Simple projection, path calculation & path projection
 
 ### L36 track B – log_28876

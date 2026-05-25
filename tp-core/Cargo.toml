@@ -27,6 +27,10 @@ chrono.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
+# RINF SPARQL retrieval (feature 006)
+ureq.workspace = true
+url.workspace = true
+
 [features]
 default = []
 

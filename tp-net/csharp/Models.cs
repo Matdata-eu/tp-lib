@@ -32,6 +32,16 @@ public sealed record PathConfig
     public double DetectionCutoffDistanceMeters { get; init; } = 2.5;
 }
 
+/// <summary>
+/// Options for automatic ERA RINF topology retrieval (feature 006). Used when
+/// the caller supplies no network file. Defaults mirror the Rust core.
+/// </summary>
+public sealed record RinfRetrievalOptions
+{
+    public string EndpointUrl { get; init; } = "https://graph.data.era.europa.eu/repositories/rinf-plus";
+    public double BufferMeters { get; init; } = 1000.0;
+}
+
 // ---------------------------------------------------------------------------
 // Output records (deserialized from FFI JSON — property names match Rust
 // snake_case via [JsonPropertyName]).

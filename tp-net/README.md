@@ -41,6 +41,30 @@ if (result.HasPath)
 }
 ```
 
+## Automatic RINF Topology Retrieval
+
+When you do not have a local network GeoJSON, omit it and let the library
+download a bounding-box subset of the ERA RINF topology on demand:
+
+```csharp
+using TpLib;
+
+var gnss = GnssInput.FromGeoJson(File.ReadAllText("gnss.geojson"));
+var rinf = new RinfRetrievalOptions
+{
+    EndpointUrl  = "https://graph.data.era.europa.eu/repositories/rinf-plus",
+    BufferMeters = 1000.0,
+};
+
+// Pass null for the network to trigger auto-retrieval.
+var projections = Projection.ProjectGnssAuto(network: null, gnss, rinfOptions: rinf);
+var path        = PathCalculation.CalculateTrainPathAuto(network: null, gnss, rinfOptions: rinf);
+```
+
+Typed exceptions are raised for retrieval failures:
+`TpLibInvalidGnssInputException`, `TpLibRinfMissingCoverageException`,
+`TpLibRinfIncompleteTopologyException`, `TpLibRinfRetrievalFailedException`.
+
 ## Supported platforms
 
 | RID         | OS / Architecture            | Native library         |

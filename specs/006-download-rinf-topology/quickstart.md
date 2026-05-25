@@ -53,21 +53,26 @@ Expected behavior:
 ## Example 3: Python binding with automatic retrieval
 
 ```python
-from tp_lib import calculate_train_path
+from tp_lib import calculate_train_path, RinfRetrievalOptions
 
 result = calculate_train_path(
-    "test-data/rinf_smoke_gnss.geojson",
-    network_file=None,
+    gnss_positions=gnss_positions,
+    network=None,
+    rinf_options=RinfRetrievalOptions(
+        endpoint_url="https://graph.data.era.europa.eu/repositories/rinf-plus",
+        buffer_meters=1000.0,
+    ),
 )
 
-print(result.mode)
 print(len(result.projected_positions))
 ```
 
 Expected behavior:
 - No network file is required.
 - Retrieval/validation happens inside the Rust core path.
-- Failure categories remain distinct Python exceptions.
+- Failure categories surface as distinct Python exceptions
+  (`InvalidGnssInputError`, `RinfMissingCoverageError`,
+  `RinfIncompleteTopologyError`, `RinfRetrievalFailedError`).
 
 ---
 
@@ -76,16 +81,25 @@ Expected behavior:
 ```csharp
 using TpLib;
 
-var gnss = GnssInput.FromGeoJsonFile("test-data/rinf_smoke_gnss.geojson");
-var result = PathCalculation.CalculateTrainPath(gnss, network: null);
+var gnss = GnssInput.FromGeoJson(File.ReadAllText("test-data/rinf_smoke_gnss.geojson"));
+var rinf = new RinfRetrievalOptions
+{
+    EndpointUrl  = "https://graph.data.era.europa.eu/repositories/rinf-plus",
+    BufferMeters = 1000.0,
+};
 
-Console.WriteLine(result.Mode);
-Console.WriteLine(result.ProjectedPositions.Count);
+var result = PathCalculation.CalculateTrainPathAuto(network: null, gnss, rinfOptions: rinf);
+Console.WriteLine(result.HasPath);
 ```
 
 Expected behavior:
-- Nullable network input triggers ERA RINF retrieval.
-- Missing coverage and endpoint failures remain distinguishable from invalid GNSS input.
+- Passing `null` for the network triggers ERA RINF retrieval.
+- Missing coverage, incomplete topology, endpoint failure, and invalid
+  GNSS each surface as distinct typed exceptions
+  (`TpLibRinfMissingCoverageException`,
+  `TpLibRinfIncompleteTopologyException`,
+  `TpLibRinfRetrievalFailedException`,
+  `TpLibInvalidGnssInputException`).
 
 ---
 

@@ -23,6 +23,7 @@ Train positioning library excels in post-processing the GNSS positions of your m
 - 📊 **Multiple Formats**: CSV and GeoJSON input/output
 - 🧪 **Well Tested**: 460 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
 - ⚡ **Production Ready**: Full CLI interface with validation and error handling
+- 🌐 **Automatic RINF Retrieval**: When a topology file is omitted, the library can download a bounding-box subset of the [ERA RINF](https://data-interop.era.europa.eu/) network on demand
 
 ## Train Path Calculation
 
@@ -294,6 +295,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+## Automatic RINF Topology Retrieval
+
+When you do not supply a `network` file, `tp-lib` can derive the bounding box from
+your GNSS input (and optional path) and download a fresh subset of the ERA RINF
+topology from a SPARQL endpoint.
+
+- **Default endpoint**: `https://graph.data.era.europa.eu/repositories/rinf-plus`
+- **Default buffer**: 1000 m around the GNSS extent
+- **Default timeout**: 60 seconds per HTTP request
+- **Coarse-geometry warning threshold**: netelements longer than 250 m without a WKT geometry
+
+Outcome categories (mapped to typed errors / exit codes across all bindings):
+
+| Category | CLI exit code | .NET exception | Python exception |
+|---|---|---|---|
+| `invalid_gnss_input` | 4 | `TpLibInvalidGnssInputException` | `InvalidGnssInputError` |
+| `rinf_missing_coverage` | 5 | `TpLibRinfMissingCoverageException` | `RinfMissingCoverageError` |
+| `rinf_incomplete_topology` | 6 | `TpLibRinfIncompleteTopologyException` | `RinfIncompleteTopologyError` |
+| `rinf_retrieval_failed` | 7 | `TpLibRinfRetrievalFailedException` | `RinfRetrievalFailedError` |
+
+See per-language READMEs (`tp-cli/`, `tp-py/`, `tp-net/`) for end-to-end examples.
 
 ## Implementation Notes
 

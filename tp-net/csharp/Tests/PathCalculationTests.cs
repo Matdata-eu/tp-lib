@@ -53,4 +53,36 @@ public class PathCalculationTests
 
         Assert.Throws<TpLibPathException>(() => PathCalculation.CalculateTrainPath(network, gnss));
     }
+
+    [Fact]
+    public void CalculateTrainPathAuto_SuppliedNetwork_TakesPrecedence()
+    {
+        // Supplying a network must short-circuit RINF retrieval, even with an
+        // intentionally unreachable endpoint configured.
+        var network = NetworkInput.FromGeoJson(TestData.Read("sample_network.geojson"));
+        var gnss = GnssInput.FromGeoJson(TestData.Read("sample_gnss.geojson"));
+        var rinf = new RinfRetrievalOptions
+        {
+            EndpointUrl = "http://127.0.0.1:1/never",
+            BufferMeters = 250.0,
+        };
+
+        var result = PathCalculation.CalculateTrainPathAuto(network, gnss, rinfOptions: rinf);
+
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public void CalculateTrainPathAuto_NullNetworkUnreachableEndpoint_ThrowsRetrievalFailed()
+    {
+        var gnss = GnssInput.FromGeoJson(TestData.Read("sample_gnss.geojson"));
+        var rinf = new RinfRetrievalOptions
+        {
+            EndpointUrl = "http://127.0.0.1:1/never",
+            BufferMeters = 250.0,
+        };
+
+        Assert.Throws<TpLibRinfRetrievalFailedException>(
+            () => PathCalculation.CalculateTrainPathAuto(null, gnss, rinfOptions: rinf));
+    }
 }

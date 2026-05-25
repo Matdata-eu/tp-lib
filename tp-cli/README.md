@@ -68,6 +68,21 @@ tp-cli --gnss positions.csv \
        --debug
 ```
 
+### Automatic RINF Topology Retrieval
+
+```bash
+# Omit --network to download a RINF topology subset on demand
+tp-cli --gnss positions.csv \
+       --crs EPSG:4326 \
+       --output projected.geojson \
+       --rinf-endpoint https://graph.data.era.europa.eu/repositories/rinf-plus \
+       --rinf-buffer-meters 1000
+```
+
+Flags `--rinf-endpoint` and `--rinf-buffer-meters` are optional and fall back to
+the documented defaults. RINF-specific failures map to dedicated exit codes
+(4=invalid GNSS, 5=missing coverage, 6=incomplete topology, 7=endpoint failure).
+
 ## Commands
 
 `tp-cli` has three modes of operation:

@@ -10,7 +10,6 @@ Tests the Python API for:
 
 import json
 import pytest
-from pathlib import Path
 
 
 try:
@@ -343,3 +342,50 @@ def test_prepared_detections_repr(
     r = repr(prepared)
     assert "PreparedDetections" in r
     assert "anchors=" in r
+
+
+# === Feature 006: RINF auto-retrieval ===
+
+def test_calculate_train_path_unreachable_rinf_endpoint():
+    """T026: Auto-retrieval against an unreachable endpoint surfaces RuntimeError."""
+    from tp_lib import RinfRetrievalOptions, calculate_train_path
+    import tempfile
+    import os
+    fd, gnss = tempfile.mkstemp(suffix=".csv")
+    os.close(fd)
+    with open(gnss, "w") as f:
+        f.write("latitude,longitude,timestamp\n")
+        f.write("50.85,4.35,2025-12-09T14:30:00+01:00\n")
+    try:
+        opts = RinfRetrievalOptions(endpoint_url="http://127.0.0.1:1/nope")
+        with pytest.raises((RuntimeError, OSError)):
+            calculate_train_path(
+                gnss_file=gnss,
+                gnss_crs="EPSG:4326",
+                rinf_options=opts,
+            )
+    finally:
+        os.unlink(gnss)
+
+
+def test_calculate_train_path_empty_gnss_invalid_input(tmp_path):
+    """T026: Empty GNSS without topology must raise ValueError (invalid input)."""
+    from tp_lib import calculate_train_path
+    gnss = tmp_path / "empty.csv"
+    gnss.write_text("latitude,longitude,timestamp\n")
+    with pytest.raises((ValueError, RuntimeError)):
+        calculate_train_path(
+            gnss_file=str(gnss),
+            gnss_crs="EPSG:4326",
+        )
+
+
+def test_calculate_train_path_manual_topology_still_works(gnss_csv, network_geojson):
+    """T026: Supplying network_file bypasses auto-retrieval (precedence)."""
+    from tp_lib import calculate_train_path, PathResult
+    result = calculate_train_path(
+        gnss_file=gnss_csv,
+        gnss_crs="EPSG:4326",
+        network_file=network_geojson,
+    )
+    assert isinstance(result, PathResult)

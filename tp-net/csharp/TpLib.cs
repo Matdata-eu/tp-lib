@@ -90,6 +90,57 @@ public static class Projection
         string networkGeoJson, string gnssGeoJson, ProjectionConfig? config = null)
         => ProjectGnss(NetworkInput.FromGeoJson(networkGeoJson), GnssInput.FromGeoJson(gnssGeoJson), config);
 
+    /// <summary>
+    /// Project GNSS positions with optional automatic ERA RINF topology
+    /// retrieval. When <paramref name="network"/> is <c>null</c> the railway
+    /// topology is retrieved from the ERA RINF SPARQL endpoint configured by
+    /// <paramref name="rinfOptions"/> (feature 006).
+    /// </summary>
+    public static IReadOnlyList<ProjectedPosition> ProjectGnssAuto(
+        NetworkInput? network,
+        GnssInput gnss,
+        ProjectionConfig? config = null,
+        RinfRetrievalOptions? rinfOptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(gnss);
+        config ??= new ProjectionConfig();
+        TpLibNative.EnsureInitialized();
+
+        var netBytes = network is null
+            ? Array.Empty<byte>()
+            : Encoding.UTF8.GetBytes(network.AsJson());
+        var gnssBytes = Encoding.UTF8.GetBytes(gnss.AsJson());
+        var endpointBytes = rinfOptions is null
+            ? Array.Empty<byte>()
+            : Encoding.UTF8.GetBytes(rinfOptions.EndpointUrl);
+        var bufferMeters = rinfOptions?.BufferMeters ?? 0.0;
+
+        unsafe
+        {
+            fixed (byte* netPtr = netBytes)
+            fixed (byte* gnssPtr = gnssBytes)
+            fixed (byte* epPtr = endpointBytes)
+            {
+                var cfg = new ProjectionConfigFfi
+                {
+                    max_search_radius_meters = config.MaxSearchRadiusMeters,
+                    projection_distance_warning_threshold = config.ProjectionDistanceWarningThreshold,
+                    suppress_warnings = (byte)(config.SuppressWarnings ? 1 : 0),
+                };
+                byte* netArg = netBytes.Length == 0 ? null : netPtr;
+                byte* epArg = endpointBytes.Length == 0 ? null : epPtr;
+                var buf = NativeMethods.tp_net_project_gnss_auto(
+                    netArg, netBytes.Length,
+                    gnssPtr, gnssBytes.Length,
+                    epArg, endpointBytes.Length,
+                    bufferMeters,
+                    cfg);
+                return TpLibFfi.DeserializeAutoOrThrow<List<ProjectedPosition>>(
+                    buf, "ProjectGnss failed.");
+            }
+        }
+    }
+
     public static IReadOnlyList<ProjectedPosition> ProjectOntoPath(
         string networkGeoJson, GnssInput gnss, TrainPath path, PathConfig? config = null)
         => ProjectOntoPath(NetworkInput.FromGeoJson(networkGeoJson), gnss, path, config);
@@ -151,6 +202,59 @@ public static class PathCalculation
     public static PathResult CalculateTrainPath(
         string networkGeoJson, string gnssGeoJson, PathConfig? config = null, PreparedDetections? detections = null)
         => CalculateTrainPath(NetworkInput.FromGeoJson(networkGeoJson), GnssInput.FromGeoJson(gnssGeoJson), config, detections);
+
+    /// <summary>
+    /// Calculate a train path with optional automatic ERA RINF topology
+    /// retrieval. When <paramref name="network"/> is <c>null</c> the topology
+    /// is fetched from the SPARQL endpoint configured by
+    /// <paramref name="rinfOptions"/> (feature 006).
+    /// </summary>
+    public static PathResult CalculateTrainPathAuto(
+        NetworkInput? network,
+        GnssInput gnss,
+        PathConfig? config = null,
+        PreparedDetections? detections = null,
+        RinfRetrievalOptions? rinfOptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(gnss);
+        config ??= new PathConfig();
+        TpLibNative.EnsureInitialized();
+
+        var netBytes = network is null
+            ? Array.Empty<byte>()
+            : Encoding.UTF8.GetBytes(network.AsJson());
+        var gnssBytes = Encoding.UTF8.GetBytes(gnss.AsJson());
+        var detBytes = detections is null
+            ? Array.Empty<byte>()
+            : JsonSerializer.SerializeToUtf8Bytes(detections, TpLibJson.Options);
+        var endpointBytes = rinfOptions is null
+            ? Array.Empty<byte>()
+            : Encoding.UTF8.GetBytes(rinfOptions.EndpointUrl);
+        var bufferMeters = rinfOptions?.BufferMeters ?? 0.0;
+
+        unsafe
+        {
+            fixed (byte* netPtr = netBytes)
+            fixed (byte* gnssPtr = gnssBytes)
+            fixed (byte* detPtr = detBytes)
+            fixed (byte* epPtr = endpointBytes)
+            {
+                var cfg = TpLibFfi.ToFfi(config);
+                byte* netArg = netBytes.Length == 0 ? null : netPtr;
+                byte* detArg = detBytes.Length == 0 ? null : detPtr;
+                byte* epArg = endpointBytes.Length == 0 ? null : epPtr;
+                var buf = NativeMethods.tp_net_calculate_train_path_auto(
+                    netArg, netBytes.Length,
+                    gnssPtr, gnssBytes.Length,
+                    detArg, detBytes.Length,
+                    epArg, endpointBytes.Length,
+                    bufferMeters,
+                    cfg);
+                return TpLibFfi.DeserializeAutoOrThrow<PathResult>(
+                    buf, "CalculateTrainPath failed.");
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -389,6 +493,71 @@ internal static class TpLibFfi
             catch (JsonException jex)
             {
                 throw errorFactory(jex);
+            }
+        }
+        finally
+        {
+            if (buf.ptr != null)
+            {
+                TpLibNative.FreeByteBuffer(buf);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Deserialize a buffer produced by the *_auto FFI entry points. These
+    /// encode typed RINF retrieval failures as a JSON `{"__error": "...",
+    /// "message": "..."}` envelope rather than the null-buffer sentinel.
+    /// </summary>
+    internal static unsafe T DeserializeAutoOrThrow<T>(
+        ByteBuffer buf,
+        string genericMessage)
+    {
+        try
+        {
+            if (buf.ptr == null || buf.len < 0)
+            {
+                throw new TpLibException(genericMessage);
+            }
+            if (buf.len == 0)
+            {
+                throw new TpLibException(genericMessage + " (empty buffer)");
+            }
+            var span = new ReadOnlySpan<byte>(buf.ptr, buf.len);
+
+            // Peek for the error envelope.
+            using (var doc = JsonDocument.Parse(span.ToArray()))
+            {
+                if (doc.RootElement.ValueKind == JsonValueKind.Object
+                    && doc.RootElement.TryGetProperty("__error", out var cat))
+                {
+                    var category = cat.GetString() ?? "Generic";
+                    var msg = doc.RootElement.TryGetProperty("message", out var m)
+                        ? (m.GetString() ?? genericMessage)
+                        : genericMessage;
+                    throw category switch
+                    {
+                        "InvalidGnssInput" => new TpLibInvalidGnssInputException(msg),
+                        "RinfRetrievalFailed" => new TpLibRinfRetrievalFailedException(msg),
+                        "RinfMissingCoverage" => new TpLibRinfMissingCoverageException(msg),
+                        "RinfIncompleteTopology" => new TpLibRinfIncompleteTopologyException(msg),
+                        _ => new TpLibException(msg),
+                    };
+                }
+            }
+
+            try
+            {
+                var value = JsonSerializer.Deserialize<T>(span, TpLibJson.Options);
+                if (value is null)
+                {
+                    throw new TpLibException(genericMessage + " (null payload)");
+                }
+                return value;
+            }
+            catch (JsonException jex)
+            {
+                throw new TpLibException(genericMessage, jex);
             }
         }
         finally

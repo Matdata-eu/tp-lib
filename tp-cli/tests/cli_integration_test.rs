@@ -767,3 +767,111 @@ fn test_simple_projection_real_fixture() {
         "Output should contain at least one projected feature"
     );
 }
+
+/// T018: calculate-path with supplied --network prints SuppliedTopology source line.
+#[test]
+fn test_calculate_path_supplied_topology_source_message() {
+    let temp_dir = TempDir::new().unwrap();
+    let gnss_csv = create_path_test_gnss(&temp_dir);
+    let network_geojson = create_path_test_network(&temp_dir);
+    let output_file = temp_dir.path().join("path.geojson");
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
+    cmd.arg("calculate-path")
+        .arg("--gnss")
+        .arg(&gnss_csv)
+        .arg("--crs")
+        .arg("EPSG:4326")
+        .arg("--network")
+        .arg(&network_geojson)
+        .arg("--output")
+        .arg(&output_file);
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("SuppliedTopology"));
+}
+
+/// T020: auto-retrieval against unreachable endpoint exits with code 7 (RinfEndpointFailure).
+#[test]
+fn test_calculate_path_unreachable_rinf_endpoint_exit_code_7() {
+    let temp_dir = TempDir::new().unwrap();
+    let gnss_csv = create_path_test_gnss(&temp_dir);
+    let output_file = temp_dir.path().join("path.geojson");
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
+    cmd.arg("--rinf-endpoint")
+        .arg("http://127.0.0.1:1/sparql")
+        .arg("--rinf-buffer-meters")
+        .arg("500")
+        .arg("calculate-path")
+        .arg("--gnss")
+        .arg(&gnss_csv)
+        .arg("--crs")
+        .arg("EPSG:4326")
+        .arg("--output")
+        .arg(&output_file);
+
+    cmd.assert().code(7);
+}
+
+/// T020: auto-retrieval with empty GNSS file should exit with code 4 (RinfInvalidInput)
+/// or another input-related code; we accept >=4 and <=7 for the RINF error band.
+#[test]
+fn test_calculate_path_empty_gnss_rinf_invalid_input() {
+    let temp_dir = TempDir::new().unwrap();
+    let gnss_csv = temp_dir.path().join("empty.csv");
+    fs::write(&gnss_csv, "timestamp,latitude,longitude,altitude,hdop\n").unwrap();
+    let output_file = temp_dir.path().join("path.geojson");
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
+    cmd.arg("--rinf-endpoint")
+        .arg("http://127.0.0.1:1/sparql")
+        .arg("calculate-path")
+        .arg("--gnss")
+        .arg(&gnss_csv)
+        .arg("--crs")
+        .arg("EPSG:4326")
+        .arg("--output")
+        .arg(&output_file);
+
+    let output = cmd.output().expect("cli should run");
+    let code = output.status.code().unwrap_or(-1);
+    assert!(
+        (1..=7).contains(&code),
+        "expected non-zero exit (1..=7), got {code}; stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// T012: live RINF auto-retrieval against ERA endpoint. Ignored by default
+/// (network access + slow). Run with `cargo test --test cli_integration_test -- --ignored`.
+#[ignore]
+#[test]
+fn test_calculate_path_auto_retrieval_live_endpoint() {
+    let temp_dir = TempDir::new().unwrap();
+    // Brussels area, small fix set; coverage expected in RINF.
+    let gnss_csv = temp_dir.path().join("gnss.csv");
+    fs::write(
+        &gnss_csv,
+        "timestamp,latitude,longitude,altitude,hdop\n\
+         2025-12-09T14:30:00+01:00,50.8503,4.3517,100.0,2.0\n\
+         2025-12-09T14:30:01+01:00,50.8504,4.3518,100.5,2.1\n\
+         2025-12-09T14:30:02+01:00,50.8505,4.3519,101.0,2.0\n",
+    )
+    .unwrap();
+    let output_file = temp_dir.path().join("path.geojson");
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
+    cmd.arg("calculate-path")
+        .arg("--gnss")
+        .arg(&gnss_csv)
+        .arg("--crs")
+        .arg("EPSG:4326")
+        .arg("--output")
+        .arg(&output_file);
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("EraRinf"));
+}

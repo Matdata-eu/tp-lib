@@ -17,6 +17,7 @@ use tp_lib_core::{
     parse_network_geojson,
     prepare_detections as core_prepare_detections,
     project_gnss as core_project_gnss,
+    resolve_topology,
     AssociatedNetElement as CoreAssociatedNetElement,
     // Spec 004: detections
     DetectionError,
@@ -24,6 +25,7 @@ use tp_lib_core::{
     DetectionRecord as CoreDetectionRecord,
     DetectionStatus as CoreDetectionStatus,
     DiscardReason as CoreDiscardReason,
+    GnssPosition as CoreGnssPosition,
     PathCalculationMode as CorePathCalculationMode,
     PathConfig as CorePathConfig,
     ProjectedPosition as CoreProjectedPosition,
@@ -31,8 +33,13 @@ use tp_lib_core::{
     ProjectionError,
     RailwayNetwork,
     ResolvedAnchor as CoreResolvedAnchor,
+    RetrievalConfig,
     TimestampOrRange as CoreTimestampOrRange,
     TrainPath as CoreTrainPath,
+    UreqSparqlClient,
+    WorkflowKind,
+    DEFAULT_RETRIEVAL_BUFFER_METERS,
+    DEFAULT_RINF_ENDPOINT,
 };
 
 // ============================================================================
@@ -70,6 +77,18 @@ fn convert_error(error: ProjectionError) -> PyErr {
         ProjectionError::InvalidNetRelation(msg) => {
             PyValueError::new_err(format!("Invalid netrelation: {}", msg))
         }
+        ProjectionError::InvalidGnssInput(msg) => {
+            PyValueError::new_err(format!("Invalid GNSS input: {}", msg))
+        }
+        ProjectionError::RinfRetrievalFailed(msg) => {
+            PyRuntimeError::new_err(format!("RINF retrieval failed: {}", msg))
+        }
+        ProjectionError::RinfMissingCoverage(msg) => {
+            PyValueError::new_err(format!("RINF missing coverage: {}", msg))
+        }
+        ProjectionError::RinfIncompleteTopology(msg) => {
+            PyValueError::new_err(format!("RINF incomplete topology: {}", msg))
+        }
     }
 }
 
@@ -81,6 +100,33 @@ fn convert_detection_error(error: DetectionError) -> PyErr {
     } else {
         PyValueError::new_err(msg)
     }
+}
+
+/// Resolve topology either from a supplied GeoJSON file or via auto-retrieval
+/// from the ERA RINF SPARQL endpoint (feature 006).
+fn resolve_python_topology(
+    workflow_kind: WorkflowKind,
+    network_file: Option<&str>,
+    gnss_positions: &[CoreGnssPosition],
+    rinf_options: Option<&RinfRetrievalOptions>,
+) -> PyResult<(Vec<tp_lib_core::Netelement>, Vec<tp_lib_core::NetRelation>)> {
+    if let Some(path) = network_file {
+        return parse_network_geojson(path).map_err(convert_error);
+    }
+    let endpoint = rinf_options
+        .map(|o| o.endpoint_url.clone())
+        .unwrap_or_else(|| DEFAULT_RINF_ENDPOINT.to_string());
+    let buffer = rinf_options
+        .map(|o| o.buffer_meters)
+        .unwrap_or(DEFAULT_RETRIEVAL_BUFFER_METERS);
+    let config = RetrievalConfig::default()
+        .with_endpoint(endpoint)
+        .with_buffer_meters(buffer);
+    let client = UreqSparqlClient::default();
+    let (topology, _outcome) =
+        resolve_topology(workflow_kind, gnss_positions, None, &config, &client)
+            .map_err(convert_error)?;
+    Ok((topology.netelements, topology.netrelations))
 }
 
 // ============================================================================
@@ -239,6 +285,36 @@ impl From<ProjectionConfig> for CoreProjectionConfig {
             projection_distance_warning_threshold: py_config.projection_distance_warning_threshold,
             suppress_warnings: py_config.suppress_warnings,
         }
+    }
+}
+
+/// Options for automatic ERA RINF topology retrieval (feature 006).
+#[pyclass]
+#[derive(Clone)]
+pub struct RinfRetrievalOptions {
+    #[pyo3(get, set)]
+    pub endpoint_url: String,
+    #[pyo3(get, set)]
+    pub buffer_meters: f64,
+}
+
+#[pymethods]
+impl RinfRetrievalOptions {
+    #[new]
+    #[pyo3(signature = (endpoint_url=None, buffer_meters=None))]
+    fn new(endpoint_url: Option<String>, buffer_meters: Option<f64>) -> Self {
+        Self {
+            endpoint_url: endpoint_url
+                .unwrap_or_else(|| tp_lib_core::DEFAULT_RINF_ENDPOINT.to_string()),
+            buffer_meters: buffer_meters.unwrap_or(tp_lib_core::DEFAULT_RETRIEVAL_BUFFER_METERS),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RinfRetrievalOptions(endpoint_url='{}', buffer_meters={})",
+            self.endpoint_url, self.buffer_meters
+        )
     }
 }
 
@@ -714,19 +790,24 @@ impl PreparedDetections {
 ///
 /// List of `ProjectedPosition`, one per input GNSS point.
 #[pyfunction]
-#[pyo3(signature = (gnss_file, gnss_crs, network_file, network_crs, target_crs, config=None))]
+#[pyo3(signature = (gnss_file, gnss_crs, network_file=None, network_crs=None, target_crs=None, config=None, rinf_options=None))]
 fn project_gnss(
     gnss_file: &str,
     gnss_crs: &str,
-    network_file: &str,
-    network_crs: &str,
-    target_crs: &str,
+    network_file: Option<&str>,
+    network_crs: Option<&str>,
+    target_crs: Option<&str>,
     config: Option<ProjectionConfig>,
+    rinf_options: Option<RinfRetrievalOptions>,
 ) -> PyResult<Vec<ProjectedPosition>> {
     // Validate all CRS strings upfront
     CrsTransformer::new(gnss_crs.to_string(), gnss_crs.to_string()).map_err(convert_error)?;
-    CrsTransformer::new(network_crs.to_string(), network_crs.to_string()).map_err(convert_error)?;
-    CrsTransformer::new(target_crs.to_string(), target_crs.to_string()).map_err(convert_error)?;
+    if let Some(nc) = network_crs {
+        CrsTransformer::new(nc.to_string(), nc.to_string()).map_err(convert_error)?;
+    }
+    let resolved_target_crs = target_crs.unwrap_or(gnss_crs).to_string();
+    CrsTransformer::new(resolved_target_crs.clone(), resolved_target_crs.clone())
+        .map_err(convert_error)?;
 
     let core_config: CoreProjectionConfig = config
         .unwrap_or_else(|| ProjectionConfig::new(1000.0, 50.0, false))
@@ -735,8 +816,12 @@ fn project_gnss(
     let gnss_positions = parse_gnss_csv(gnss_file, gnss_crs, "latitude", "longitude", "timestamp")
         .map_err(convert_error)?;
 
-    let (netelements, _netrelations) =
-        parse_network_geojson(network_file).map_err(convert_error)?;
+    let (netelements, _netrelations) = resolve_python_topology(
+        WorkflowKind::Projection,
+        network_file,
+        &gnss_positions,
+        rinf_options.as_ref(),
+    )?;
 
     let network = RailwayNetwork::new(netelements).map_err(convert_error)?;
 
@@ -746,14 +831,14 @@ fn project_gnss(
     let mut py_results = Vec::with_capacity(core_results.len());
     for core_result in &core_results {
         let mut pos = ProjectedPosition::from(core_result);
-        if pos.crs != target_crs {
-            let transformer = CrsTransformer::new(pos.crs.clone(), target_crs.to_string())
+        if pos.crs != resolved_target_crs {
+            let transformer = CrsTransformer::new(pos.crs.clone(), resolved_target_crs.clone())
                 .map_err(convert_error)?;
             let point = geo::Point::new(pos.projected_x, pos.projected_y);
             let transformed = transformer.transform(point).map_err(convert_error)?;
             pos.projected_x = transformed.x();
             pos.projected_y = transformed.y();
-            pos.crs = target_crs.to_string();
+            pos.crs = resolved_target_crs.clone();
         }
         py_results.push(pos);
     }
@@ -782,18 +867,24 @@ fn project_gnss(
 /// `PathResult` with `path`, `mode`, `projected_positions`, `warnings`,
 /// and `detection_provenance()`.
 #[pyfunction]
-#[pyo3(signature = (gnss_file, gnss_crs, network_file, config=None, detections=None))]
+#[pyo3(signature = (gnss_file, gnss_crs, network_file=None, config=None, detections=None, rinf_options=None))]
 fn calculate_train_path(
     gnss_file: &str,
     gnss_crs: &str,
-    network_file: &str,
+    network_file: Option<&str>,
     config: Option<PathConfig>,
     detections: Option<&PreparedDetections>,
+    rinf_options: Option<RinfRetrievalOptions>,
 ) -> PyResult<PathResult> {
     let gnss_positions = parse_gnss_csv(gnss_file, gnss_crs, "latitude", "longitude", "timestamp")
         .map_err(convert_error)?;
 
-    let (netelements, netrelations) = parse_network_geojson(network_file).map_err(convert_error)?;
+    let (netelements, netrelations) = resolve_python_topology(
+        WorkflowKind::PathCalculation,
+        network_file,
+        &gnss_positions,
+        rinf_options.as_ref(),
+    )?;
 
     let cfg = config.unwrap_or_default();
 
@@ -927,6 +1018,9 @@ fn tp_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Spec 004: detections
     m.add_function(wrap_pyfunction!(prepare_detections, m)?)?;
     m.add_class::<PreparedDetections>()?;
+
+    // Spec 006: ERA RINF retrieval options
+    m.add_class::<RinfRetrievalOptions>()?;
 
     Ok(())
 }

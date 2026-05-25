@@ -17,10 +17,10 @@
 
 **Purpose**: Prepare dependencies, fixtures, and workspace hooks required by the retrieval feature.
 
-- [ ] T001 Add RINF retrieval dependencies and shared feature flags in Cargo.toml and tp-core/Cargo.toml
-- [ ] T002 [P] Add covered, uncovered, and invalid GNSS fixtures in test-data/rinf_smoke_gnss.geojson, test-data/rinf_uncovered_gnss.geojson, and test-data/rinf_empty_gnss.geojson
-- [ ] T003 [P] Add reusable RINF endpoint test fixtures and sample responses in tp-core/tests/fixtures/rinf_smoke_netelements.json and tp-core/tests/fixtures/rinf_smoke_netrelations.json
-- [ ] T004 [P] Register feature validation commands for Rust, Python, and .NET in .github/workflows/ci.yml
+- [X] T001 Add RINF retrieval dependencies and shared feature flags in Cargo.toml and tp-core/Cargo.toml
+- [X] T002 [P] Add covered, uncovered, and invalid GNSS fixtures in test-data/rinf_smoke_gnss.geojson, test-data/rinf_uncovered_gnss.geojson, and test-data/rinf_empty_gnss.geojson
+- [X] T003 [P] Add reusable RINF endpoint test fixtures and sample responses in tp-core/tests/fixtures/rinf_smoke_netelements.json and tp-core/tests/fixtures/rinf_smoke_netrelations.json
+- [X] T004 [P] Register feature validation commands for Rust, Python, and .NET in .github/workflows/ci.yml
 
 **Checkpoint**: Dependencies, fixtures, and CI hooks exist so the retrieval implementation can be developed and validated consistently.
 
@@ -32,12 +32,12 @@
 
 **⚠️ CRITICAL**: No user story work should start until this phase is complete.
 
-- [ ] T005 Create retrieval domain models and status enums in tp-core/src/models/retrieval.rs and tp-core/src/models.rs
-- [ ] T006 [P] Add RINF-specific error variants and diagnostic payload support in tp-core/src/errors.rs
-- [ ] T007 [P] Implement retrieval-area construction and source-selection request types in tp-core/src/workflow.rs
-- [ ] T008 Implement the SPARQL query builder, blocking endpoint client, and row parsing in tp-core/src/io/rinf.rs and tp-core/src/io.rs
-- [ ] T009 Expose retrieval modules and shared configuration plumbing in tp-core/src/lib.rs
-- [ ] T010 [P] Add shared CLI and binding option models for endpoint override and buffer distance in tp-cli/src/main.rs, tp-py/src/lib.rs, and tp-net/csharp/Models.cs
+- [X] T005 Create retrieval domain models and status enums in tp-core/src/models/retrieval.rs and tp-core/src/models.rs
+- [X] T006 [P] Add RINF-specific error variants and diagnostic payload support in tp-core/src/errors.rs
+- [X] T007 [P] Implement retrieval-area construction and source-selection request types in tp-core/src/workflow.rs
+- [X] T008 Implement the SPARQL query builder, blocking endpoint client, and row parsing in tp-core/src/io/rinf.rs and tp-core/src/io.rs
+- [X] T009 Expose retrieval modules and shared configuration plumbing in tp-core/src/lib.rs
+- [X] T010 [P] Add shared CLI and binding option models for endpoint override and buffer distance in tp-cli/src/main.rs, tp-py/src/lib.rs, and tp-net/csharp/Models.cs
 
 **Checkpoint**: `tp-core` can build retrieval requests, parse endpoint responses, and represent typed outcomes before any workflow-specific integration begins.
 
@@ -53,17 +53,17 @@
 
 > **NOTE: Write these tests first, ensure they fail before implementation**
 
-- [ ] T011 [P] [US1] Add failing covered-area retrieval and assembly tests in tp-core/tests/rinf_topology.rs
-- [ ] T012 [P] [US1] Add failing CLI smoke tests for topology-dependent commands without `--network` in tp-cli/tests/cli_integration_test.rs
-- [ ] T013 [P] [US1] Add failing contract assertions for query shape and valid relation mapping in tp-core/tests/contract.rs
+- [X] T011 [P] [US1] Add failing covered-area retrieval and assembly tests in tp-core/tests/rinf_topology.rs
+- [X] T012 [P] [US1] Add failing CLI smoke tests for topology-dependent commands without `--network` in tp-cli/tests/cli_integration_test.rs
+- [X] T013 [P] [US1] Add failing contract assertions for query shape and valid relation mapping in tp-core/tests/contract.rs
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Map RINF netelement and netrelation rows into existing topology structures in tp-core/src/io/rinf.rs
-- [ ] T015 [US1] Route topology-dependent core workflows through automatic source selection in tp-core/src/workflow.rs and tp-core/src/lib.rs
-- [ ] T016 [US1] Make manual topology optional and trigger auto-retrieval for CLI topology workflows in tp-cli/src/main.rs
-- [ ] T017 [US1] Add successful source-used diagnostics for auto-retrieval runs in tp-cli/src/main.rs
-- [ ] T018 [US1] Add covered-area smoke fixture usage to path-calculation and projection integration tests in tp-core/tests/integration/tests.rs and tp-cli/tests/cli_integration_test.rs
+- [X] T014 [US1] Map RINF netelement and netrelation rows into existing topology structures in tp-core/src/io/rinf.rs
+- [X] T015 [US1] Route topology-dependent core workflows through automatic source selection in tp-core/src/workflow.rs and tp-core/src/lib.rs
+- [X] T016 [US1] Make manual topology optional and trigger auto-retrieval for CLI topology workflows in tp-cli/src/main.rs
+- [X] T017 [US1] Add successful source-used diagnostics for auto-retrieval runs in tp-cli/src/main.rs
+- [X] T018 [US1] Add covered-area smoke fixture usage to path-calculation and projection integration tests in tp-core/tests/integration/tests.rs and tp-cli/tests/cli_integration_test.rs
 
 **Checkpoint**: User Story 1 is complete when covered-area workflows succeed from the core library and CLI without any supplied topology file.
 
@@ -79,16 +79,16 @@
 
 > **NOTE: Write these tests first, ensure they fail before implementation**
 
-- [ ] T019 [P] [US2] Add failing missing-coverage, incomplete-topology, invalid-input, and endpoint-failure tests in tp-core/tests/rinf_topology.rs
-- [ ] T020 [P] [US2] Add failing CLI error-reporting tests for uncovered and invalid-input scenarios in tp-cli/tests/cli_integration_test.rs
-- [ ] T021 [P] [US2] Add failing coarse-geometry and zero-netrelation validation tests in tp-core/tests/unit.rs and tp-core/tests/contract.rs
+- [X] T019 [P] [US2] Add failing missing-coverage, incomplete-topology, invalid-input, and endpoint-failure tests in tp-core/tests/rinf_topology.rs
+- [X] T020 [P] [US2] Add failing CLI error-reporting tests for uncovered and invalid-input scenarios in tp-cli/tests/cli_integration_test.rs
+- [X] T021 [P] [US2] Add failing coarse-geometry and zero-netrelation validation tests in tp-core/tests/unit.rs and tp-core/tests/contract.rs
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Implement uncovered-area assessment and affected-GNSS diagnostics in tp-core/src/workflow.rs and tp-core/src/models/retrieval.rs
-- [ ] T023 [US2] Implement coarse-geometry and zero-netrelation validation failures in tp-core/src/io/rinf.rs and tp-core/src/errors.rs
-- [ ] T024 [US2] Propagate distinct retrieval outcome messages and exit handling in tp-cli/src/main.rs
-- [ ] T025 [US2] Add retrieval provenance and failure-detail reporting for callers in tp-core/src/lib.rs and tp-core/src/models/retrieval.rs
+- [X] T022 [US2] Implement uncovered-area assessment and affected-GNSS diagnostics in tp-core/src/workflow.rs and tp-core/src/models/retrieval.rs
+- [X] T023 [US2] Implement coarse-geometry and zero-netrelation validation failures in tp-core/src/io/rinf.rs and tp-core/src/errors.rs
+- [X] T024 [US2] Propagate distinct retrieval outcome messages and exit handling in tp-cli/src/main.rs
+- [X] T025 [US2] Add retrieval provenance and failure-detail reporting for callers in tp-core/src/lib.rs and tp-core/src/models/retrieval.rs
 
 **Checkpoint**: User Story 2 is complete when each failure mode is surfaced clearly and no downstream topology workflow runs on invalid or incomplete RINF data.
 
@@ -104,18 +104,18 @@
 
 > **NOTE: Write these tests first, ensure they fail before implementation**
 
-- [ ] T026 [P] [US3] Add failing Python auto-retrieval success and failure tests in tp-py/python/tests/test_path_calculation.py
-- [ ] T027 [P] [US3] Add failing Python manual-topology precedence tests in tp-py/python/tests/test_projection.py
-- [ ] T028 [P] [US3] Add failing .NET auto-retrieval success and failure tests in tp-net/csharp/Tests/PathCalculationTests.cs
-- [ ] T029 [P] [US3] Add failing .NET nullable-network and precedence tests in tp-net/csharp/Tests/ProjectionTests.cs
+- [X] T026 [P] [US3] Add failing Python auto-retrieval success and failure tests in tp-py/python/tests/test_path_calculation.py
+- [X] T027 [P] [US3] Add failing Python manual-topology precedence tests in tp-py/python/tests/test_projection.py
+- [X] T028 [P] [US3] Add failing .NET auto-retrieval success and failure tests in tp-net/csharp/Tests/PathCalculationTests.cs
+- [X] T029 [P] [US3] Add failing .NET nullable-network and precedence tests in tp-net/csharp/Tests/ProjectionTests.cs
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Expose optional network and RINF retrieval arguments plus typed error mapping in tp-py/src/lib.rs
-- [ ] T031 [US3] Update Python package exports and developer-facing wrappers for auto-retrieval workflows in tp-py/python/tp_lib/__init__.py
-- [ ] T032 [US3] Add nullable-network retrieval support and RINF option plumbing to the Rust FFI surface in tp-net/src/lib.rs
-- [ ] T033 [US3] Expose `RinfRetrievalOptions` and nullable-network overloads in tp-net/csharp/Models.cs and tp-net/csharp/TpLib.cs
-- [ ] T034 [US3] Map core retrieval outcomes to distinct .NET exceptions and diagnostics in tp-net/csharp/Exceptions.cs and tp-net/csharp/TpLib.cs
+- [X] T030 [US3] Expose optional network and RINF retrieval arguments plus typed error mapping in tp-py/src/lib.rs
+- [X] T031 [US3] Update Python package exports and developer-facing wrappers for auto-retrieval workflows in tp-py/python/tp_lib/__init__.py
+- [X] T032 [US3] Add nullable-network retrieval support and RINF option plumbing to the Rust FFI surface in tp-net/src/lib.rs
+- [X] T033 [US3] Expose `RinfRetrievalOptions` and nullable-network overloads in tp-net/csharp/Models.cs and tp-net/csharp/TpLib.cs
+- [X] T034 [US3] Map core retrieval outcomes to distinct .NET exceptions and diagnostics in tp-net/csharp/Exceptions.cs and tp-net/csharp/TpLib.cs
 
 **Checkpoint**: User Story 3 is complete when Python and .NET callers can use automatic retrieval without a network file and observe the same outcome categories as Rust callers.
 
@@ -125,18 +125,18 @@
 
 **Purpose**: Finish documentation, align examples, and run the full validation matrix requested for the feature.
 
-- [ ] T035 [P] Update feature overview and validation commands in README.md
-- [ ] T036 [P] Update CLI auto-retrieval usage in tp-cli/README.md
-- [ ] T037 [P] Update Python binding auto-retrieval examples in tp-py/README.md
-- [ ] T038 [P] Update .NET binding auto-retrieval examples in tp-net/README.md
-- [ ] T039 [P] Update RINF fixture guidance and smoke-test data notes in test-data/README.md
-- [ ] T040 Update developer quickstart and acceptance scenarios in specs/006-download-rinf-topology/quickstart.md and specs/006-download-rinf-topology/contracts/api.md
-- [ ] T041 Run `cargo fmt --all -- --check` for Cargo.toml, tp-core/src/, tp-cli/src/, tp-py/src/, tp-net/src/, and tp-webapp/src/
-- [ ] T042 Run `cargo clippy --workspace --all-targets --all-features -- -D warnings` for Cargo.toml, tp-core/src/, tp-cli/src/, tp-py/src/, tp-net/src/, and tp-webapp/src/
-- [ ] T043 Run `cargo test --workspace` covering tp-core/tests/, tp-cli/tests/, tp-net/src/, and tp-webapp/tests/
-- [ ] T044 Run `maturin develop` and `pytest python/tests/ -v` in tp-py/ for tp-py/src/lib.rs and tp-py/python/tests/
-- [ ] T045 Run `ruff check tp-py/python` for tp-py/python/
-- [ ] T046 Run `dotnet test tp-net/csharp/Tests/TpLib.Tests.csproj -c Debug --verbosity minimal` for tp-net/csharp/Tests/ and tp-net/src/lib.rs
+- [X] T035 [P] Update feature overview and validation commands in README.md
+- [X] T036 [P] Update CLI auto-retrieval usage in tp-cli/README.md
+- [X] T037 [P] Update Python binding auto-retrieval examples in tp-py/README.md
+- [X] T038 [P] Update .NET binding auto-retrieval examples in tp-net/README.md
+- [X] T039 [P] Update RINF fixture guidance and smoke-test data notes in test-data/README.md
+- [X] T040 Update developer quickstart and acceptance scenarios in specs/006-download-rinf-topology/quickstart.md and specs/006-download-rinf-topology/contracts/api.md
+- [X] T041 Run `cargo fmt --all -- --check` for Cargo.toml, tp-core/src/, tp-cli/src/, tp-py/src/, tp-net/src/, and tp-webapp/src/
+- [X] T042 Run `cargo clippy --workspace --all-targets --all-features -- -D warnings` for Cargo.toml, tp-core/src/, tp-cli/src/, tp-py/src/, tp-net/src/, and tp-webapp/src/
+- [X] T043 Run `cargo test --workspace` covering tp-core/tests/, tp-cli/tests/, tp-net/src/, and tp-webapp/tests/
+- [X] T044 Run `maturin develop` and `pytest python/tests/ -v` in tp-py/ for tp-py/src/lib.rs and tp-py/python/tests/
+- [X] T045 Run `ruff check tp-py/python` for tp-py/python/
+- [X] T046 Run `dotnet test tp-net/csharp/Tests/TpLib.Tests.csproj -c Debug --verbosity minimal` for tp-net/csharp/Tests/ and tp-net/src/lib.rs
 
 **Checkpoint**: Documentation is updated across every README surface and the full Rust, Python, and .NET validation matrix passes, including linting.
 

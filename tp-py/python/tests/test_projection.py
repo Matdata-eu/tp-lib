@@ -9,9 +9,6 @@ Tests the Python API for GNSS projection functionality, including:
 """
 
 import pytest
-import tempfile
-import os
-from pathlib import Path
 
 
 # Only import if module is built (skip tests if not)
@@ -280,7 +277,7 @@ def test_projection_config_defaults():
     
     assert config.max_search_radius_meters == 1000.0
     assert config.projection_distance_warning_threshold == 50.0
-    assert config.suppress_warnings == False
+    assert config.suppress_warnings is False
 
 
 def test_projection_config_custom():
@@ -293,7 +290,7 @@ def test_projection_config_custom():
     
     assert config.max_search_radius_meters == 2000.0
     assert config.projection_distance_warning_threshold == 100.0
-    assert config.suppress_warnings == True
+    assert config.suppress_warnings is True
 
 
 def test_projection_config_repr():
@@ -343,3 +340,30 @@ def test_single_position(tmp_path, sample_network_geojson):
     
     assert len(results) == 1
     assert isinstance(results[0], ProjectedPosition)
+
+def test_project_gnss_manual_topology_precedence(sample_gnss_csv, sample_network_geojson):
+    """T027: network_file takes precedence over rinf_options (no network call)."""
+    from tp_lib import project_gnss, RinfRetrievalOptions
+    bogus = RinfRetrievalOptions(endpoint_url="http://127.0.0.1:1/should-not-be-called")
+    results = project_gnss(
+        gnss_file=sample_gnss_csv,
+        gnss_crs="EPSG:4326",
+        network_file=sample_network_geojson,
+        network_crs="EPSG:4326",
+        target_crs="EPSG:31370",
+        rinf_options=bogus,
+    )
+    assert len(results) > 0
+
+
+def test_project_gnss_unreachable_rinf_endpoint(sample_gnss_csv):
+    """T027: With no network_file, an unreachable RINF endpoint must raise."""
+    from tp_lib import project_gnss, RinfRetrievalOptions
+    opts = RinfRetrievalOptions(endpoint_url="http://127.0.0.1:1/nope")
+    with pytest.raises((RuntimeError, OSError)):
+        project_gnss(
+            gnss_file=sample_gnss_csv,
+            gnss_crs="EPSG:4326",
+            target_crs="EPSG:31370",
+            rinf_options=opts,
+        )

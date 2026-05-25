@@ -64,6 +64,10 @@ tokio = { version = "1", features = ["full"] }
 rust-embed = { version = "8", features = ["debug-embed"] }
 open = "5"
 
+# HTTP client (RINF SPARQL retrieval — feature 006)
+ureq = { version = "2.10", features = ["json"] }
+url = "2.5"
+
 [profile.dev]
 debug = 2
 opt-level = 0

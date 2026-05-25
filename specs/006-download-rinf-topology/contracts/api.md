@@ -77,16 +77,25 @@ Same source-selection rule applies: omit `--network` to trigger automatic RINF r
 
 ## 3. Python Binding Contract (`tp-py`)
 
+### Retrieval options class
+
+```python
+class RinfRetrievalOptions:
+    endpoint_url: str = "https://graph.data.era.europa.eu/repositories/rinf-plus"
+    buffer_meters: float = 1000.0
+```
+
 ### Projection
 
 ```python
 project_gnss(
     gnss_file: str,
+    gnss_crs: str,
     network_file: str | None = None,
+    network_crs: str | None = None,
+    target_crs: str | None = None,
     config: ProjectionConfig | None = None,
-    *,
-    rinf_endpoint: str | None = None,
-    rinf_buffer_meters: float = 1000.0,
+    rinf_options: RinfRetrievalOptions | None = None,
 )
 ```
 
@@ -95,11 +104,11 @@ project_gnss(
 ```python
 calculate_train_path(
     gnss_file: str,
+    gnss_crs: str,
     network_file: str | None = None,
+    network_crs: str | None = None,
     config: PathConfig | None = None,
-    *,
-    rinf_endpoint: str | None = None,
-    rinf_buffer_meters: float = 1000.0,
+    rinf_options: RinfRetrievalOptions | None = None,
 )
 ```
 
@@ -110,54 +119,63 @@ prepare_detections(
     gnss_file: str,
     detections_file: str,
     network_file: str | None = None,
-    *,
-    rinf_endpoint: str | None = None,
-    rinf_buffer_meters: float = 1000.0,
+    rinf_options: RinfRetrievalOptions | None = None,
 )
 ```
 
 **Behavior**:
-- `network_file is not None`: supplied topology is authoritative.
-- `network_file is None`: bindings invoke Rust retrieval/validation logic.
-- Missing coverage and endpoint failures surface as typed Python exceptions with distinct messages.
+- `network_file is not None`: supplied topology is authoritative; no retrieval.
+- `network_file is None`: bindings invoke Rust retrieval/validation logic using `rinf_options` (or defaults).
+- Missing coverage and endpoint failures surface as typed Python exceptions
+  (`InvalidGnssInputError`, `RinfMissingCoverageError`,
+  `RinfIncompleteTopologyError`, `RinfRetrievalFailedError`).
 
 ---
 
 ## 4. .NET Contract (`tp-net`)
 
+Because C# overload resolution cannot distinguish overloads that differ only
+in nullable-reference annotations, the auto-retrieval entry points use the
+`*Auto` suffix.
+
 ### Projection
 
 ```csharp
-public static IReadOnlyList<ProjectedPosition> ProjectGnss(
+public static IReadOnlyList<ProjectedPosition> Projection.ProjectGnssAuto(
+    NetworkInput? network,
     GnssInput gnss,
-    NetworkInput? network = null,
     ProjectionConfig? config = null,
-    RinfRetrievalOptions? rinf = null);
+    RinfRetrievalOptions? rinfOptions = null);
 ```
 
 ### Path calculation
 
 ```csharp
-public static PathResult CalculateTrainPath(
+public static PathResult PathCalculation.CalculateTrainPathAuto(
+    NetworkInput? network,
     GnssInput gnss,
-    NetworkInput? network = null,
     PathConfig? config = null,
     PreparedDetections? detections = null,
-    RinfRetrievalOptions? rinf = null);
+    RinfRetrievalOptions? rinfOptions = null);
 ```
 
 ### Retrieval options type
 
 ```csharp
-public sealed record RinfRetrievalOptions(
-    string EndpointUrl = "https://graph.data.era.europa.eu/repositories/rinf-plus",
-    double BufferMeters = 1000.0);
+public sealed class RinfRetrievalOptions
+{
+    public string EndpointUrl { get; set; } = "https://graph.data.era.europa.eu/repositories/rinf-plus";
+    public double BufferMeters { get; set; } = 1000.0;
+}
 ```
 
 **Behavior**:
 - `network != null`: no RINF retrieval is attempted.
-- `network == null`: the wrapper calls the Rust retrieval workflow before invoking the existing algorithms.
-- Missing coverage, incomplete topology, invalid input, and endpoint failure map to distinct exception types or error codes with equivalent meaning to the core library.
+- `network == null`: the wrapper calls the Rust retrieval workflow before
+  invoking the existing algorithms.
+- Failures surface as distinct typed exceptions:
+  `TpLibInvalidGnssInputException`, `TpLibRinfMissingCoverageException`,
+  `TpLibRinfIncompleteTopologyException`, `TpLibRinfRetrievalFailedException`.
 
 ---
 

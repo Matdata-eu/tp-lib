@@ -1,0 +1,31 @@
+{
+  "head": {
+    "vars": ["netelement", "netelement_wkt"]
+  },
+  "results": {
+    "bindings": [
+      {
+        "netelement": {
+          "type": "uri",
+          "value": "http://data.europa.eu/949/linearElement/SMOKE-A"
+        },
+        "netelement_wkt": {
+          "type": "literal",
+          "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+          "value": "LINESTRING(11.50 60.00, 11.51 60.005, 11.52 60.01, 11.53 60.015, 11.54 60.02)"
+        }
+      },
+      {
+        "netelement": {
+          "type": "uri",
+          "value": "http://data.europa.eu/949/linearElement/SMOKE-B"
+        },
+        "netelement_wkt": {
+          "type": "literal",
+          "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+          "value": "LINESTRING(11.54 60.02, 11.55 60.025, 11.56 60.03, 11.57 60.035, 11.58 60.04, 11.59 60.045, 11.60 60.05)"
+        }
+      }
+    ]
+  }
+}
