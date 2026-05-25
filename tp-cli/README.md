@@ -85,7 +85,7 @@ the documented defaults. RINF-specific failures map to dedicated exit codes
 
 ## Commands
 
-`tp-cli` has three modes of operation:
+`tp-cli` has four modes of operation:
 
 ### Default (no subcommand)
 
@@ -110,6 +110,33 @@ Legacy nearest-netelement projection (feature 001 behavior). Projects each GNSS 
 ```bash
 tp-cli simple-projection --gnss <FILE> --network <FILE> --output <FILE> [OPTIONS]
 ```
+
+### `fetch-topology`
+
+Inspection helper: load a GNSS file, query the RINF SPARQL endpoint for the
+topology covering those positions, and write the retrieved netelements +
+netrelations to a GeoJSON file that round-trips through the standard
+`--network` input.
+
+```bash
+tp-cli fetch-topology --gnss <FILE> --output <FILE> [OPTIONS]
+```
+
+Options:
+
+- `--crs <CRS>` — CRS of the GNSS input (defaults to `EPSG:4326`).
+- `--lat-col`, `--lon-col`, `--time-col` — CSV column names (defaults
+  `latitude`, `longitude`, `timestamp`).
+- `--rinf-endpoint <URL>` — override the SPARQL endpoint.
+- `--rinf-buffer-meters <METERS>` — override the buffer around the GNSS hull.
+
+The retrieved topology is **always written to disk**, even when validation
+reports issues such as `RinfIncompleteTopology` (coarse geometries) or
+`RinfMissingCoverage`. The same validation errors are still surfaced through
+the process exit code (4–7), so the file can be inspected in QGIS while the
+caller can detect that the data is not fit for production use. Network or
+endpoint failures (exit 7) abort before any file is written, since there is
+no topology to dump in that case.
 
 ## Arguments
 

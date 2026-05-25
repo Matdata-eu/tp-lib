@@ -600,6 +600,96 @@ fn parse_netrelation_feature(
     Ok(netrelation)
 }
 
+/// Write a railway network (netelements + netrelations) as a GeoJSON
+/// FeatureCollection that round-trips through [`parse_network_geojson_str`].
+///
+/// Netelements are written as LineString features with an `id` property.
+/// Netrelations are written as geometry-less features tagged with
+/// `type="netrelation"` and the topology properties consumed by
+/// [`parse_netrelation_feature`].
+pub fn write_network_geojson(
+    netelements: &[Netelement],
+    netrelations: &[NetRelation],
+    writer: &mut impl std::io::Write,
+) -> Result<(), ProjectionError> {
+    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use serde_json::{Map, Value as JsonValue};
+
+    let mut features: Vec<Feature> = Vec::with_capacity(netelements.len() + netrelations.len());
+
+    for ne in netelements {
+        let coords: Vec<Vec<f64>> = ne
+            .geometry
+            .coords()
+            .map(|c| vec![c.x, c.y])
+            .collect();
+        let geometry = Geometry::new(Value::LineString(coords));
+
+        let mut properties = Map::new();
+        properties.insert("id".to_string(), JsonValue::from(ne.id.clone()));
+        properties.insert("crs".to_string(), JsonValue::from(ne.crs.clone()));
+
+        features.push(Feature {
+            bbox: None,
+            geometry: Some(geometry),
+            id: None,
+            properties: Some(properties),
+            foreign_members: None,
+        });
+    }
+
+    for nr in netrelations {
+        let navigability = match (nr.navigable_forward, nr.navigable_backward) {
+            (true, true) => "both",
+            (true, false) => "AB",
+            (false, true) => "BA",
+            (false, false) => "none",
+        };
+
+        let mut properties = Map::new();
+        properties.insert("type".to_string(), JsonValue::from("netrelation"));
+        properties.insert("id".to_string(), JsonValue::from(nr.id.clone()));
+        properties.insert(
+            "netelementA".to_string(),
+            JsonValue::from(nr.from_netelement_id.clone()),
+        );
+        properties.insert(
+            "netelementB".to_string(),
+            JsonValue::from(nr.to_netelement_id.clone()),
+        );
+        properties.insert(
+            "positionOnA".to_string(),
+            JsonValue::from(nr.position_on_a as u64),
+        );
+        properties.insert(
+            "positionOnB".to_string(),
+            JsonValue::from(nr.position_on_b as u64),
+        );
+        properties.insert("navigability".to_string(), JsonValue::from(navigability));
+
+        features.push(Feature {
+            bbox: None,
+            geometry: None,
+            id: None,
+            properties: Some(properties),
+            foreign_members: None,
+        });
+    }
+
+    let feature_collection = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: None,
+    };
+
+    let json = serde_json::to_string_pretty(&feature_collection).map_err(|e| {
+        ProjectionError::GeoJsonError(format!("Failed to serialize network GeoJSON: {}", e))
+    })?;
+
+    writer.write_all(json.as_bytes())?;
+    Ok(())
+}
+
 /// Write projected positions as GeoJSON FeatureCollection
 pub fn write_geojson(
     positions: &[ProjectedPosition],

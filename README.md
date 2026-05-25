@@ -56,6 +56,12 @@ tp-cli --gnss positions.csv --network network.geojson --output result.csv --revi
 
 # Launch standalone webapp to review/edit a path file
 tp-cli webapp --network network.geojson --train-path path.csv --output reviewed_path.csv
+
+# Fetch the RINF topology covering a GNSS file (inspection helper).
+# Writes the retrieved netelements + netrelations to GeoJSON even when
+# validation reports issues (e.g. coarse geometries), then exits with the
+# corresponding non-zero status code.
+tp-cli fetch-topology --gnss positions.geojson --output topology.geojson
 ```
 
 ### Debug Output

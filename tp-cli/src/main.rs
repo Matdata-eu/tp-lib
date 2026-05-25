@@ -13,8 +13,9 @@ use std::process;
 use tp_lib_core::{
     calculate_train_path, export_all_debug_info, parse_gnss_csv, parse_gnss_geojson,
     parse_network_geojson, parse_trainpath_csv, parse_trainpath_geojson, project_gnss,
-    project_onto_path, resolve_topology, write_csv, write_geojson, write_trainpath_csv,
-    write_trainpath_geojson, GnssPosition, NetRelation, Netelement, PathConfig, PathConfigBuilder,
+    project_onto_path, resolve_topology, write_csv, write_geojson, write_network_geojson,
+    write_trainpath_csv, write_trainpath_geojson, GnssPosition, NetRelation, Netelement,
+    PathConfig, PathConfigBuilder,
     ProjectionConfig, ProjectionError, RailwayNetwork, RetrievalConfig, RetrievalStatus,
     TopologySource, UreqSparqlClient, WorkflowKind, DEFAULT_RETRIEVAL_BUFFER_METERS,
     DEFAULT_RINF_ENDPOINT,
@@ -285,6 +286,37 @@ enum Commands {
         time_col: String,
     },
 
+    /// Fetch the RINF topology (netelements + netrelations) for the area covered
+    /// by a GNSS input file, and write it to a GeoJSON file.
+    ///
+    /// This is an inspection helper: it performs only the RINF retrieval step
+    /// of the path-calculation pipeline so the resulting topology can be
+    /// examined when an unexpected error occurs.
+    #[command(name = "fetch-topology")]
+    FetchTopology {
+        /// Path to GNSS input file (CSV or GeoJSON)
+        #[arg(short = 'g', long = "gnss", value_name = "FILE")]
+        gnss_file: String,
+
+        /// CRS of GNSS data (required for CSV input)
+        #[arg(long = "crs", value_name = "CRS")]
+        gnss_crs: Option<String>,
+
+        /// Output GeoJSON file for the retrieved topology
+        #[arg(short = 'o', long = "output", value_name = "FILE")]
+        output_file: String,
+
+        /// Latitude column name for CSV
+        #[arg(long = "lat-col", default_value = "latitude")]
+        lat_col: String,
+        /// Longitude column name for CSV
+        #[arg(long = "lon-col", default_value = "longitude")]
+        lon_col: String,
+        /// Timestamp column name for CSV
+        #[arg(long = "time-col", default_value = "timestamp")]
+        time_col: String,
+    },
+
     /// Launch the webapp to visually review and edit a pre-calculated train path.
     ///
     /// In standalone mode (default) the user saves the edited path to a CSV file.
@@ -412,6 +444,23 @@ fn main() {
             &lat_col,
             &lon_col,
             &time_col,
+        ),
+        Some(Commands::FetchTopology {
+            gnss_file,
+            gnss_crs,
+            output_file,
+            lat_col,
+            lon_col,
+            time_col,
+        }) => run_fetch_topology(
+            &gnss_file,
+            gnss_crs.as_deref(),
+            &output_file,
+            &lat_col,
+            &lon_col,
+            &time_col,
+            cli.rinf_endpoint.as_deref(),
+            cli.rinf_buffer_meters,
         ),
         #[cfg(feature = "webapp")]
         Some(Commands::Webapp {
@@ -645,6 +694,98 @@ fn resolve_cli_topology(
         RetrievalStatus::InvalidInput => {
             Err(PipelineError::RinfInvalidInput(outcome.detail_message))
         }
+        RetrievalStatus::MissingCoverage => {
+            Err(PipelineError::RinfMissingCoverage(outcome.detail_message))
+        }
+        RetrievalStatus::IncompleteTopology => Err(PipelineError::RinfIncompleteTopology(
+            outcome.detail_message,
+        )),
+        RetrievalStatus::EndpointFailure => {
+            Err(PipelineError::RinfEndpointFailure(outcome.detail_message))
+        }
+    }
+}
+
+/// Handle the `fetch-topology` subcommand: load GNSS positions, retrieve the
+/// RINF topology that covers them, and write the result to a GeoJSON file
+/// that round-trips through [`parse_network_geojson`].
+///
+/// The topology file is written even when validation fails (e.g. coarse
+/// geometries or incomplete coverage) so the user can inspect what RINF
+/// returned. The validation error, if any, is still propagated as the
+/// command's exit status after the file has been written.
+#[allow(clippy::too_many_arguments)]
+fn run_fetch_topology(
+    gnss_file: &str,
+    gnss_crs: Option<&str>,
+    output_file: &str,
+    lat_col: &str,
+    lon_col: &str,
+    time_col: &str,
+    rinf_endpoint: Option<&str>,
+    rinf_buffer_meters: Option<f64>,
+) -> Result<(), PipelineError> {
+    let gnss = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
+
+    let endpoint = rinf_endpoint
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| DEFAULT_RINF_ENDPOINT.to_string());
+    let buffer = rinf_buffer_meters.unwrap_or(DEFAULT_RETRIEVAL_BUFFER_METERS);
+    let config = RetrievalConfig::default()
+        .with_endpoint(endpoint.clone())
+        .with_buffer_meters(buffer);
+    let client = UreqSparqlClient::default();
+
+    println!(
+        "Topology source: EraRinf (endpoint={}, buffer_meters={})",
+        endpoint, buffer
+    );
+
+    let (topology, outcome) = resolve_topology(
+        WorkflowKind::PathCalculation,
+        &gnss,
+        None,
+        &config,
+        &client,
+    )
+    .map_err(|e| match e {
+        ProjectionError::InvalidGnssInput(m) => PipelineError::RinfInvalidInput(m),
+        ProjectionError::RinfMissingCoverage(m) => PipelineError::RinfMissingCoverage(m),
+        ProjectionError::RinfIncompleteTopology(m) => PipelineError::RinfIncompleteTopology(m),
+        ProjectionError::RinfRetrievalFailed(m) => PipelineError::RinfEndpointFailure(m),
+        other => PipelineError::Processing(other.to_string()),
+    })?;
+
+    let file = File::create(output_file)
+        .map_err(|e| PipelineError::Io(format!("Failed to create {}: {}", output_file, e)))?;
+    let mut writer = BufWriter::new(file);
+    write_network_geojson(&topology.netelements, &topology.netrelations, &mut writer)
+        .map_err(|e| PipelineError::Io(format!("Failed to write topology GeoJSON: {}", e)))?;
+
+    println!(
+        "Topology written: file={}, netelements={}, netrelations={}, status={:?}",
+        output_file,
+        topology.netelements.len(),
+        topology.netrelations.len(),
+        outcome.status,
+    );
+    if !topology.validation_report.coarse_geometry_ids.is_empty() {
+        println!(
+            "Coarse netelement geometries: {} (ids: {})",
+            topology.validation_report.coarse_geometry_ids.len(),
+            topology.validation_report.coarse_geometry_ids.join(", "),
+        );
+    }
+    if !topology.validation_report.uncovered_gnss_indices.is_empty() {
+        println!(
+            "Uncovered GNSS positions: {} indices",
+            topology.validation_report.uncovered_gnss_indices.len(),
+        );
+    }
+
+    match outcome.status {
+        RetrievalStatus::Success => Ok(()),
+        RetrievalStatus::InvalidInput => Err(PipelineError::RinfInvalidInput(outcome.detail_message)),
         RetrievalStatus::MissingCoverage => {
             Err(PipelineError::RinfMissingCoverage(outcome.detail_message))
         }

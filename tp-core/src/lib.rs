@@ -58,7 +58,8 @@ pub use io::{
     build_netelements_query, build_netrelations_query, parse_gnss_csv, parse_gnss_csv_str,
     parse_gnss_geojson, parse_gnss_geojson_str, parse_netrelations_geojson, parse_network_geojson,
     parse_network_geojson_str, parse_trainpath_csv, parse_trainpath_geojson, write_csv,
-    write_geojson, write_trainpath_csv, write_trainpath_geojson, SparqlClient, UreqSparqlClient,
+    write_geojson, write_network_geojson, write_trainpath_csv, write_trainpath_geojson,
+    SparqlClient, UreqSparqlClient,
 };
 pub use models::{
     AssociatedNetElement,
