@@ -438,15 +438,28 @@ fn main() {
             let network_file = cli.network_file.or(cli.legacy_network_file);
             let format = cli.legacy_output_format.unwrap_or(cli.format);
 
-            // Check if we have the required arguments
-            let (gnss, network, output) = match (gnss_file, network_file, cli.output_file.clone()) {
-                (Some(g), Some(n), Some(o)) => (g, n, o),
-                (Some(g), Some(n), None) => {
+            // Check if we have the required arguments. Network may be omitted,
+            // in which case topology is auto-retrieved from ERA RINF.
+            let (gnss, output) = match (gnss_file, cli.output_file.clone()) {
+                (Some(g), Some(o)) => (g, o),
+                (Some(g), None) => {
+                    // Legacy mode requires an explicit network file because it
+                    // writes projection output to stdout.
+                    let n = match network_file.as_deref() {
+                        Some(path) => path,
+                        None => {
+                            eprintln!(
+                                "Error: Missing required arguments. Use --gnss and --output (and optionally --network)\n\
+                                 Run with --help for usage information."
+                            );
+                            process::exit(1);
+                        }
+                    };
                     // Legacy mode: output to stdout
                     run_legacy_pipeline(
                         &g,
                         cli.gnss_crs.as_deref(),
-                        &n,
+                        n,
                         &format,
                         cli.warning_threshold,
                         &cli.lat_col,
@@ -457,7 +470,7 @@ fn main() {
                 }
                 _ => {
                     eprintln!(
-                        "Error: Missing required arguments. Use --gnss, --network, and --output\n\
+                        "Error: Missing required arguments. Use --gnss and --output (and optionally --network)\n\
                          Run with --help for usage information."
                     );
                     process::exit(1);
@@ -471,7 +484,7 @@ fn main() {
             run_default_command(
                 &gnss,
                 cli.gnss_crs.as_deref(),
-                &network,
+                network_file.as_deref(),
                 &output,
                 cli.train_path_file.as_deref(),
                 cli.save_path_file.as_deref(),
@@ -502,6 +515,8 @@ fn main() {
                 cli.punctual_detections.as_deref(),
                 cli.linear_detections.as_deref(),
                 cli.detection_cutoff,
+                cli.rinf_endpoint.as_deref(),
+                cli.rinf_buffer_meters,
             )
         }
     };
@@ -696,7 +711,7 @@ fn derive_path_output(output_file: &str) -> String {
 fn run_default_command(
     gnss_file: &str,
     gnss_crs: Option<&str>,
-    network_file: &str,
+    network_file: Option<&str>,
     output_file: &str,
     train_path_file: Option<&str>,
     save_path_file: Option<&str>,
@@ -718,6 +733,8 @@ fn run_default_command(
     punctual_detections: Option<&str>,
     linear_detections: Option<&str>,
     detection_cutoff: f64,
+    rinf_endpoint: Option<&str>,
+    rinf_buffer_meters: Option<f64>,
 ) -> Result<(), PipelineError> {
     // Suppress unused warning when webapp feature is disabled
     #[cfg(not(feature = "webapp"))]
@@ -725,15 +742,21 @@ fn run_default_command(
 
     let output_format = determine_format(format, output_file)?;
 
-    // Load network
-    tracing::info!(network_file = %network_file, "Loading railway network");
-    let (netelements, netrelations) = parse_network_geojson(network_file)
-        .map_err(|e| PipelineError::Io(format!("Failed to load network: {}", e)))?;
+    // Load GNSS positions first (needed for auto-retrieval bounding box).
+    let gnss_positions = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
     tracing::info!(
-        netelement_count = netelements.len(),
-        netrelation_count = netrelations.len(),
-        "Railway network loaded"
+        position_count = gnss_positions.len(),
+        "GNSS positions loaded"
     );
+
+    // Resolve topology (file or auto-retrieved from RINF).
+    let (netelements, netrelations) = resolve_cli_topology(
+        WorkflowKind::PathCalculation,
+        network_file,
+        &gnss_positions,
+        rinf_endpoint,
+        rinf_buffer_meters,
+    )?;
 
     let network = RailwayNetwork::new(netelements.clone())
         .map_err(|e| PipelineError::Processing(format!("Failed to build network index: {}", e)))?;
@@ -743,13 +766,6 @@ fn run_default_command(
         .iter()
         .map(|ne| (ne.id.clone(), ne.clone()))
         .collect();
-
-    // Load GNSS positions
-    let gnss_positions = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
-    tracing::info!(
-        position_count = gnss_positions.len(),
-        "GNSS positions loaded"
-    );
 
     // Get or calculate train path
     let mut detection_provenance: Vec<tp_lib_core::DetectionRecord> = Vec::new();
