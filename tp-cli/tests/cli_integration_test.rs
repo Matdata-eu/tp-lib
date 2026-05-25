@@ -815,6 +815,30 @@ fn test_calculate_path_unreachable_rinf_endpoint_exit_code_7() {
     cmd.assert().code(7);
 }
 
+/// T020: simple-projection without --network should auto-retrieve topology;
+/// against an unreachable endpoint this exits with code 7 (RinfEndpointFailure).
+#[test]
+fn test_simple_projection_without_network_unreachable_rinf_endpoint_exit_code_7() {
+    let temp_dir = TempDir::new().unwrap();
+    let gnss_csv = create_path_test_gnss(&temp_dir);
+    let output_file = temp_dir.path().join("projected.geojson");
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("tp-cli"));
+    cmd.arg("--rinf-endpoint")
+        .arg("http://127.0.0.1:1/sparql")
+        .arg("--rinf-buffer-meters")
+        .arg("500")
+        .arg("simple-projection")
+        .arg("--gnss")
+        .arg(&gnss_csv)
+        .arg("--crs")
+        .arg("EPSG:4326")
+        .arg("--output")
+        .arg(&output_file);
+
+    cmd.assert().code(7);
+}
+
 /// T020: auto-retrieval with empty GNSS file should exit with code 4 (RinfInvalidInput)
 /// or another input-related code; we accept >=4 and <=7 for the RINF error band.
 #[test]

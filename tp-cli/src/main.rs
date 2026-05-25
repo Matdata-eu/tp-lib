@@ -258,9 +258,11 @@ enum Commands {
         #[arg(long = "crs", value_name = "CRS")]
         gnss_crs: Option<String>,
 
-        /// Path to railway network GeoJSON file
+        /// Path to railway network GeoJSON file. If omitted, the topology
+        /// is downloaded automatically from the ERA RINF SPARQL endpoint
+        /// (feature 006) using the bounding box of the GNSS positions.
         #[arg(short = 'n', long = "network", value_name = "FILE")]
-        network_file: String,
+        network_file: Option<String>,
 
         /// Output file path
         #[arg(short = 'o', long = "output", value_name = "FILE")]
@@ -436,13 +438,15 @@ fn main() {
         }) => run_simple_projection(
             &gnss_file,
             gnss_crs.as_deref(),
-            &network_file,
+            network_file.as_deref(),
             &output_file,
             &format,
             warning_threshold,
             &lat_col,
             &lon_col,
             &time_col,
+            cli.rinf_endpoint.as_deref(),
+            cli.rinf_buffer_meters,
         ),
         Some(Commands::FetchTopology {
             gnss_file,
@@ -1184,27 +1188,17 @@ fn run_calculate_path(
 fn run_simple_projection(
     gnss_file: &str,
     gnss_crs: Option<&str>,
-    network_file: &str,
+    network_file: Option<&str>,
     output_file: &str,
     format: &str,
     warning_threshold: f64,
     lat_col: &str,
     lon_col: &str,
     time_col: &str,
+    rinf_endpoint: Option<&str>,
+    rinf_buffer_meters: Option<f64>,
 ) -> Result<(), PipelineError> {
     let output_format = determine_format(format, output_file)?;
-
-    // Load network (ignore netrelations for simple projection)
-    tracing::info!(network_file = %network_file, "Loading railway network");
-    let (netelements, _netrelations) = parse_network_geojson(network_file)
-        .map_err(|e| PipelineError::Io(format!("Failed to load network: {}", e)))?;
-    tracing::info!(
-        netelement_count = netelements.len(),
-        "Railway network loaded"
-    );
-
-    let network = RailwayNetwork::new(netelements)
-        .map_err(|e| PipelineError::Processing(format!("Failed to build network index: {}", e)))?;
 
     // Load GNSS positions
     let gnss_positions = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
@@ -1212,6 +1206,19 @@ fn run_simple_projection(
         position_count = gnss_positions.len(),
         "GNSS positions loaded"
     );
+
+    // Resolve topology (file or auto-retrieved from RINF). Netrelations are
+    // ignored by simple projection, but loaded for consistent topology handling.
+    let (netelements, _netrelations) = resolve_cli_topology(
+        WorkflowKind::Projection,
+        network_file,
+        &gnss_positions,
+        rinf_endpoint,
+        rinf_buffer_meters,
+    )?;
+
+    let network = RailwayNetwork::new(netelements)
+        .map_err(|e| PipelineError::Processing(format!("Failed to build network index: {}", e)))?;
 
     // Project using simple nearest-netelement method
     let config = ProjectionConfig {

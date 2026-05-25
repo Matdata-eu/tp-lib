@@ -339,3 +339,113 @@ pub fn resolve_topology(
 
     Ok((topology, outcome))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{DateTime, FixedOffset};
+    use geo::LineString;
+    use std::collections::HashMap;
+
+    fn gnss(lat: f64, lon: f64) -> GnssPosition {
+        let ts: DateTime<FixedOffset> =
+            DateTime::parse_from_rfc3339("2026-05-13T08:00:00+00:00").unwrap();
+        GnssPosition {
+            latitude: lat,
+            longitude: lon,
+            timestamp: ts,
+            crs: "EPSG:4326".to_string(),
+            metadata: HashMap::new(),
+            heading: None,
+            distance: None,
+        }
+    }
+
+    fn ne(id: &str, wkt: &str) -> Netelement {
+        Netelement::new(
+            id.to_string(),
+            crate::io::rinf::parse_wkt_linestring(wkt).unwrap(),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn retrieval_config_builder_methods_override_defaults() {
+        let cfg = RetrievalConfig::default()
+            .with_endpoint("https://example.invalid/sparql")
+            .with_buffer_meters(250.0);
+        assert_eq!(cfg.endpoint_url, "https://example.invalid/sparql");
+        assert_eq!(cfg.buffer_meters, 250.0);
+    }
+
+    #[test]
+    fn build_retrieval_area_skips_non_finite_and_out_of_range_points() {
+        let positions = vec![
+            gnss(f64::NAN, 4.0),
+            gnss(200.0, 4.0),
+            gnss(50.0, 4.0),
+            gnss(50.1, 4.2),
+        ];
+
+        let area = build_retrieval_area(&positions, 100.0).unwrap();
+        assert!(area.min_latitude < 50.0);
+        assert!(area.max_latitude > 50.1);
+        assert!(area.min_longitude < 4.0);
+        assert!(area.max_longitude > 4.2);
+    }
+
+    #[test]
+    fn build_retrieval_area_rejects_when_all_points_invalid() {
+        let positions = vec![gnss(f64::NAN, 4.0), gnss(95.0, 4.0), gnss(40.0, 190.0)];
+        let err = build_retrieval_area(&positions, 100.0).unwrap_err();
+        assert!(err.to_string().contains("No usable WGS84 coordinates"));
+    }
+
+    #[test]
+    fn uncovered_gnss_indices_returns_all_when_no_netelements() {
+        let positions = vec![gnss(50.0, 4.0), gnss(50.1, 4.1)];
+        let uncovered = uncovered_gnss_indices(&positions, &[]);
+        assert_eq!(uncovered, vec![0, 1]);
+    }
+
+    #[test]
+    fn uncovered_gnss_indices_marks_outside_points() {
+        let positions = vec![gnss(50.0, 4.0), gnss(51.0, 5.0)];
+        let netelements = vec![ne("NE-1", "LINESTRING(3.9 49.9, 4.2 50.2)")];
+        let uncovered = uncovered_gnss_indices(&positions, &netelements);
+        assert_eq!(uncovered, vec![1]);
+    }
+
+    #[test]
+    fn validate_topology_returns_missing_coverage_for_empty_netelements() {
+        let report = validate_topology(&[], &[], &[], &[gnss(50.0, 4.0)]);
+        assert_eq!(report.status, TopologyValidationStatus::MissingCoverage);
+        assert_eq!(report.uncovered_gnss_indices, vec![0]);
+    }
+
+    #[test]
+    fn validate_topology_returns_incomplete_when_all_netelements_coarse() {
+        let netelements = vec![ne("NE-1", "LINESTRING(4.0 50.0, 4.2 50.0)")];
+        let report = validate_topology(
+            &netelements,
+            &[],
+            &[("NE-1".to_string(), 20_000.0, 2)],
+            &[gnss(50.0, 4.0)],
+        );
+        assert_eq!(report.status, TopologyValidationStatus::IncompleteTopology);
+        assert_eq!(report.coarse_geometry_ids, vec!["NE-1".to_string()]);
+    }
+
+    #[test]
+    fn validate_topology_returns_incomplete_when_no_netrelations() {
+        let netelements = vec![Netelement::new(
+            "NE-1".to_string(),
+            LineString::from(vec![(4.0, 50.0), (4.0001, 50.0001), (4.0002, 50.0002)]),
+            "EPSG:4326".to_string(),
+        )
+        .unwrap()];
+        let report = validate_topology(&netelements, &[], &[("NE-1".to_string(), 100.0, 3)], &[]);
+        assert_eq!(report.status, TopologyValidationStatus::IncompleteTopology);
+    }
+}
