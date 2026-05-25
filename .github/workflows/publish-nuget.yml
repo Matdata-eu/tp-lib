@@ -33,7 +33,7 @@ jobs:
             target: x86_64-apple-darwin
             artifact: libtp_lib_net.dylib
           - rid: osx-arm64
-            os: macos-latest
+            os: macos-13
             target: aarch64-apple-darwin
             artifact: libtp_lib_net.dylib
     steps:
