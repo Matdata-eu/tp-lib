@@ -1,6 +1,6 @@
 {
   "head": {
-    "vars": ["netrelation", "netelementA", "netelementB", "isOnOriginOfElementA", "isOnOriginOfElementB", "navigability"]
+    "vars": ["netrelation", "netelementA", "netelementB", "isOnOriginOfElementA", "isOnOriginOfElementB", "navigability", "valid_from_date"]
   },
   "results": {
     "bindings": [
@@ -30,6 +30,11 @@
         "navigability": {
           "type": "uri",
           "value": "http://data.europa.eu/949/concepts/navigabilities/Both"
+        },
+        "valid_from_date": {
+          "type": "literal",
+          "datatype": "http://www.w3.org/2001/XMLSchema#date",
+          "value": "2026-01-01"
         }
       }
     ]

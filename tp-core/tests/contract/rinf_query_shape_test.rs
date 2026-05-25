@@ -26,6 +26,10 @@ fn netrelations_query_filters_by_seed_iris_and_navigability() {
     assert!(q.contains("era:elementA"), "must include elementA");
     assert!(q.contains("era:elementB"), "must include elementB");
     assert!(q.contains("era:navigability"), "must include navigability");
+    assert!(
+        q.contains("?valid_from_date"),
+        "must project valid_from_date"
+    );
     assert!(q.contains("VALUES ?seed_element"), "must use VALUES clause");
     for iri in &seeds {
         assert!(q.contains(iri), "must embed seed IRI {iri}");

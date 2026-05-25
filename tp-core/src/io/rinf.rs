@@ -70,15 +70,23 @@ pub fn build_netelements_query(polygon_wkt: &str) -> String {
         r#"PREFIX era: <http://data.europa.eu/949/>
 PREFIX gsp: <http://www.opengis.net/ont/geosparql#>
 PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+PREFIX time: <http://www.w3.org/2006/time#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-SELECT ?netelement ?netelement_wkt
+SELECT ?netelement ?netelement_wkt ?valid_from_date ?valid_to_date
 WHERE {{
   ?netelement a era:LinearElement ;
+              era:validity/time:hasBeginning/time:inXSDDate ?valid_from_date ;
               gsp:hasGeometry/gsp:asWKT ?netelement_wkt .
   FILTER(geof:sfIntersects(
     ?netelement_wkt,
     "{polygon}"^^gsp:wktLiteral
   ))
+    OPTIONAL {{
+      ?netelement era:validity/time:hasEnd/time:inXSDDate ?valid_to_date .
+      FILTER (xsd:date(now()) >= ?valid_to_date)
+    }}
+    FILTER (xsd:date(now()) >= ?valid_from_date && !BOUND(?valid_to_date))
 }}"#,
         polygon = polygon_wkt
     )
@@ -96,7 +104,7 @@ pub fn build_netrelations_query(seed_iris: &[String]) -> String {
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX time: <http://www.w3.org/2006/time#>
 
-SELECT ?netrelation ?netelementA ?netelementB ?isOnOriginOfElementA ?isOnOriginOfElementB ?navigability
+SELECT ?netrelation ?netelementA ?netelementB ?isOnOriginOfElementA ?isOnOriginOfElementB ?navigability ?valid_from_date ?valid_to_date
 WHERE {{
   VALUES ?seed_element {{ {values} }}
   {{
