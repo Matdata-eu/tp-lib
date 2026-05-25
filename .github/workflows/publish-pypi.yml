@@ -44,7 +44,7 @@ jobs:
 
           python -c "import re, pathlib; p = pathlib.Path('Cargo.toml'); p.write_text(re.sub(r'^version = \".*\"', f'version = \"${TAG_VERSION}\"', p.read_text(), count=1, flags=re.M))"
 
-          python -c "import re, pathlib; p = pathlib.Path('tp-py/Cargo.toml'); p.write_text(re.sub(r'(tp-lib-core = \{[^}]*version = \")[^\"]+(\"[^}]*\})', lambda m: m.group(1) + '${TAG_VERSION}' + m.group(2), p.read_text()))"
+          python -c "import pathlib, re; root = pathlib.Path('.'); pattern = re.compile(r'((?:tp-lib-core|tp-webapp)\s*=\s*\{[^}]*?version\s*=\s*\")[^\"]+(\"[^}]*\})', re.S); [p.write_text(pattern.sub(lambda m: m.group(1) + '${TAG_VERSION}' + m.group(2), p.read_text())) for p in root.rglob('Cargo.toml')]"
 
       - name: Build wheels
         run: |
@@ -84,7 +84,7 @@ jobs:
 
           python -c "import re, pathlib; p = pathlib.Path('Cargo.toml'); p.write_text(re.sub(r'^version = \".*\"', f'version = \"${TAG_VERSION}\"', p.read_text(), count=1, flags=re.M))"
 
-          python -c "import re, pathlib; p = pathlib.Path('tp-py/Cargo.toml'); p.write_text(re.sub(r'(tp-lib-core = \{[^}]*version = \")[^\"]+(\"[^}]*\})', lambda m: m.group(1) + '${TAG_VERSION}' + m.group(2), p.read_text()))"
+          python -c "import pathlib, re; root = pathlib.Path('.'); pattern = re.compile(r'((?:tp-lib-core|tp-webapp)\s*=\s*\{[^}]*?version\s*=\s*\")[^\"]+(\"[^}]*\})', re.S); [p.write_text(pattern.sub(lambda m: m.group(1) + '${TAG_VERSION}' + m.group(2), p.read_text())) for p in root.rglob('Cargo.toml')]"
 
       - name: Build sdist
         run: |
