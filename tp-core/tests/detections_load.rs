@@ -105,7 +105,7 @@ fn invalid_schema_punctual_kind_mismatch() {
 
 #[test]
 fn invalid_timestamp_rejected() {
-    let csv = "timestamp,netelement_id\n2026-05-01 08:15:30,NE-1\n";
+    let csv = "timestamp,netelement_id\n2026-05-01 08:75:30,NE-1\n";
     let f = write_named(csv, ".csv");
     let err = load_detections(f.path(), DetectionKind::Punctual).unwrap_err();
     assert!(matches!(err, DetectionError::InvalidTimestamp { .. }));

@@ -103,6 +103,8 @@ from .tp_lib import (
     # Spec 004: detections
     prepare_detections as _prepare_detections,
     PreparedDetections,
+    # Spec 006: RINF auto-retrieval
+    RinfRetrievalOptions,
 )
 
 # Re-export for cleaner API
@@ -120,16 +122,19 @@ __all__ = [
     # Spec 004
     "prepare_detections",
     "PreparedDetections",
+    # Spec 006
+    "RinfRetrievalOptions",
 ]
 
 
 def project_gnss(
     gnss_file: str,
     gnss_crs: str,
-    network_file: str,
-    network_crs: str,
-    target_crs: str,
+    network_file: Optional[str] = None,
+    network_crs: Optional[str] = None,
+    target_crs: Optional[str] = None,
     config: Optional[ProjectionConfig] = None,
+    rinf_options: Optional["RinfRetrievalOptions"] = None,
 ) -> List[ProjectedPosition]:
     """
     Project GNSS positions onto railway network elements.
@@ -177,15 +182,17 @@ def project_gnss(
         network_crs=network_crs,
         target_crs=target_crs,
         config=config,
+        rinf_options=rinf_options,
     )
 
 
 def calculate_train_path(
     gnss_file: str,
     gnss_crs: str,
-    network_file: str,
+    network_file: Optional[str] = None,
     config: Optional[PathConfig] = None,
     detections: Optional[PreparedDetections] = None,
+    rinf_options: Optional["RinfRetrievalOptions"] = None,
 ) -> PathResult:
     """
     Calculate the most probable train path through the railway network.
@@ -215,6 +222,7 @@ def calculate_train_path(
         network_file=network_file,
         config=config,
         detections=detections,
+        rinf_options=rinf_options,
     )
 
 

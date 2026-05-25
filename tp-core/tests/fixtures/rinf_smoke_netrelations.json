@@ -1,0 +1,42 @@
+{
+  "head": {
+    "vars": ["netrelation", "netelementA", "netelementB", "isOnOriginOfElementA", "isOnOriginOfElementB", "navigability", "valid_from_date"]
+  },
+  "results": {
+    "bindings": [
+      {
+        "netrelation": {
+          "type": "uri",
+          "value": "http://data.europa.eu/949/netRelation/SMOKE-AB"
+        },
+        "netelementA": {
+          "type": "uri",
+          "value": "http://data.europa.eu/949/linearElement/SMOKE-A"
+        },
+        "netelementB": {
+          "type": "uri",
+          "value": "http://data.europa.eu/949/linearElement/SMOKE-B"
+        },
+        "isOnOriginOfElementA": {
+          "type": "literal",
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "value": "false"
+        },
+        "isOnOriginOfElementB": {
+          "type": "literal",
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "value": "true"
+        },
+        "navigability": {
+          "type": "uri",
+          "value": "http://data.europa.eu/949/concepts/navigabilities/Both"
+        },
+        "valid_from_date": {
+          "type": "literal",
+          "datatype": "http://www.w3.org/2001/XMLSchema#date",
+          "value": "2026-01-01"
+        }
+      }
+    ]
+  }
+}

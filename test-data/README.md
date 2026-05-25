@@ -68,6 +68,7 @@ Each log has its own subdirectory (`log_XXXXX/`) containing the source GNSS CSV 
       - [Original path calculation](#original-path-calculation-1)
       - [Adding train detections](#adding-train-detections)
       - [Reviewing train detections](#reviewing-train-detections)
+  - [Missing network topology](#missing-network-topology)
 
 Root folder for release exe: `target/release/`
 
@@ -98,6 +99,14 @@ The three operations available via `tp-cli` are:
 | Path projection | `tp-cli ...` (no subcommand) | Full pipeline: calculates path then projects GNSS positions onto it |
 
 Common flags: `--gnss <FILE>`, `--network <FILE>`, `--crs EPSG:4326`, `--output <FILE>` (`.geojson` extension auto-selects GeoJSON format).
+
+If `--network` is omitted, `tp-cli` downloads a RINF topology subset on demand
+around the GNSS bounding box (default endpoint
+`https://graph.data.era.europa.eu/repositories/rinf-plus`, default buffer
+1000 m). The fixtures in this directory remain the recommended source for
+offline runs and reproducible regression tests; the auto-retrieval path is
+intended for ad-hoc analysis where a curated network file is not yet
+available.
 
 ## Simple projection, path calculation & path projection
 
@@ -738,3 +747,56 @@ A browser window will open and allow the user to modify the calculated train pat
 ![L36-A to L36C-A to L25N-B (log_28573) - Path review with detection](log_28573-detections/log_28586_L36-A_to_L36C-A_to_L25N-B-path-review.png)
 
 ---
+
+## Missing network topology
+
+In case the user doesn't supply a network topology file, an attempt will be made to download the applicable data from [EU Register of railway Infrastructure (RINF)](https://rinf.data.era.europa.eu/). In time, this register should have a micro topology definition of the railway network which is suitable for usage with TP-lib. The availability of micro topology in the RINF will significantly improve the usability of this tool. At the time of writing, not all EU countries have such a detailed description of the network available (though the EU regulation had 31/03/2026 as deadline). 
+
+Since Norway has a very detailed description available, we are going to use a small part of this network to test the RINF topology fetching feature. A [manually created GNSS dataset](rinf-kvg/gnss.geojson) will be used as input.
+
+The GNSS data simulates a train driving from the Solørbanen onto the Kongsvingerbanen into the direction of Oslo. Here is an overview:
+
+![GNSS overview RINF download feature](rinf-kvg/raw-gnss-data.png)
+
+The train enters the station from the upper left and immediately takes a switch onto track 2: 
+
+![GNSS overview RINF download feature - detail 3](rinf-kvg/raw-gnss-data-detail3.png)
+
+To make this exercise more challenging, we simulated the train taking another switch to briefly drive on track 3 to later merge back onto track 2:
+
+![GNSS overview RINF download feature - detail 2](rinf-kvg/raw-gnss-data-detail2.png)
+
+And finally the train will merge onto track 1 and exit in the Kongsvinger station in the direction of Oslo:
+
+![GNSS overview RINF download feature - detail 1](rinf-kvg/raw-gnss-data-detail1.png)
+
+We will first trigger simple fetching of the network topology using the following command: 
+
+```bash
+cargo run -- fetch-topology --gnss test-data/rinf-kvg/gnss.geojson -o test-data/rinf-kvg/network.geojson
+```
+
+This will produce the network.geojson output file that we can visualise together with the raw GNSS positions (red lines are the topology):
+
+![RINF downloaded topology](rinf-kvg/topology-overview.png)
+
+![RINF downloaded topology without openstreetmap](rinf-kvg/topology-overview-no-background.png)
+
+![RINF downloaded topology zoom](rinf-kvg/topology-detail.png)
+
+And running the complete TP-lib processing on the GNSS data will produce the [expected result](rinf-kvg/path-projected.geojson):
+
+```bash
+cargo run -- --gnss test-data/rinf-kvg/gnss.geojson -o test-data/rinf-kvg/path-projected.geojson         
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
+     Running `target\debug\tp-cli.exe --gnss test-data/rinf-kvg/gnss.geojson -o test-data/rinf-kvg/path-projected.geojson`
+Topology source: EraRinf (endpoint=https://graph.data.era.europa.eu/repositories/rinf-plus, buffer_meters=1000)
+Topology retrieved: source=EraRinf, netelements=99, netrelations=364
+```
+
+Here are detailed screenshots of the result:
+
+
+![Path projected using RINF download feature - detail 1](rinf-kvg/path-projected-detail1.png)
+![Path projected using RINF download feature - detail 2](rinf-kvg/path-projected-detail2.png)
+![Path projected using RINF download feature - detail 3](rinf-kvg/path-projected-detail3.png)

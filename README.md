@@ -19,10 +19,11 @@ Train positioning library excels in post-processing the GNSS positions of your m
 - 🛤️ **Train Path Calculation**: Probabilistic path calculation through rail networks using topology
 - 🗺️ **Interactive Path Review**: Browser-based map webapp to visually review and edit calculated paths before projection
 - 🌍 **CRS Aware**: Explicit coordinate reference system handling (EPSG codes)
-- ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; timezone-less ISO 8601 datetimes assumed UTC
+- ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; naive (timezone-less) ISO 8601 datetimes are accepted on input and assumed to be in the host's **local** timezone. All emitted timestamps include an explicit timezone offset.
 - 📊 **Multiple Formats**: CSV and GeoJSON input/output
 - 🧪 **Well Tested**: 460 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
 - ⚡ **Production Ready**: Full CLI interface with validation and error handling
+- 🌐 **Automatic RINF Retrieval**: When a topology file is omitted, the library can download a bounding-box subset of the [ERA RINF](https://data-interop.era.europa.eu/) network on demand
 
 ## Train Path Calculation
 
@@ -55,6 +56,12 @@ tp-cli --gnss positions.csv --network network.geojson --output result.csv --revi
 
 # Launch standalone webapp to review/edit a path file
 tp-cli webapp --network network.geojson --train-path path.csv --output reviewed_path.csv
+
+# Fetch the RINF topology covering a GNSS file (inspection helper).
+# Writes the retrieved netelements + netrelations to GeoJSON even when
+# validation reports issues (e.g. coarse geometries), then exits with the
+# corresponding non-zero status code.
+tp-cli fetch-topology --gnss positions.geojson --output topology.geojson
 ```
 
 ### Debug Output
@@ -295,6 +302,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Automatic RINF Topology Retrieval
+
+When you do not supply a `network` file, `tp-lib` can derive the bounding box from
+your GNSS input (and optional path) and download a fresh subset of the ERA RINF
+topology from a SPARQL endpoint.
+
+- **Default endpoint**: `https://graph.data.era.europa.eu/repositories/rinf-plus`
+- **Default buffer**: 1000 m around the GNSS extent
+- **Default timeout**: 60 seconds per HTTP request
+- **Coarse-geometry warning threshold**: netelements longer than 250 m without a WKT geometry
+
+Outcome categories (mapped to typed errors / exit codes across all bindings):
+
+| Category | CLI exit code | .NET exception | Python exception |
+|---|---|---|---|
+| `invalid_gnss_input` | 4 | `TpLibInvalidGnssInputException` | `InvalidGnssInputError` |
+| `rinf_missing_coverage` | 5 | `TpLibRinfMissingCoverageException` | `RinfMissingCoverageError` |
+| `rinf_incomplete_topology` | 6 | `TpLibRinfIncompleteTopologyException` | `RinfIncompleteTopologyError` |
+| `rinf_retrieval_failed` | 7 | `TpLibRinfRetrievalFailedException` | `RinfRetrievalFailedError` |
+
+See per-language READMEs (`tp-cli/`, `tp-py/`, `tp-net/`) for end-to-end examples.
+
 ## Implementation Notes
 
 ### Performance
@@ -313,7 +342,7 @@ latitude,longitude,timestamp,altitude,hdop
 50.8503,4.3517,2025-12-09T14:30:00+01:00,100.0,2.0
 ```
 
-- RFC3339 timestamps with timezone (e.g. `2025-12-09T14:30:00+01:00` or `2025-12-09T14:30:00Z`); timezone-less ISO 8601 datetimes (e.g. `2025-12-09T14:30:00`) are accepted and assumed UTC
+- RFC3339 timestamps with timezone (e.g. `2025-12-09T14:30:00+01:00` or `2025-12-09T14:30:00Z`); naive ISO 8601 datetimes without timezone (e.g. `2025-12-09T14:30:00` or `2025-12-09 14:30:00`) are accepted on input and interpreted in the host's **local** timezone. All output timestamps are emitted in RFC3339 form with an explicit timezone offset.
 - CRS must be specified via `--crs` flag
 - Column names configurable with `--lat-col`, `--lon-col`, `--time-col`
 

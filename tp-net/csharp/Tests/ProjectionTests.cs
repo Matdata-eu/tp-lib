@@ -103,4 +103,34 @@ public class ProjectionTests
             }
         });
     }
+
+    [Fact]
+    public void ProjectGnssAuto_SuppliedNetworkTakesPrecedence()
+    {
+        var network = NetworkInput.FromGeoJson(TestData.Read("sample_network.geojson"));
+        var gnss = GnssInput.FromGeoJson(TestData.Read("sample_gnss.geojson"));
+        var rinf = new RinfRetrievalOptions
+        {
+            EndpointUrl = "http://127.0.0.1:1/never",
+            BufferMeters = 250.0,
+        };
+
+        var result = Projection.ProjectGnssAuto(network, gnss, rinfOptions: rinf);
+
+        Assert.NotEmpty(result);
+    }
+
+    [Fact]
+    public void ProjectGnssAuto_NullNetworkUnreachableEndpoint_ThrowsRetrievalFailed()
+    {
+        var gnss = GnssInput.FromGeoJson(TestData.Read("sample_gnss.geojson"));
+        var rinf = new RinfRetrievalOptions
+        {
+            EndpointUrl = "http://127.0.0.1:1/never",
+            BufferMeters = 250.0,
+        };
+
+        Assert.Throws<TpLibRinfRetrievalFailedException>(
+            () => Projection.ProjectGnssAuto(null, gnss, rinfOptions: rinf));
+    }
 }

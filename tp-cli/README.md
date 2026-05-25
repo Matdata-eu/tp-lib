@@ -68,9 +68,24 @@ tp-cli --gnss positions.csv \
        --debug
 ```
 
+### Automatic RINF Topology Retrieval
+
+```bash
+# Omit --network to download a RINF topology subset on demand
+tp-cli --gnss positions.csv \
+       --crs EPSG:4326 \
+       --output projected.geojson \
+       --rinf-endpoint https://graph.data.era.europa.eu/repositories/rinf-plus \
+       --rinf-buffer-meters 1000
+```
+
+Flags `--rinf-endpoint` and `--rinf-buffer-meters` are optional and fall back to
+the documented defaults. RINF-specific failures map to dedicated exit codes
+(4=invalid GNSS, 5=missing coverage, 6=incomplete topology, 7=endpoint failure).
+
 ## Commands
 
-`tp-cli` has three modes of operation:
+`tp-cli` has four modes of operation:
 
 ### Default (no subcommand)
 
@@ -96,6 +111,33 @@ Legacy nearest-netelement projection (feature 001 behavior). Projects each GNSS 
 tp-cli simple-projection --gnss <FILE> --network <FILE> --output <FILE> [OPTIONS]
 ```
 
+### `fetch-topology`
+
+Inspection helper: load a GNSS file, query the RINF SPARQL endpoint for the
+topology covering those positions, and write the retrieved netelements +
+netrelations to a GeoJSON file that round-trips through the standard
+`--network` input.
+
+```bash
+tp-cli fetch-topology --gnss <FILE> --output <FILE> [OPTIONS]
+```
+
+Options:
+
+- `--crs <CRS>` — CRS of the GNSS input (defaults to `EPSG:4326`).
+- `--lat-col`, `--lon-col`, `--time-col` — CSV column names (defaults
+  `latitude`, `longitude`, `timestamp`).
+- `--rinf-endpoint <URL>` — override the SPARQL endpoint.
+- `--rinf-buffer-meters <METERS>` — override the buffer around the GNSS hull.
+
+The retrieved topology is **always written to disk**, even when validation
+reports issues such as `RinfIncompleteTopology` (coarse geometries) or
+`RinfMissingCoverage`. The same validation errors are still surfaced through
+the process exit code (4–7), so the file can be inspected in QGIS while the
+caller can detect that the data is not fit for production use. Network or
+endpoint failures (exit 7) abort before any file is written, since there is
+no topology to dump in that case.
+
 ## Arguments
 
 ### Required Arguments
@@ -115,7 +157,7 @@ latitude,longitude,timestamp,altitude,hdop
 **Requirements:**
 
 - CSV must have latitude, longitude, and timestamp columns
-- Timestamps must be RFC3339 format with timezone (e.g., `2025-12-09T14:30:00+01:00`)
+- Timestamps may be RFC3339 with timezone (e.g., `2025-12-09T14:30:00+01:00`, `2025-12-09T14:30:00Z`) or naive ISO 8601 (e.g., `2025-12-09T14:30:00`, `2025-12-09 14:30:00`); naive values are interpreted in the host's **local** timezone. All emitted timestamps are RFC3339 with an explicit timezone offset.
 - Additional columns preserved as metadata
 
 #### `--network <FILE>` (or `-n`)
@@ -449,18 +491,18 @@ tp-cli --gnss data.geojson --network network.geojson --output out.csv
 
 ### Error: "Failed to load GNSS data: Invalid timestamp"
 
-**Problem:** Timestamps not in RFC3339 format or missing timezone.
+**Problem:** Timestamps not in RFC3339 nor a recognised naive ISO 8601 form.
 
-**Required format:** `YYYY-MM-DDTHH:MM:SS±HH:MM`
+Accepted formats:
 
-**Examples:**
+- ✅ `2025-12-09T14:30:00+01:00` (RFC3339 with offset)
+- ✅ `2025-12-09T14:30:00Z` (RFC3339 UTC)
+- ✅ `2025-12-09T14:30:00` (naive, interpreted as local time)
+- ✅ `2025-12-09 14:30:00` (naive with space separator, local time)
+- ❌ `09/12/2025 14:30` (locale-specific date format)
+- ❌ `14:30:00` (time only)
 
-- ✅ `2025-12-09T14:30:00+01:00` (Brussels time)
-- ✅ `2025-12-09T13:30:00Z` (UTC)
-- ❌ `2025-12-09 14:30:00` (missing T and timezone)
-- ❌ `2025-12-09T14:30:00` (missing timezone)
-
-**Solution:** Fix timestamps in input CSV to include timezone.
+**Solution:** Reformat timestamps as one of the accepted forms above. Naive timestamps are always interpreted in the machine's local timezone; emit with an explicit offset (e.g., `+01:00` / `Z`) if you need deterministic cross-host behaviour.
 
 ### Error: "Failed to load network: Invalid geometry"
 

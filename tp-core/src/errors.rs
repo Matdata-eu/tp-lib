@@ -43,4 +43,21 @@ pub enum ProjectionError {
 
     #[error("Invalid netrelation: {0}")]
     InvalidNetRelation(String),
+
+    /// GNSS input was empty, unparseable, or otherwise unusable before any
+    /// retrieval attempt could be made.
+    #[error("Invalid GNSS input: {0}")]
+    InvalidGnssInput(String),
+
+    /// The RINF SPARQL endpoint could not be reached or returned an unusable response.
+    #[error("RINF retrieval failed: {0}")]
+    RinfRetrievalFailed(String),
+
+    /// The retrieval region produced zero netelements.
+    #[error("RINF coverage missing for area: {0}")]
+    RinfMissingCoverage(String),
+
+    /// The retrieval returned netelements but no netrelations, or coarse geometries.
+    #[error("RINF topology incomplete: {0}")]
+    RinfIncompleteTopology(String),
 }

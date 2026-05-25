@@ -550,32 +550,6 @@ fn test_parse_trainpath_csv_with_comments() {
 // Additional edge case tests for improved coverage
 
 #[test]
-fn test_parse_gnss_csv_timezone_validation_missing_utc() {
-    let mut file = NamedTempFile::new().unwrap();
-    writeln!(
-        file,
-        "latitude,longitude,timestamp\n50.8503,4.3517,2025-12-09T14:30:00"
-    )
-    .unwrap();
-
-    let result = parse_gnss_csv(
-        file.path().to_str().unwrap(),
-        "EPSG:4326",
-        "latitude",
-        "longitude",
-        "timestamp",
-    );
-
-    // Should succeed - timezone-less timestamps are assumed to be UTC
-    assert!(result.is_ok());
-    if let Ok(positions) = result {
-        assert_eq!(positions.len(), 1);
-        // Verify timestamp was parsed as UTC (offset 0)
-        assert_eq!(positions[0].timestamp.offset().local_minus_utc(), 0);
-    }
-}
-
-#[test]
 fn test_parse_gnss_csv_empty_string_values() {
     let mut file = NamedTempFile::new().unwrap();
     writeln!(

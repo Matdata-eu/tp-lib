@@ -9,6 +9,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-09
 - File-based I/O (CSV / GeoJSON); no DB. R-tree (`rstar`) in-memory spatial index reused for coordinate resolution. (004-train-detections)
 - Rust 1.75 (tp-net crate) + C# 12 / .NET 8 (TpLib managed) + `csbindgen` (FFI stub generation), `serde_json` (FFI marshalling), `tp-lib-core` (core algorithms); C# side: `System.Text.Json` (deserialization), xUnit (testing) (005-dotnet-bindings)
 - N/A — stateless function calls only (005-dotnet-bindings)
+- Rust 2021 workspace (`tp-core`, `tp-cli`, `tp-py`, `tp-net`) + Python bindings via `pyo3` + C# 12 / .NET 8 bindings + Existing workspace crates (`geo`, `geojson`, `chrono`, `serde`, `serde_json`, `clap`, `pyo3`, `csbindgen`) plus an HTTPS client for SPARQL access (`ureq ` blocking client with JSON response handling) (006-download-rinf-topology)
+- N/A for persistent storage; per-run in-memory retrieval/validation only (006-download-rinf-topology)
 
 - Rust 1.75+ (edition 2021) (002-train-path-calculation)
 
@@ -43,9 +45,9 @@ For Python source files (`.py`) changed under `tp-py/`:
 Rust 1.75+ (edition 2021): Follow standard conventions
 
 ## Recent Changes
+- 006-download-rinf-topology: Added Rust 2021 workspace (`tp-core`, `tp-cli`, `tp-py`, `tp-net`) + Python bindings via `pyo3` + C# 12 / .NET 8 bindings + Existing workspace crates (`geo`, `geojson`, `chrono`, `serde`, `serde_json`, `clap`, `pyo3`, `csbindgen`) plus an HTTPS client for SPARQL access (`reqwest` blocking client with JSON response handling)
 - 005-dotnet-bindings: Added Rust 1.75 (tp-net crate) + C# 12 / .NET 8 (TpLib managed) + `csbindgen` (FFI stub generation), `serde_json` (FFI marshalling), `tp-lib-core` (core algorithms); C# side: `System.Text.Json` (deserialization), xUnit (testing)
 - 004-train-detections: Added Rust 1.91.1+ (workspace edition 2021) + `geo` 0.28, `rstar` 0.12, `geojson` 0.24, `csv` 1.x, `serde`/`serde_json`, `chrono` (DateTime<FixedOffset>), `petgraph`, `proj4rs` 0.1.9; webapp: `axum`, `tokio`, Leaflet (static)
-- 003-path-review-webapp: Added Rust 2021 edition, latest stable (1.80+)
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -41,6 +41,40 @@ if (result.HasPath)
 }
 ```
 
+## Automatic RINF Topology Retrieval
+
+When you do not have a local network GeoJSON, omit it and let the library
+download a bounding-box subset of the ERA RINF topology on demand:
+
+```csharp
+using TpLib;
+
+var gnss = GnssInput.FromGeoJson(File.ReadAllText("gnss.geojson"));
+var rinf = new RinfRetrievalOptions
+{
+    EndpointUrl  = "https://graph.data.era.europa.eu/repositories/rinf-plus",
+    BufferMeters = 1000.0,
+};
+
+// Pass null for the network to trigger auto-retrieval.
+var projections = Projection.ProjectGnssAuto(network: null, gnss, rinfOptions: rinf);
+var path        = PathCalculation.CalculateTrainPathAuto(network: null, gnss, rinfOptions: rinf);
+```
+
+Typed exceptions are raised for retrieval failures:
+`TpLibInvalidGnssInputException`, `TpLibRinfMissingCoverageException`,
+`TpLibRinfIncompleteTopologyException`, `TpLibRinfRetrievalFailedException`.
+
+## Timestamps
+
+Timestamps inside GeoJSON / CSV input may be RFC3339 with an explicit
+offset (e.g. `2025-12-09T14:30:00+01:00`, `2025-12-09T14:30:00Z`) or
+naive ISO 8601 (e.g. `2025-12-09T14:30:00`, `2025-12-09 14:30:00`).
+Naive values are interpreted in the host's **local** timezone by the
+native library. All managed records expose timestamps as
+`DateTimeOffset`, and any timestamps emitted by the library are
+RFC3339 strings with an explicit offset.
+
 ## Supported platforms
 
 | RID         | OS / Architecture            | Native library         |

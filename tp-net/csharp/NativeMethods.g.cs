@@ -62,6 +62,37 @@ namespace TpLib
         internal static extern ByteBuffer tp_net_prepare_detections(byte* network_ptr, int network_len, byte* gnss_ptr, int gnss_len, byte* detections_geojson_ptr, int detections_geojson_len, byte kind_is_linear, double cutoff_distance_meters);
 
         /// <summary>
+        ///  Calculate a train path with optional RINF auto-retrieval.
+        ///
+        ///  When `network_ptr` is null or `network_len &lt;= 0`, the railway topology is
+        ///  retrieved from the configured ERA RINF SPARQL endpoint based on the GNSS
+        ///  positions. Otherwise the supplied network GeoJSON is used as-is (RINF
+        ///  options are ignored).
+        ///
+        ///  On error, returns a JSON `ByteBuffer` whose payload contains an
+        ///  `{"__error": "...", "message": "..."}` envelope rather than the FFI
+        ///  null-error sentinel, so the C# layer can raise a typed RINF exception.
+        ///
+        ///  # Safety
+        ///  All non-null pointers must reference valid UTF-8 byte slices of the
+        ///  indicated length.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "tp_net_calculate_train_path_auto", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern ByteBuffer tp_net_calculate_train_path_auto(byte* network_ptr, int network_len, byte* gnss_ptr, int gnss_len, byte* prepared_detections_ptr, int prepared_detections_len, byte* rinf_endpoint_ptr, int rinf_endpoint_len, double rinf_buffer_meters, PathConfigFfi config);
+
+        /// <summary>
+        ///  Project GNSS positions with optional RINF auto-retrieval.
+        ///
+        ///  See [`tp_net_calculate_train_path_auto`] for the auto-retrieval contract.
+        ///
+        ///  # Safety
+        ///  All non-null pointers must reference valid UTF-8 byte slices of the
+        ///  indicated length.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "tp_net_project_gnss_auto", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern ByteBuffer tp_net_project_gnss_auto(byte* network_ptr, int network_len, byte* gnss_ptr, int gnss_len, byte* rinf_endpoint_ptr, int rinf_endpoint_len, double rinf_buffer_meters, ProjectionConfigFfi config);
+
+        /// <summary>
         ///  Free a [`ByteBuffer`] previously returned by any `tp_net_*` function.
         ///
         ///  # Safety

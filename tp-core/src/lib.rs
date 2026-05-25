@@ -47,6 +47,7 @@ pub mod models;
 pub mod path;
 pub mod projection;
 pub mod temporal;
+pub mod workflow;
 
 // Re-export main types for convenience
 pub use detections::{
@@ -54,10 +55,11 @@ pub use detections::{
 };
 pub use errors::ProjectionError;
 pub use io::{
-    parse_gnss_csv, parse_gnss_csv_str, parse_gnss_geojson, parse_gnss_geojson_str,
-    parse_netrelations_geojson, parse_network_geojson, parse_network_geojson_str,
-    parse_trainpath_csv, parse_trainpath_geojson, write_csv, write_geojson, write_trainpath_csv,
-    write_trainpath_geojson,
+    build_netelements_query, build_netrelations_query, parse_gnss_csv, parse_gnss_csv_str,
+    parse_gnss_geojson, parse_gnss_geojson_str, parse_netrelations_geojson, parse_network_geojson,
+    parse_network_geojson_str, parse_trainpath_csv, parse_trainpath_geojson, write_csv,
+    write_geojson, write_network_geojson, write_trainpath_csv, write_trainpath_geojson,
+    SparqlClient, UreqSparqlClient,
 };
 pub use models::{
     AssociatedNetElement,
@@ -79,9 +81,23 @@ pub use models::{
     ProjectedPosition,
     PunctualDetection,
     ResolvedAnchor,
+    // Feature 006: RINF retrieval
+    RetrievalArea,
+    RetrievalOutcome,
+    RetrievalStatus,
+    RetrievedTopology,
+    RinfNavigability,
+    RinfNetelementRow,
+    RinfNetrelationRow,
     SegmentDiagnostic,
     TimestampOrRange,
+    TopologySource,
+    TopologyValidationReport,
+    TopologyValidationStatus,
     TrainPath,
+    WorkflowKind,
+    DEFAULT_RETRIEVAL_BUFFER_METERS,
+    DEFAULT_RINF_ENDPOINT,
 };
 pub use path::{
     calculate_mean_spacing,
@@ -101,6 +117,7 @@ pub use path::{
     PositionCandidates,
     TransitionProbabilityEntry,
 };
+pub use workflow::{build_retrieval_area, resolve_topology, validate_topology, RetrievalConfig};
 
 /// Result type alias using ProjectionError
 pub type Result<T> = std::result::Result<T, ProjectionError>;

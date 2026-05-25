@@ -13,8 +13,11 @@ use std::process;
 use tp_lib_core::{
     calculate_train_path, export_all_debug_info, parse_gnss_csv, parse_gnss_geojson,
     parse_network_geojson, parse_trainpath_csv, parse_trainpath_geojson, project_gnss,
-    project_onto_path, write_csv, write_geojson, write_trainpath_csv, write_trainpath_geojson,
-    Netelement, PathConfig, PathConfigBuilder, ProjectionConfig, RailwayNetwork,
+    project_onto_path, resolve_topology, write_csv, write_geojson, write_network_geojson,
+    write_trainpath_csv, write_trainpath_geojson, GnssPosition, NetRelation, Netelement,
+    PathConfig, PathConfigBuilder, ProjectionConfig, ProjectionError, RailwayNetwork,
+    RetrievalConfig, RetrievalStatus, TopologySource, UreqSparqlClient, WorkflowKind,
+    DEFAULT_RETRIEVAL_BUFFER_METERS, DEFAULT_RINF_ENDPOINT,
 };
 #[cfg(feature = "webapp")]
 use tp_webapp::{run_webapp_integrated, run_webapp_standalone, WebConfirmResult};
@@ -158,6 +161,16 @@ struct Cli {
     )]
     detection_cutoff: f64,
 
+    /// ERA RINF SPARQL endpoint URL used when no network file is supplied
+    /// (feature 006). Defaults to the production RINF-plus repository.
+    #[arg(long = "rinf-endpoint", value_name = "URL", global = true)]
+    rinf_endpoint: Option<String>,
+
+    /// Buffer distance in meters added around the GNSS bounding box when
+    /// downloading topology automatically (feature 006). Defaults to 1000.
+    #[arg(long = "rinf-buffer-meters", value_name = "METERS", global = true)]
+    rinf_buffer_meters: Option<f64>,
+
     // Legacy argument for backward compatibility
     /// [DEPRECATED] Path to GNSS input file - use --gnss instead
     #[arg(long = "gnss-file", value_name = "FILE", hide = true)]
@@ -185,9 +198,11 @@ enum Commands {
         #[arg(long = "crs", value_name = "CRS")]
         gnss_crs: Option<String>,
 
-        /// Path to railway network GeoJSON file
+        /// Path to railway network GeoJSON file. If omitted, the topology
+        /// is downloaded automatically from the ERA RINF SPARQL endpoint
+        /// (feature 006) using the bounding box of the GNSS positions.
         #[arg(short = 'n', long = "network", value_name = "FILE")]
-        network_file: String,
+        network_file: Option<String>,
 
         /// Output file path for train path
         #[arg(short = 'o', long = "output", value_name = "FILE")]
@@ -243,9 +258,11 @@ enum Commands {
         #[arg(long = "crs", value_name = "CRS")]
         gnss_crs: Option<String>,
 
-        /// Path to railway network GeoJSON file
+        /// Path to railway network GeoJSON file. If omitted, the topology
+        /// is downloaded automatically from the ERA RINF SPARQL endpoint
+        /// (feature 006) using the bounding box of the GNSS positions.
         #[arg(short = 'n', long = "network", value_name = "FILE")]
-        network_file: String,
+        network_file: Option<String>,
 
         /// Output file path
         #[arg(short = 'o', long = "output", value_name = "FILE")]
@@ -258,6 +275,37 @@ enum Commands {
         /// Warning threshold for projection distance
         #[arg(short = 'w', long = "warning-threshold", default_value = "50.0")]
         warning_threshold: f64,
+
+        /// Latitude column name for CSV
+        #[arg(long = "lat-col", default_value = "latitude")]
+        lat_col: String,
+        /// Longitude column name for CSV
+        #[arg(long = "lon-col", default_value = "longitude")]
+        lon_col: String,
+        /// Timestamp column name for CSV
+        #[arg(long = "time-col", default_value = "timestamp")]
+        time_col: String,
+    },
+
+    /// Fetch the RINF topology (netelements + netrelations) for the area covered
+    /// by a GNSS input file, and write it to a GeoJSON file.
+    ///
+    /// This is an inspection helper: it performs only the RINF retrieval step
+    /// of the path-calculation pipeline so the resulting topology can be
+    /// examined when an unexpected error occurs.
+    #[command(name = "fetch-topology")]
+    FetchTopology {
+        /// Path to GNSS input file (CSV or GeoJSON)
+        #[arg(short = 'g', long = "gnss", value_name = "FILE")]
+        gnss_file: String,
+
+        /// CRS of GNSS data (required for CSV input)
+        #[arg(long = "crs", value_name = "CRS")]
+        gnss_crs: Option<String>,
+
+        /// Output GeoJSON file for the retrieved topology
+        #[arg(short = 'o', long = "output", value_name = "FILE")]
+        output_file: String,
 
         /// Latitude column name for CSV
         #[arg(long = "lat-col", default_value = "latitude")]
@@ -355,7 +403,7 @@ fn main() {
             run_calculate_path(
                 &gnss_file,
                 gnss_crs.as_deref(),
-                &network_file,
+                network_file.as_deref(),
                 &output_file,
                 &format,
                 distance_scale,
@@ -373,6 +421,8 @@ fn main() {
                 cli.punctual_detections.as_deref(),
                 cli.linear_detections.as_deref(),
                 cli.detection_cutoff,
+                cli.rinf_endpoint.as_deref(),
+                cli.rinf_buffer_meters,
             )
         }
         Some(Commands::SimpleProjection {
@@ -388,13 +438,32 @@ fn main() {
         }) => run_simple_projection(
             &gnss_file,
             gnss_crs.as_deref(),
-            &network_file,
+            network_file.as_deref(),
             &output_file,
             &format,
             warning_threshold,
             &lat_col,
             &lon_col,
             &time_col,
+            cli.rinf_endpoint.as_deref(),
+            cli.rinf_buffer_meters,
+        ),
+        Some(Commands::FetchTopology {
+            gnss_file,
+            gnss_crs,
+            output_file,
+            lat_col,
+            lon_col,
+            time_col,
+        }) => run_fetch_topology(
+            &gnss_file,
+            gnss_crs.as_deref(),
+            &output_file,
+            &lat_col,
+            &lon_col,
+            &time_col,
+            cli.rinf_endpoint.as_deref(),
+            cli.rinf_buffer_meters,
         ),
         #[cfg(feature = "webapp")]
         Some(Commands::Webapp {
@@ -421,15 +490,28 @@ fn main() {
             let network_file = cli.network_file.or(cli.legacy_network_file);
             let format = cli.legacy_output_format.unwrap_or(cli.format);
 
-            // Check if we have the required arguments
-            let (gnss, network, output) = match (gnss_file, network_file, cli.output_file.clone()) {
-                (Some(g), Some(n), Some(o)) => (g, n, o),
-                (Some(g), Some(n), None) => {
+            // Check if we have the required arguments. Network may be omitted,
+            // in which case topology is auto-retrieved from ERA RINF.
+            let (gnss, output) = match (gnss_file, cli.output_file.clone()) {
+                (Some(g), Some(o)) => (g, o),
+                (Some(g), None) => {
+                    // Legacy mode requires an explicit network file because it
+                    // writes projection output to stdout.
+                    let n = match network_file.as_deref() {
+                        Some(path) => path,
+                        None => {
+                            eprintln!(
+                                "Error: Missing required arguments. Use --gnss and --output (and optionally --network)\n\
+                                 Run with --help for usage information."
+                            );
+                            process::exit(1);
+                        }
+                    };
                     // Legacy mode: output to stdout
                     run_legacy_pipeline(
                         &g,
                         cli.gnss_crs.as_deref(),
-                        &n,
+                        n,
                         &format,
                         cli.warning_threshold,
                         &cli.lat_col,
@@ -440,7 +522,7 @@ fn main() {
                 }
                 _ => {
                     eprintln!(
-                        "Error: Missing required arguments. Use --gnss, --network, and --output\n\
+                        "Error: Missing required arguments. Use --gnss and --output (and optionally --network)\n\
                          Run with --help for usage information."
                     );
                     process::exit(1);
@@ -454,7 +536,7 @@ fn main() {
             run_default_command(
                 &gnss,
                 cli.gnss_crs.as_deref(),
-                &network,
+                network_file.as_deref(),
                 &output,
                 cli.train_path_file.as_deref(),
                 cli.save_path_file.as_deref(),
@@ -485,6 +567,8 @@ fn main() {
                 cli.punctual_detections.as_deref(),
                 cli.linear_detections.as_deref(),
                 cli.detection_cutoff,
+                cli.rinf_endpoint.as_deref(),
+                cli.rinf_buffer_meters,
             )
         }
     };
@@ -499,6 +583,10 @@ fn main() {
                 PipelineError::Validation(_) => 1,
                 PipelineError::Processing(_) => 2,
                 PipelineError::Io(_) => 3,
+                PipelineError::RinfInvalidInput(_) => 4,
+                PipelineError::RinfMissingCoverage(_) => 5,
+                PipelineError::RinfIncompleteTopology(_) => 6,
+                PipelineError::RinfEndpointFailure(_) => 7,
             };
             tracing::error!(error = %e, exit_code = exit_code, "Pipeline failed");
             eprintln!("Error: {}", e);
@@ -512,6 +600,10 @@ enum PipelineError {
     Validation(String),
     Processing(String),
     Io(String),
+    RinfInvalidInput(String),
+    RinfMissingCoverage(String),
+    RinfIncompleteTopology(String),
+    RinfEndpointFailure(String),
 }
 
 impl std::fmt::Display for PipelineError {
@@ -520,6 +612,191 @@ impl std::fmt::Display for PipelineError {
             PipelineError::Validation(msg) => write!(f, "Validation error: {}", msg),
             PipelineError::Processing(msg) => write!(f, "Processing error: {}", msg),
             PipelineError::Io(msg) => write!(f, "I/O error: {}", msg),
+            PipelineError::RinfInvalidInput(msg) => write!(f, "RINF invalid input: {}", msg),
+            PipelineError::RinfMissingCoverage(msg) => {
+                write!(f, "RINF missing coverage: {}", msg)
+            }
+            PipelineError::RinfIncompleteTopology(msg) => {
+                write!(f, "RINF incomplete topology: {}", msg)
+            }
+            PipelineError::RinfEndpointFailure(msg) => {
+                write!(f, "RINF endpoint failure: {}", msg)
+            }
+        }
+    }
+}
+
+/// Resolve the topology either from a supplied GeoJSON file or by retrieving
+/// it automatically from the ERA RINF SPARQL endpoint (feature 006).
+fn resolve_cli_topology(
+    workflow_kind: WorkflowKind,
+    network_file: Option<&str>,
+    gnss_positions: &[GnssPosition],
+    rinf_endpoint: Option<&str>,
+    rinf_buffer_meters: Option<f64>,
+) -> Result<(Vec<Netelement>, Vec<NetRelation>), PipelineError> {
+    if let Some(path) = network_file {
+        tracing::info!(network_file = %path, "Loading railway network");
+        let (netelements, netrelations) = parse_network_geojson(path)
+            .map_err(|e| PipelineError::Io(format!("Failed to load network: {}", e)))?;
+        tracing::info!(
+            netelement_count = netelements.len(),
+            netrelation_count = netrelations.len(),
+            "Railway network loaded"
+        );
+        println!("Topology source: SuppliedTopology ({})", path);
+        return Ok((netelements, netrelations));
+    }
+
+    let endpoint = rinf_endpoint
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| DEFAULT_RINF_ENDPOINT.to_string());
+    let buffer = rinf_buffer_meters.unwrap_or(DEFAULT_RETRIEVAL_BUFFER_METERS);
+    let config = RetrievalConfig::default()
+        .with_endpoint(endpoint.clone())
+        .with_buffer_meters(buffer);
+    let client = UreqSparqlClient::default();
+
+    tracing::info!(
+        endpoint = %endpoint,
+        buffer_meters = buffer,
+        "Auto-retrieving topology from ERA RINF"
+    );
+    println!(
+        "Topology source: EraRinf (endpoint={}, buffer_meters={})",
+        endpoint, buffer
+    );
+
+    let (topology, outcome) =
+        resolve_topology(workflow_kind, gnss_positions, None, &config, &client).map_err(
+            |e| match e {
+                ProjectionError::InvalidGnssInput(m) => PipelineError::RinfInvalidInput(m),
+                ProjectionError::RinfMissingCoverage(m) => PipelineError::RinfMissingCoverage(m),
+                ProjectionError::RinfIncompleteTopology(m) => {
+                    PipelineError::RinfIncompleteTopology(m)
+                }
+                ProjectionError::RinfRetrievalFailed(m) => PipelineError::RinfEndpointFailure(m),
+                other => PipelineError::Processing(other.to_string()),
+            },
+        )?;
+
+    match outcome.status {
+        RetrievalStatus::Success => {
+            let source = match outcome.source_used {
+                TopologySource::EraRinf => "EraRinf",
+                TopologySource::SuppliedTopology => "SuppliedTopology",
+            };
+            println!(
+                "Topology retrieved: source={}, netelements={}, netrelations={}",
+                source,
+                topology.netelements.len(),
+                topology.netrelations.len()
+            );
+            Ok((topology.netelements, topology.netrelations))
+        }
+        RetrievalStatus::InvalidInput => {
+            Err(PipelineError::RinfInvalidInput(outcome.detail_message))
+        }
+        RetrievalStatus::MissingCoverage => {
+            Err(PipelineError::RinfMissingCoverage(outcome.detail_message))
+        }
+        RetrievalStatus::IncompleteTopology => Err(PipelineError::RinfIncompleteTopology(
+            outcome.detail_message,
+        )),
+        RetrievalStatus::EndpointFailure => {
+            Err(PipelineError::RinfEndpointFailure(outcome.detail_message))
+        }
+    }
+}
+
+/// Handle the `fetch-topology` subcommand: load GNSS positions, retrieve the
+/// RINF topology that covers them, and write the result to a GeoJSON file
+/// that round-trips through [`parse_network_geojson`].
+///
+/// The topology file is written even when validation fails (e.g. coarse
+/// geometries or incomplete coverage) so the user can inspect what RINF
+/// returned. The validation error, if any, is still propagated as the
+/// command's exit status after the file has been written.
+#[allow(clippy::too_many_arguments)]
+fn run_fetch_topology(
+    gnss_file: &str,
+    gnss_crs: Option<&str>,
+    output_file: &str,
+    lat_col: &str,
+    lon_col: &str,
+    time_col: &str,
+    rinf_endpoint: Option<&str>,
+    rinf_buffer_meters: Option<f64>,
+) -> Result<(), PipelineError> {
+    let gnss = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
+
+    let endpoint = rinf_endpoint
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| DEFAULT_RINF_ENDPOINT.to_string());
+    let buffer = rinf_buffer_meters.unwrap_or(DEFAULT_RETRIEVAL_BUFFER_METERS);
+    let config = RetrievalConfig::default()
+        .with_endpoint(endpoint.clone())
+        .with_buffer_meters(buffer);
+    let client = UreqSparqlClient::default();
+
+    println!(
+        "Topology source: EraRinf (endpoint={}, buffer_meters={})",
+        endpoint, buffer
+    );
+
+    let (topology, outcome) =
+        resolve_topology(WorkflowKind::PathCalculation, &gnss, None, &config, &client).map_err(
+            |e| match e {
+                ProjectionError::InvalidGnssInput(m) => PipelineError::RinfInvalidInput(m),
+                ProjectionError::RinfMissingCoverage(m) => PipelineError::RinfMissingCoverage(m),
+                ProjectionError::RinfIncompleteTopology(m) => {
+                    PipelineError::RinfIncompleteTopology(m)
+                }
+                ProjectionError::RinfRetrievalFailed(m) => PipelineError::RinfEndpointFailure(m),
+                other => PipelineError::Processing(other.to_string()),
+            },
+        )?;
+
+    let file = File::create(output_file)
+        .map_err(|e| PipelineError::Io(format!("Failed to create {}: {}", output_file, e)))?;
+    let mut writer = BufWriter::new(file);
+    write_network_geojson(&topology.netelements, &topology.netrelations, &mut writer)
+        .map_err(|e| PipelineError::Io(format!("Failed to write topology GeoJSON: {}", e)))?;
+
+    println!(
+        "Topology written: file={}, netelements={}, netrelations={}, status={:?}",
+        output_file,
+        topology.netelements.len(),
+        topology.netrelations.len(),
+        outcome.status,
+    );
+    if !topology.validation_report.coarse_geometry_ids.is_empty() {
+        println!(
+            "Coarse netelement geometries: {} (ids: {})",
+            topology.validation_report.coarse_geometry_ids.len(),
+            topology.validation_report.coarse_geometry_ids.join(", "),
+        );
+    }
+    if !topology.validation_report.uncovered_gnss_indices.is_empty() {
+        println!(
+            "Uncovered GNSS positions: {} indices",
+            topology.validation_report.uncovered_gnss_indices.len(),
+        );
+    }
+
+    match outcome.status {
+        RetrievalStatus::Success => Ok(()),
+        RetrievalStatus::InvalidInput => {
+            Err(PipelineError::RinfInvalidInput(outcome.detail_message))
+        }
+        RetrievalStatus::MissingCoverage => {
+            Err(PipelineError::RinfMissingCoverage(outcome.detail_message))
+        }
+        RetrievalStatus::IncompleteTopology => Err(PipelineError::RinfIncompleteTopology(
+            outcome.detail_message,
+        )),
+        RetrievalStatus::EndpointFailure => {
+            Err(PipelineError::RinfEndpointFailure(outcome.detail_message))
         }
     }
 }
@@ -578,7 +855,7 @@ fn derive_path_output(output_file: &str) -> String {
 fn run_default_command(
     gnss_file: &str,
     gnss_crs: Option<&str>,
-    network_file: &str,
+    network_file: Option<&str>,
     output_file: &str,
     train_path_file: Option<&str>,
     save_path_file: Option<&str>,
@@ -600,6 +877,8 @@ fn run_default_command(
     punctual_detections: Option<&str>,
     linear_detections: Option<&str>,
     detection_cutoff: f64,
+    rinf_endpoint: Option<&str>,
+    rinf_buffer_meters: Option<f64>,
 ) -> Result<(), PipelineError> {
     // Suppress unused warning when webapp feature is disabled
     #[cfg(not(feature = "webapp"))]
@@ -607,15 +886,21 @@ fn run_default_command(
 
     let output_format = determine_format(format, output_file)?;
 
-    // Load network
-    tracing::info!(network_file = %network_file, "Loading railway network");
-    let (netelements, netrelations) = parse_network_geojson(network_file)
-        .map_err(|e| PipelineError::Io(format!("Failed to load network: {}", e)))?;
+    // Load GNSS positions first (needed for auto-retrieval bounding box).
+    let gnss_positions = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
     tracing::info!(
-        netelement_count = netelements.len(),
-        netrelation_count = netrelations.len(),
-        "Railway network loaded"
+        position_count = gnss_positions.len(),
+        "GNSS positions loaded"
     );
+
+    // Resolve topology (file or auto-retrieved from RINF).
+    let (netelements, netrelations) = resolve_cli_topology(
+        WorkflowKind::PathCalculation,
+        network_file,
+        &gnss_positions,
+        rinf_endpoint,
+        rinf_buffer_meters,
+    )?;
 
     let network = RailwayNetwork::new(netelements.clone())
         .map_err(|e| PipelineError::Processing(format!("Failed to build network index: {}", e)))?;
@@ -625,13 +910,6 @@ fn run_default_command(
         .iter()
         .map(|ne| (ne.id.clone(), ne.clone()))
         .collect();
-
-    // Load GNSS positions
-    let gnss_positions = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
-    tracing::info!(
-        position_count = gnss_positions.len(),
-        "GNSS positions loaded"
-    );
 
     // Get or calculate train path
     let mut detection_provenance: Vec<tp_lib_core::DetectionRecord> = Vec::new();
@@ -795,7 +1073,7 @@ fn run_default_command(
 fn run_calculate_path(
     gnss_file: &str,
     gnss_crs: Option<&str>,
-    network_file: &str,
+    network_file: Option<&str>,
     output_file: &str,
     format: &str,
     distance_scale: f64,
@@ -813,25 +1091,26 @@ fn run_calculate_path(
     punctual_detections: Option<&str>,
     linear_detections: Option<&str>,
     detection_cutoff: f64,
+    rinf_endpoint: Option<&str>,
+    rinf_buffer_meters: Option<f64>,
 ) -> Result<(), PipelineError> {
     let output_format = determine_format(format, output_file)?;
 
-    // Load network
-    tracing::info!(network_file = %network_file, "Loading railway network");
-    let (netelements, netrelations) = parse_network_geojson(network_file)
-        .map_err(|e| PipelineError::Io(format!("Failed to load network: {}", e)))?;
-    tracing::info!(
-        netelement_count = netelements.len(),
-        netrelation_count = netrelations.len(),
-        "Railway network loaded"
-    );
-
-    // Load GNSS positions
+    // Load GNSS positions first (needed for auto-retrieval bounding box).
     let gnss_positions = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
     tracing::info!(
         position_count = gnss_positions.len(),
         "GNSS positions loaded"
     );
+
+    // Resolve topology (file or auto-retrieved from RINF).
+    let (netelements, netrelations) = resolve_cli_topology(
+        WorkflowKind::PathCalculation,
+        network_file,
+        &gnss_positions,
+        rinf_endpoint,
+        rinf_buffer_meters,
+    )?;
 
     // Build path config
     let prepared_detections = prepare_detection_anchors(
@@ -909,27 +1188,17 @@ fn run_calculate_path(
 fn run_simple_projection(
     gnss_file: &str,
     gnss_crs: Option<&str>,
-    network_file: &str,
+    network_file: Option<&str>,
     output_file: &str,
     format: &str,
     warning_threshold: f64,
     lat_col: &str,
     lon_col: &str,
     time_col: &str,
+    rinf_endpoint: Option<&str>,
+    rinf_buffer_meters: Option<f64>,
 ) -> Result<(), PipelineError> {
     let output_format = determine_format(format, output_file)?;
-
-    // Load network (ignore netrelations for simple projection)
-    tracing::info!(network_file = %network_file, "Loading railway network");
-    let (netelements, _netrelations) = parse_network_geojson(network_file)
-        .map_err(|e| PipelineError::Io(format!("Failed to load network: {}", e)))?;
-    tracing::info!(
-        netelement_count = netelements.len(),
-        "Railway network loaded"
-    );
-
-    let network = RailwayNetwork::new(netelements)
-        .map_err(|e| PipelineError::Processing(format!("Failed to build network index: {}", e)))?;
 
     // Load GNSS positions
     let gnss_positions = load_gnss_positions(gnss_file, gnss_crs, lat_col, lon_col, time_col)?;
@@ -937,6 +1206,19 @@ fn run_simple_projection(
         position_count = gnss_positions.len(),
         "GNSS positions loaded"
     );
+
+    // Resolve topology (file or auto-retrieved from RINF). Netrelations are
+    // ignored by simple projection, but loaded for consistent topology handling.
+    let (netelements, _netrelations) = resolve_cli_topology(
+        WorkflowKind::Projection,
+        network_file,
+        &gnss_positions,
+        rinf_endpoint,
+        rinf_buffer_meters,
+    )?;
+
+    let network = RailwayNetwork::new(netelements)
+        .map_err(|e| PipelineError::Processing(format!("Failed to build network index: {}", e)))?;
 
     // Project using simple nearest-netelement method
     let config = ProjectionConfig {

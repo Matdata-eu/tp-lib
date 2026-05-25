@@ -82,10 +82,13 @@ jobs:
           maturin develop
 
       - name: Install test dependencies
-        run: .venv/bin/pip install pytest
+        run: .venv/bin/pip install pytest ruff
 
       - name: Run Python tests
         run: .venv/bin/pytest tp-py/python/tests/
+
+      - name: Run ruff
+        run: .venv/bin/ruff check tp-py/python
 
   dotnet:
     name: .NET Tests

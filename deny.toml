@@ -100,12 +100,13 @@ allow = [
     "ISC",
     "BSD-2-Clause",
     "BSD-3-Clause",
-    "BSL-1.0",           # Boost Software License (permissive)
-    "CC0-1.0",           # Creative Commons Zero (public domain)
-    "Unlicense",         # Public domain
-    "Zlib",              # zlib License (permissive)
-    "Unicode-DFS-2016",  # Unicode License (for Unicode data)
-    "Unicode-3.0",       # Unicode License v3 (for Unicode data, used by unicode-ident)
+    "BSL-1.0",              # Boost Software License (permissive)
+    "CC0-1.0",              # Creative Commons Zero (public domain)
+    "Unlicense",            # Public domain
+    "Zlib",                 # zlib License (permissive)
+    "Unicode-DFS-2016",     # Unicode License (for Unicode data)
+    "Unicode-3.0",          # Unicode License v3 (for Unicode data, used by unicode-ident)
+    "CDLA-Permissive-2.0",  # Community Data License Agreement Permissive 2.0 (permissive)
 ]
 # The confidence threshold for detecting a license from license text
 confidence-threshold = 0.8

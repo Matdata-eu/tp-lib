@@ -150,7 +150,7 @@ fn parse_ts(
     source_file: &str,
     source_row: usize,
 ) -> Result<DateTime<FixedOffset>, DetectionError> {
-    DateTime::parse_from_rfc3339(s).map_err(|e| DetectionError::InvalidTimestamp {
+    crate::temporal::parse_timestamp_flexible_str(s).map_err(|e| DetectionError::InvalidTimestamp {
         source_file: source_file.to_string(),
         source_row,
         message: format!("'{s}': {e}"),
