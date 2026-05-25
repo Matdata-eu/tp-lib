@@ -2,7 +2,7 @@
 
 use crate::errors::ProjectionError;
 use crate::models::{GnssPosition, NetRelation, Netelement, ProjectedPosition};
-use chrono::DateTime;
+use crate::temporal::parse_timestamp_flexible;
 use geo::{Coord, LineString};
 use geojson::{Feature, GeoJson, Value};
 use std::fs;
@@ -272,8 +272,9 @@ fn parse_gnss_feature(
             ))
         })?;
 
-    // Parse timestamp with timezone
-    let timestamp = DateTime::parse_from_rfc3339(timestamp_str).map_err(|e| {
+    // Parse timestamp; accept RFC3339 with timezone or naive ISO 8601
+    // datetime interpreted as the host's local timezone.
+    let timestamp = parse_timestamp_flexible(timestamp_str).map_err(|e| {
         ProjectionError::InvalidTimestamp(format!(
             "Feature {}: invalid timestamp '{}': {}",
             idx, timestamp_str, e
@@ -715,7 +716,7 @@ pub fn parse_trainpath_geojson(path: &str) -> Result<crate::models::TrainPath, P
             let calc_at = props
                 .get("calculated_at")
                 .and_then(|v| v.as_str())
-                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .and_then(|s| parse_timestamp_flexible(s).ok())
                 .map(|dt| dt.with_timezone(&chrono::Utc));
             (prob, calc_at)
         })

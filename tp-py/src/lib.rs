@@ -330,7 +330,7 @@ pub struct ProjectedPosition {
     #[pyo3(get)]
     pub original_longitude: f64,
 
-    /// Original timestamp (RFC3339 string).
+    /// Original timestamp (RFC3339 string with explicit timezone offset).
     #[pyo3(get)]
     pub timestamp: String,
 

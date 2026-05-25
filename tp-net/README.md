@@ -65,6 +65,16 @@ Typed exceptions are raised for retrieval failures:
 `TpLibInvalidGnssInputException`, `TpLibRinfMissingCoverageException`,
 `TpLibRinfIncompleteTopologyException`, `TpLibRinfRetrievalFailedException`.
 
+## Timestamps
+
+Timestamps inside GeoJSON / CSV input may be RFC3339 with an explicit
+offset (e.g. `2025-12-09T14:30:00+01:00`, `2025-12-09T14:30:00Z`) or
+naive ISO 8601 (e.g. `2025-12-09T14:30:00`, `2025-12-09 14:30:00`).
+Naive values are interpreted in the host's **local** timezone by the
+native library. All managed records expose timestamps as
+`DateTimeOffset`, and any timestamps emitted by the library are
+RFC3339 strings with an explicit offset.
+
 ## Supported platforms
 
 | RID         | OS / Architecture            | Native library         |

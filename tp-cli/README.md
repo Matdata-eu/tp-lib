@@ -130,7 +130,7 @@ latitude,longitude,timestamp,altitude,hdop
 **Requirements:**
 
 - CSV must have latitude, longitude, and timestamp columns
-- Timestamps must be RFC3339 format with timezone (e.g., `2025-12-09T14:30:00+01:00`)
+- Timestamps may be RFC3339 with timezone (e.g., `2025-12-09T14:30:00+01:00`, `2025-12-09T14:30:00Z`) or naive ISO 8601 (e.g., `2025-12-09T14:30:00`, `2025-12-09 14:30:00`); naive values are interpreted in the host's **local** timezone. All emitted timestamps are RFC3339 with an explicit timezone offset.
 - Additional columns preserved as metadata
 
 #### `--network <FILE>` (or `-n`)
@@ -464,18 +464,18 @@ tp-cli --gnss data.geojson --network network.geojson --output out.csv
 
 ### Error: "Failed to load GNSS data: Invalid timestamp"
 
-**Problem:** Timestamps not in RFC3339 format or missing timezone.
+**Problem:** Timestamps not in RFC3339 nor a recognised naive ISO 8601 form.
 
-**Required format:** `YYYY-MM-DDTHH:MM:SS±HH:MM`
+Accepted formats:
 
-**Examples:**
+- ✅ `2025-12-09T14:30:00+01:00` (RFC3339 with offset)
+- ✅ `2025-12-09T14:30:00Z` (RFC3339 UTC)
+- ✅ `2025-12-09T14:30:00` (naive, interpreted as local time)
+- ✅ `2025-12-09 14:30:00` (naive with space separator, local time)
+- ❌ `09/12/2025 14:30` (locale-specific date format)
+- ❌ `14:30:00` (time only)
 
-- ✅ `2025-12-09T14:30:00+01:00` (Brussels time)
-- ✅ `2025-12-09T13:30:00Z` (UTC)
-- ❌ `2025-12-09 14:30:00` (missing T and timezone)
-- ❌ `2025-12-09T14:30:00` (missing timezone)
-
-**Solution:** Fix timestamps in input CSV to include timezone.
+**Solution:** Reformat timestamps as one of the accepted forms above. Naive timestamps are always interpreted in the machine's local timezone; emit with an explicit offset (e.g., `+01:00` / `Z`) if you need deterministic cross-host behaviour.
 
 ### Error: "Failed to load network: Invalid geometry"
 

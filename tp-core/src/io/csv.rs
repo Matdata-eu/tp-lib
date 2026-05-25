@@ -2,7 +2,8 @@
 
 use crate::errors::ProjectionError;
 use crate::models::{AssociatedNetElement, GnssPosition, ProjectedPosition, TrainPath};
-use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone, Utc};
+use crate::temporal::parse_timestamp_flexible_str;
+use chrono::{DateTime, FixedOffset};
 use polars::prelude::*;
 use std::collections::HashMap;
 
@@ -24,23 +25,10 @@ const COL_END_INTRINSIC: &str = "end_intrinsic";
 const COL_GNSS_START_INDEX: &str = "gnss_start_index";
 const COL_GNSS_END_INDEX: &str = "gnss_end_index";
 
-/// Parse a timestamp string, accepting RFC3339 (with timezone) or ISO 8601 without timezone
-/// (assumed to be UTC).
+/// Parse a timestamp string, accepting RFC3339 (with timezone) or a naive
+/// ISO 8601 datetime without timezone (interpreted as local time).
 fn parse_timestamp(s: &str) -> Result<DateTime<FixedOffset>, String> {
-    // First try full RFC3339 (includes timezone)
-    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
-        return Ok(dt);
-    }
-    // Fall back: treat timezone-less ISO 8601 datetime as UTC
-    let naive = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f")
-        .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S"))
-        .map_err(|e| {
-            format!(
-                "{} (expected RFC3339 with timezone, e.g., 2025-12-09T14:30:00+01:00, or ISO 8601 without timezone assumed UTC)",
-                e
-            )
-        })?;
-    Ok(Utc.from_utc_datetime(&naive).fixed_offset())
+    parse_timestamp_flexible_str(s)
 }
 
 /// Parse GNSS positions from CSV file
@@ -411,7 +399,7 @@ pub fn parse_trainpath_csv(path: &str) -> Result<TrainPath, ProjectionError> {
             if let Some(value) = comment.strip_prefix("overall_probability:") {
                 overall_probability = value.trim().parse().ok();
             } else if let Some(value) = comment.strip_prefix("calculated_at:") {
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(value.trim()) {
+                if let Ok(dt) = parse_timestamp_flexible_str(value.trim()) {
                     calculated_at = Some(dt.with_timezone(&chrono::Utc));
                 }
             }

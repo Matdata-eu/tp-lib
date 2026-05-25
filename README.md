@@ -19,7 +19,7 @@ Train positioning library excels in post-processing the GNSS positions of your m
 - 🛤️ **Train Path Calculation**: Probabilistic path calculation through rail networks using topology
 - 🗺️ **Interactive Path Review**: Browser-based map webapp to visually review and edit calculated paths before projection
 - 🌍 **CRS Aware**: Explicit coordinate reference system handling (EPSG codes)
-- ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; timezone-less ISO 8601 datetimes assumed UTC
+- ⏰ **Timezone Support**: RFC3339 timestamps with explicit timezone offsets; naive (timezone-less) ISO 8601 datetimes are accepted on input and assumed to be in the host's **local** timezone. All emitted timestamps include an explicit timezone offset.
 - 📊 **Multiple Formats**: CSV and GeoJSON input/output
 - 🧪 **Well Tested**: 460 comprehensive tests (all passing) - unit, integration, contract, CLI, and doctests
 - ⚡ **Production Ready**: Full CLI interface with validation and error handling
@@ -336,7 +336,7 @@ latitude,longitude,timestamp,altitude,hdop
 50.8503,4.3517,2025-12-09T14:30:00+01:00,100.0,2.0
 ```
 
-- RFC3339 timestamps with timezone (e.g. `2025-12-09T14:30:00+01:00` or `2025-12-09T14:30:00Z`); timezone-less ISO 8601 datetimes (e.g. `2025-12-09T14:30:00`) are accepted and assumed UTC
+- RFC3339 timestamps with timezone (e.g. `2025-12-09T14:30:00+01:00` or `2025-12-09T14:30:00Z`); naive ISO 8601 datetimes without timezone (e.g. `2025-12-09T14:30:00` or `2025-12-09 14:30:00`) are accepted on input and interpreted in the host's **local** timezone. All output timestamps are emitted in RFC3339 form with an explicit timezone offset.
 - CRS must be specified via `--crs` flag
 - Column names configurable with `--lat-col`, `--lon-col`, `--time-col`
 
