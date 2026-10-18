@@ -23,7 +23,7 @@ readme = "README.md"
 [workspace.dependencies]
 # Geospatial
 geo = "0.28"
-proj4rs = "0.1.9"
+proj4rs = "0.2.1"
 crs-definitions = "0.3.1"
 rstar = "0.12"
 geojson = "0.24"
