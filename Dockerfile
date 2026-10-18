@@ -1,7 +1,7 @@
 # ============================================================================
 # Stage 1: Builder - Full build environment
 # ============================================================================
-FROM rust:1.91-bookworm as builder
+FROM rust:1.98-bookworm as builder
 
 # Set working directory
 WORKDIR /build
