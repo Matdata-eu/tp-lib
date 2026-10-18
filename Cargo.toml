@@ -25,7 +25,7 @@ readme = "README.md"
 geo = "0.28"
 proj4rs = "0.2.1"
 crs-definitions = "0.3.1"
-rstar = "0.12"
+rstar = "0.13"
 geojson = "0.24"
 
 # Graph algorithms
