@@ -1,7 +1,7 @@
 # ============================================================================
 # Test Dockerfile - Runs all tests including CRS transformation tests
 # ============================================================================
-FROM rust:1.91-bookworm
+FROM rust:1.98-bookworm
 
 # Set working directory
 WORKDIR /workspace
