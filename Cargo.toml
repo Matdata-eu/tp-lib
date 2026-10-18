@@ -33,7 +33,7 @@ petgraph = "0.6"
 
 # Data processing
 arrow = "53.0"
-polars = "0.44"
+polars = "0.55"
 csv = "1.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
