@@ -24,7 +24,7 @@ readme = "README.md"
 # Geospatial
 geo = "0.28"
 proj4rs = "0.2.1"
-crs-definitions = "0.3.1"
+crs-definitions = "0.6.0"
 rstar = "0.12"
 geojson = "0.24"
 
