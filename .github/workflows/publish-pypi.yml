@@ -22,10 +22,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.12']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       
@@ -52,7 +52,7 @@ jobs:
           maturin build --release --out dist
       
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
           path: tp-py/dist/*.whl
@@ -62,10 +62,10 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       
@@ -92,7 +92,7 @@ jobs:
           maturin sdist --out dist
       
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: tp-py/dist/*.tar.gz
@@ -107,7 +107,7 @@ jobs:
       url: https://pypi.org/p/tp-lib
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
