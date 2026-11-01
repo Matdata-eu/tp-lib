@@ -29,7 +29,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             artifact: libtp_lib_net.so
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -46,7 +46,7 @@ jobs:
           cp target/${{ matrix.target }}/release/${{ matrix.artifact }} staging/
 
       - name: Upload native artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-${{ matrix.rid }}
           path: staging/${{ matrix.artifact }}
@@ -60,15 +60,15 @@ jobs:
       contents: read
       id-token: write  # required for GitHub OIDC token issuance (trusted publishing)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
 
       - name: Download all native artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: native-artifacts
 
@@ -89,7 +89,7 @@ jobs:
             fi
 
       - name: Upload nupkg
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nupkg
           path: nupkg/*.nupkg
