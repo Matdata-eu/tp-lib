@@ -29,7 +29,7 @@ rstar = "0.12"
 geojson = "0.24"
 
 # Graph algorithms
-petgraph = "0.6"
+petgraph = "0.8"
 
 # Data processing
 arrow = "60.0"
